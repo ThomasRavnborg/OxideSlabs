@@ -4,7 +4,7 @@ set -e
 # === Config ===
 CLUSTER="s214434@sylg.fysik.dtu.dk"
 REMOTE_DIR="~/OxideSlabs"
-JOB_SCRIPT="slurm/run.sh"       # path to SLURM batch script on the cluster
+JOB_SCRIPT="slurm/run2.sh"       # path to SLURM batch script on the cluster
 
 # === 0. Check input ===
 if [ -z "$1" ]; then
@@ -41,18 +41,20 @@ echo
 echo "== Submitting job on cluster =="
 
 ssh "$CLUSTER" << EOF
-  cd $REMOTE_DIR
-  git pull
+cd $REMOTE_DIR
+git pull
 
-  # Pass SCRIPT_TO_RUN explicitly inside the remote shell
-  SCRIPT_TO_RUN="$SCRIPT_TO_RUN"
-  SCRIPT_BASE=\$(basename "\$SCRIPT_TO_RUN" .py)
+# Pass script to run explicitly
+SCRIPT_TO_RUN="$SCRIPT_TO_RUN"
 
-  # Submit job using correct path to SLURM script
-  sbatch --job-name="\$SCRIPT_BASE" \
-         --output="\$SCRIPT_BASE.log" \
-         $JOB_SCRIPT
+SCRIPT_BASE=\$(basename "\$SCRIPT_TO_RUN" .py)
+
+# Submit job
+sbatch --job-name="\$SCRIPT_BASE" \
+       --output="\$SCRIPT_BASE.log" \
+       slurm/run2.sh
 EOF
+
 
 echo
 echo "== Job submitted for script: $SCRIPT_TO_RUN =="
