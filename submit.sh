@@ -14,29 +14,20 @@ if [ -z "$1" ]; then
 fi
 SCRIPT_TO_RUN="$1"
 
-
-
 # === 1. Show git status locally ===
 echo "== Git status =="
 git status --short
 
-read -p "Submit job using current code? (y/n) " ans
+read -p "Commit changes? (y/n) " ans
 [[ "$ans" == "y" ]] || exit 1
 
 # === 2. Commit local changes (if any) ===
-echo
-echo "== Committing code (if needed) =="
-git commit -am "Run $(date '+%Y-%m-%d %H:%M')" || true
-
-echo
-echo "== Adding and committing code (if needed) =="
-
 # Stage all changes, including new files
 git add -A
 
 # Commit (if there are changes)
 if ! git diff --cached --quiet; then
-    git commit -m "Run $(date '+%Y-%m-%d %H:%M')"
+    git commit -m "$(date +'%Y-%m-%d %H:%M:%S')"
 else
     echo "No changes to commit."
 fi
@@ -53,10 +44,15 @@ echo "== Submitting job on cluster =="
 ssh "$CLUSTER" << EOF
   cd $REMOTE_DIR
   git pull
-  git rev-parse HEAD > run_commit.txt
-  export SCRIPT_TO_RUN="$SCRIPT_TO_RUN"
-  sbatch $JOB_SCRIPT
+
+  SCRIPT_BASE=\$(basename "$SCRIPT_TO_RUN" .py)
+
+  sbatch \
+    --job-name="\$SCRIPT_BASE" \
+    --output="results/\$SCRIPT_BASE.log"
+    run.sh
 EOF
+
 
 echo
 echo "== Job submitted for script: $SCRIPT_TO_RUN =="

@@ -3,8 +3,6 @@
 #SBATCH -N 1
 #SBATCH -n 24
 #SBATCH --time=10:00:00
-#SBATCH --job-name=relax
-#SBATCH --output=relax.log
 
 # Purge all loaded modules and load the Siesta module
 module purge
