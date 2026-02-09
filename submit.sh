@@ -49,9 +49,10 @@ ssh "$CLUSTER" SCRIPT_TO_RUN="$SCRIPT_TO_RUN" << 'EOF'
   SCRIPT_BASE=$(basename "$SCRIPT_TO_RUN" .py)
 
   sbatch \
-    --job-name="$SCRIPT_BASE" \
-    --output="$SCRIPT_BASE.log" \
-    run.sh
+  --job-name="$SCRIPT_BASE" \
+  --output="$SCRIPT_BASE.log" \
+  ~/slurm/run.sh
+
 EOF
 
 echo
