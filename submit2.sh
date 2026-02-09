@@ -50,8 +50,9 @@ SCRIPT_TO_RUN="$SCRIPT_TO_RUN"
 SCRIPT_BASE=\$(basename "\$SCRIPT_TO_RUN" .py)
 
 # Submit job
-sbatch --job-name="\$SCRIPT_BASE" \
-       --output="\$SCRIPT_BASE.log" \
+sbatch --export=ALL,SCRIPT_TO_RUN="$SCRIPT_TO_RUN" \
+       --job-name="$SCRIPT_BASE" \
+       --output="$SCRIPT_BASE.log" \
        slurm/run2.sh
 EOF
 
