@@ -39,20 +39,20 @@ git push origin
 git push cluster
 
 # === 4. Submit job on cluster ===
+
 echo
 echo "== Submitting job on cluster =="
-ssh "$CLUSTER" << EOF
-  cd $REMOTE_DIR
+ssh "$CLUSTER" << 'EOF'
+  cd ~/OxideSlabs
   git pull
 
-  SCRIPT_BASE=\$(basename "$SCRIPT_TO_RUN" .py)
+  SCRIPT_BASE=$(basename "$SCRIPT_TO_RUN" .py)
 
   sbatch \
-    --job-name="\$SCRIPT_BASE" \
-    --output="results/\$SCRIPT_BASE.log"
+    --job-name="$SCRIPT_BASE" \
+    --output="$SCRIPT_BASE.log" \
     run.sh
 EOF
-
 
 echo
 echo "== Job submitted for script: $SCRIPT_TO_RUN =="
