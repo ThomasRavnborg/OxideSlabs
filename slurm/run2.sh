@@ -4,17 +4,22 @@
 #SBATCH -n 24
 #SBATCH --time=10:00:00
 
-cd "$SLURM_SUBMIT_DIR"
-
+# Purge all loaded modules and load the Siesta module
 module purge
 module load Siesta/5.4.0-foss-2024a
 
-mkdir -p results
+# Set ASE_SIESTA_COMMAND
+export ASE_SIESTA_COMMAND="mpirun siesta < PREFIX.fdf > PREFIX.out"
 
-SCRIPT_NAME=$(basename "$SCRIPT_TO_RUN" .py)
-SCRIPT_FILE="$SLURM_SUBMIT_DIR/scripts/$SCRIPT_TO_RUN"
-LOG_FILE="results/${SCRIPT_NAME}.log"
+# Ensure SCRIPT_TO_RUN is set
+if [ -z "$SCRIPT_TO_RUN" ]; then
+    echo "Error: SCRIPT_TO_RUN is not set"
+    exit 1
+fi
 
-echo "Running $SCRIPT_FILE → $LOG_FILE"
-uv run python "$SCRIPT_FILE" > "$LOG_FILE" 2>&1
-echo "Finished $SCRIPT_FILE"
+# Run script from project root, specifying path
+SCRIPT_PATH="scripts/$SCRIPT_TO_RUN"
+
+echo "Running $SCRIPT_PATH"
+
+uv run python "$SCRIPT_PATH"
