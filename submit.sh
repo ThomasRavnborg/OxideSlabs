@@ -42,7 +42,7 @@ git push cluster
 
 echo
 echo "== Submitting job on cluster =="
-ssh "$CLUSTER" << 'EOF'
+ssh "$CLUSTER" SCRIPT_TO_RUN="$SCRIPT_TO_RUN" << 'EOF'
   cd ~/OxideSlabs
   git pull
 
