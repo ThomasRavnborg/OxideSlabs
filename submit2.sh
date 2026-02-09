@@ -4,9 +4,9 @@ set -e
 # === Config ===
 CLUSTER="s214434@sylg.fysik.dtu.dk"
 REMOTE_DIR="~/OxideSlabs"
-="run.sh"       # your SLURM batch script
+JOB_SCRIPT="slurm/run.sh"       # path to SLURM batch script on the cluster
 
-# Check if script argument was given
+# === 0. Check input ===
 if [ -z "$1" ]; then
   echo "Usage: ./submit.sh SCRIPT_NAME"
   echo "Example: ./submit.sh hello.py"
@@ -22,10 +22,8 @@ read -p "Commit changes? (y/n) " ans
 [[ "$ans" == "y" ]] || exit 1
 
 # === 2. Commit local changes (if any) ===
-# Stage all changes, including new files
 git add -A
 
-# Commit (if there are changes)
 if ! git diff --cached --quiet; then
     git commit -m "$(date +'%Y-%m-%d %H:%M:%S')"
 else
@@ -39,22 +37,22 @@ git push origin
 git push cluster
 
 # === 4. Submit job on cluster ===
-
 echo
 echo "== Submitting job on cluster =="
-ssh "$CLUSTER" SCRIPT_TO_RUN="$SCRIPT_TO_RUN" << 'EOF'
-  cd ~/OxideSlabs
+
+ssh "$CLUSTER" << EOF
+  cd $REMOTE_DIR
   git pull
 
-  SCRIPT_BASE=$(basename "$SCRIPT_TO_RUN" .py)
+  # Pass SCRIPT_TO_RUN explicitly inside the remote shell
+  SCRIPT_TO_RUN="$SCRIPT_TO_RUN"
+  SCRIPT_BASE=\$(basename "\$SCRIPT_TO_RUN" .py)
 
-  sbatch \
-  --job-name="$SCRIPT_BASE" \
-  --output="$SCRIPT_BASE.log" \
-  ~/slurm/run.sh
-
+  # Submit job using correct path to SLURM script
+  sbatch --job-name="\$SCRIPT_BASE" \
+         --output="\$SCRIPT_BASE.log" \
+         $JOB_SCRIPT
 EOF
-
 
 echo
 echo "== Job submitted for script: $SCRIPT_TO_RUN =="
