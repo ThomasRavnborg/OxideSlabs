@@ -5,7 +5,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 SCRIPT="$1"
 if [ -z "$SCRIPT" ]; then
-    echo "Usage: run test.py"
+    echo "Usage: submit test.py"
     exit 1
 fi
 
