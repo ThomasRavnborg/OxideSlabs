@@ -8,8 +8,7 @@ import numpy as np
 import pandas as pd
 from itertools import product
 
-def calcSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
-               cutoff=200, kmesh=[5, 5, 5], dir='/bulk/basis/'):
+def run_siesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15, cutoff=200, kmesh=[5, 5, 5]):
     """Function to run Siesta calculation on atoms object.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be calculated.
@@ -23,6 +22,7 @@ def calcSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     - None. The function runs the calculation and outputs files in the specified directory.
     """
     cwd = os.getcwd()
+    dir = 'results/bulk/basis/'
 
     # Calculation parameters in a dictionary
     calc_params = {
@@ -32,7 +32,7 @@ def calcSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
         'mesh_cutoff': cutoff * Ry,
         'energy_shift': shift * Ry,
         'kpts': kmesh,
-        'directory': cwd + dir,
+        'directory': dir,
         'pseudo_path': cwd + '/pseudos'
     }
 
@@ -48,25 +48,48 @@ def calcSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     # Run the calculation
     atoms.get_potential_energy()
 
-def get_enthalpy(atoms, dir='bulk/basis'):
+def get_enthalpy(formula):
+    """Function to read enthalpy from Siesta output files.
+    Parameters:
+    - formula: Chemical formula of the material for which enthalpy is to be read.
+    Returns:
+    - Enthalpy value read from the output file.
+    """
+    dir = 'results/bulk/basis/'
     # Read basis enthalpy from file
-    with open(f'{dir}/{atoms.symbols}.BASIS_ENTHALPY', 'r') as file:
+    with open(f'{dir}{formula}.BASIS_ENTHALPY', 'r') as file:
         lines = file.readlines()
     enthalpy = float(lines[0].split()[-1])
     return enthalpy
 
-def get_maxforce(atoms, dir='bulk/basis'):
-    sile = si.get_sile(f'{dir}/{atoms.symbols}.FA')
+def get_maxforce(formula):
+    """Function to read maximum force from Siesta output files.
+    Parameters:
+    - formula: Chemical formula of the material for which maximum force is to be read.
+    Returns:
+    - Maximum force value read from the output file.
+    """
+    dir = 'results/bulk/basis/'
+    sile = si.get_sile(f'{dir}{formula}.FA')
     forces = sile.read_force()
     return np.max(np.abs(forces))
 
-def basis_optimization(atoms, shifts, splits):
+def basis_opt(atoms, shifts, splits):
+    """Function to optimize basis set parameters by running multiple Siesta calculations.
+    Parameters:
+    - atoms: ASE Atoms object representing the structure to be calculated.
+    - shifts: List of energy shift values to be tested.
+    - splits: List of split norm values to be tested.
+    Returns:
+    - None. The function runs multiple calculations and saves the results to a CSV file.
+    """
+    dir = 'results/bulk/basis/'
     rows = []
     for sh, sp in product(shifts, splits):
         try:
-            calcSiesta(atoms, shift=sh, split=sp, dir='/bulk/basis/')
-            enthalpy = get_enthalpy(atoms, dir='bulk/basis/')
-            maxforce = get_maxforce(atoms, dir='bulk/basis/')
+            run_siesta(atoms, shift=sh, split=sp)
+            enthalpy = get_enthalpy(atoms.symbols)
+            maxforce = get_maxforce(atoms.symbols)
         except Exception as e:
             enthalpy = None
             maxforce = None
@@ -79,15 +102,24 @@ def basis_optimization(atoms, shifts, splits):
         })
 
     df = pd.DataFrame(rows)
-    df.to_csv(f'bulk/basis/basisopt.csv')
+    df.to_csv(f'{dir}basisopt.csv')
 
-def optimize_grid(atoms, meshcuts, kpoints):
+def grid_conv(atoms, meshcuts, kpoints):
+    """Function to optimize grid parameters by running multiple Siesta calculations.
+    Parameters:
+    - atoms: ASE Atoms object representing the structure to be calculated.
+    - meshcuts: List of mesh cutoff values to be tested.
+    - kpoints: List of k-point mesh values to be tested.
+    Returns:
+    - None. The function runs multiple calculations and saves the results to a CSV file.
+    """
+    dir = 'results/bulk/grid/'
     rows = []
     for mc, kp in product(meshcuts, kpoints):
         try:
-            calcSiesta(atoms, cutoff=mc, kmesh=[kp, kp, kp], dir='/bulk/grid/')
-            enthalpy = get_enthalpy(atoms, dir='bulk/grid/')
-            maxforce = get_maxforce(atoms, dir='bulk/grid/')
+            run_siesta(atoms, cutoff=mc, kmesh=[kp, kp, kp])
+            enthalpy = get_enthalpy(atoms.symbols)
+            maxforce = get_maxforce(atoms.symbols)
         except Exception as e:
             enthalpy = None
             maxforce = None
@@ -100,4 +132,4 @@ def optimize_grid(atoms, meshcuts, kpoints):
         })
 
     df = pd.DataFrame(rows)
-    df.to_csv(f'bulk/grid/gridopt.csv')
+    df.to_csv(f'{dir}gridopt.csv')
