@@ -1,8 +1,6 @@
 # Write a .txt file in /results
 import os
 dir = os.getcwd()
-# Go up one level from the current directory
-dir = os.path.dirname(dir)
 print(dir)
 # Save numpy array in results directory
 import numpy as np

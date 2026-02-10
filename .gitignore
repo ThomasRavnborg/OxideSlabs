@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
-# Results and output files
+# Results, tools and output files
 results/
 tools/
+*.log
