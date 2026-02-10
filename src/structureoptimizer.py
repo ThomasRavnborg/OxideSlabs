@@ -7,6 +7,7 @@ import os
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
 import sisl as si
+from src.cleanfiles import cleanFiles
 
 # Function to generate perovskite structure
 def perovskite(formula):
@@ -32,8 +33,8 @@ def perovskite(formula):
         return [[a, 0, 0], [0, a, 0], [0, 0, a]]
     return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
 
-def relaxASE(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
-               cutoff=200, kmesh=[5, 5, 5], fmax=0.005, filt=True):
+def relax_ase(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
+              cutoff=200, kmesh=[5, 5, 5], fmax=0.005, filt=True):
     """Function to relax a bulk structure using ASE BFGS optimizer with Siesta calculator.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
@@ -49,6 +50,7 @@ def relaxASE(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     - None. The function performs the relaxation and saves the relaxed structure to an xyz file.
     """
     cwd = os.getcwd()
+    dir = 'results/bulk/relax/'
     symbols = atoms.symbols
 
     # Calculation parameters in a dictionary
@@ -59,8 +61,8 @@ def relaxASE(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
         'mesh_cutoff': cutoff * Ry,
         'energy_shift': shift * Ry,
         'kpts': kmesh,
-        'directory': 'bulk/relax/',
-        'pseudo_path': cwd + '/pseudos'
+        'directory': dir,
+        'pseudo_path': cwd+'/pseudos'
     }
     # fdf arguments in a dictionary
     fdf_args = {
@@ -81,15 +83,17 @@ def relaxASE(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
         opt_conf = atoms
 
     # Use BFGS optimizer
-    opt = BFGS(opt_conf, logfile='bulk/relax/relax.log', trajectory='bulk/relax/relax.traj')
+    opt = BFGS(opt_conf, logfile=dir+'relax.log', trajectory=dir+'relax.traj')
     # Run the optimization until forces are smaller than fmax
     opt.run(fmax=fmax)
     # Write atoms object to file
-    atoms.write(f'bulk/relax/{symbols}.xyz')
+    atoms.write(f'{dir}{symbols}.xyz')
+    # Remove unnecessary files generated during the relaxation
+    cleanFiles(directory=dir, confirm=False)
 
 
-def relaxSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
-                cutoff=200, kmesh=[5, 5, 5], fmax=0.005, smax=0.01):
+def relax_siesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
+                 cutoff=200, kmesh=[5, 5, 5], fmax=0.005, smax=0.01):
     """Function to relax a bulk structure with a single Siesta calculation.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
@@ -105,6 +109,7 @@ def relaxSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     - None. The function performs the relaxation and saves the relaxed structure to an xyz file.
     """
     cwd = os.getcwd()
+    dir = 'results/bulk/relax/'
     symbols = atoms.symbols
 
     # Species information for recognizing .psf pseudopotential files
@@ -122,7 +127,7 @@ def relaxSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
         'mesh_cutoff': cutoff * Ry,
         'energy_shift': shift * Ry,
         'kpts': kmesh,
-        'directory': 'bulk/relaxsiesta/',
+        'directory': dir,
         'pseudo_path': cwd + '/pseudos'
     }
     
@@ -145,8 +150,10 @@ def relaxSiesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     # Run the single Siesta calculation
     atoms.get_potential_energy()
     # Read relaxed structure geometry from HSX file
-    sile = si.get_sile(f'bulk/relaxsiesta/{symbols}.XV')
+    sile = si.get_sile(f'{dir}{symbols}.XV')
     geom = sile.read_geometry()
     # Convert into ase atoms object and save to xyz file
     atoms = geom.to.ase()
-    atoms.write(f'bulk/relaxsiesta/{symbols}.xyz')
+    atoms.write(f'{dir}{symbols}.xyz')
+    # Remove unnecessary files generated during the relaxation
+    cleanFiles(directory=dir, confirm=False)

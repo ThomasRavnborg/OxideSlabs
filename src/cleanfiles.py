@@ -9,7 +9,8 @@ def cleanFiles(directory='.', formats=[], confirm=True):
     - confirm (bool): If True, prompts the user for confirmation before deleting files.
     """
     # Keeps a default set of important file formats and the user-specified ones
-    default_formats = ['.py', '.ipynb', '.fdf', '.out', '.DM', '.FA ', '.XV','.HSX', '.csv', '.xyz','.yaml']
+    default_formats = ['.py', '.ipynb', '.csv', '.fdf', '.out',
+                       '.DM', '.FA ', '.XV','.HSX','.DOS', '.xyz','.yaml','.traj']
     joined_formats = default_formats + formats
     # Identify all files in the directory and the files to keep/delete
     allfiles = {item for item in os.listdir(directory) if os.path.isfile(os.path.join(directory, item))}
@@ -20,14 +21,15 @@ def cleanFiles(directory='.', formats=[], confirm=True):
         # If there are no files to delete
         print("No files to delete.")
     else:
-        # Make a warning requiring user confirmation
-        print(f"All files in {directory} except the following will be deleted:")
-        print('\n'.join(keepfiles))
         if confirm:
+            # Make a warning requiring user confirmation
+            print(f"All files in {directory} except the following will be deleted:")
+            print('\n'.join(keepfiles))
             confirmation = input("Do you want to proceed with deleting other files? (y/n): ")
             if confirmation.lower() != 'y':
                 print("Aborting file deletion.")
                 return
         for item in delfiles:
             os.remove(os.path.join(directory, item))
-        print("Files successfully deleted.")
+        if confirm:
+            print("Files successfully deleted.")

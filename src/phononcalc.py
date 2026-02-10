@@ -3,6 +3,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
+from src.plotsettings import PlotSettings
+PlotSettings().set_global_style()
 # ASE
 from ase import Atoms
 from ase.io import read
@@ -15,14 +17,16 @@ from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.interface.calculator import read_crystal_structure
 
-def calculate_phonons(atoms, xcf='PBE', basis='DZP', cutoff=200, shift=0.01, kmesh=[5,5,5]):
+def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
+                      cutoff=200, kmesh=[5, 5, 5]):
     """Function to calculate phonon properties of a bulk structure using Phonopy and SIESTA.
     Parameters:
     - atoms: ASE Atoms object representing the relaxed bulk structure.
     - xcf: Exchange-correlation functional to be used (default is 'PBE').
     - basis: Basis set to be used (default is 'DZP').
-    - cutoff: Mesh cutoff in Ry (default is 200 Ry).
     - shift: Energy shift in Ry (default is 0.01 Ry).
+    - split: Split norm for basis functions (default is 0.15).
+    - cutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kmesh: K-point mesh as a list (default is [5, 5, 5]).
     Returns:
     - None. The function performs phonon calculations and saves the phonon data to a .yaml file.
@@ -30,20 +34,24 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', cutoff=200, shift=0.01, kme
     # Parameters
     scell_matrix = np.diag([2, 2, 2])  # Supercell size
     dd = 0.01 # displacement distance in Å
-    # Get current working directory
+    # Get current working directory and set directory for results
     cwd = os.getcwd()
+    dir = 'results/bulk/phonons/'
+    symbols = atoms.symbols
     # Calculation parameters in a dictionary
     calc_params = {
-        'label': f'{atoms.symbols}',
+        'label': f'{symbols}',
         'xc': xcf,
         'basis_set': basis,
         'mesh_cutoff': cutoff * Ry,
         'energy_shift': shift * Ry,
         'kpts': kmesh,
-        'directory': 'bulk/phonons/',
+        'directory': dir,
         'pseudo_path': cwd + '/pseudos'
     }
     fdf_args = {
+        'PAO.BasisSize': basis,
+        'PAO.SplitNorm': split,
         "MD.TypeOfRun": "CG",
         "MD.NumCGsteps": 0,  # forces only
     }
@@ -87,7 +95,7 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', cutoff=200, shift=0.01, kme
     phonon.forces = forces
     
     # Save phonopy .yaml file
-    phonon.save(f'bulk/phonons/{atoms.symbols}_phonon.yaml')
+    phonon.save(f'{dir}{symbols}_phonon.yaml')
 
 def order_labels(symbols, handles, labels):
     # Define a custom order for the labels
