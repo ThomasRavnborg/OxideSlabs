@@ -4,24 +4,35 @@
 #SBATCH -n 24
 #SBATCH --time=10:00:00
 
-# Purge all loaded modules and load the Siesta module
+set -e
+
+# Always run from repo root
+cd "$SLURM_SUBMIT_DIR"
+
 module purge
 module load Siesta/5.4.0-foss-2024a
 
-# Check if SCRIPT_TO_RUN is passed as an argument
+# === Input ===
 if [ -z "$1" ]; then
-    echo "Usage: sbatch run.sh SCRIPT.py"
+    echo "Usage: sbatch slurm/run.sh test.py"
     exit 1
 fi
-SCRIPT_TO_RUN="$1"
 
-# Normalize script path to ensure it starts with "scripts/"
-if [[ "$SCRIPT_TO_RUN" != scripts/* ]]; then
-    SCRIPT_TO_RUN="scripts/$SCRIPT_TO_RUN"
+SCRIPT_NAME="$1"
+SCRIPT_PATH="scripts/$SCRIPT_NAME"
+
+# === Safety checks ===
+if [ -d "$SCRIPT_PATH" ]; then
+    echo "Error: $SCRIPT_PATH is a directory"
+    exit 1
 fi
 
-# Set ASE_SIESTA_COMMAND to use mpirun with Siesta
+if [ ! -f "$SCRIPT_PATH" ]; then
+    echo "Error: file not found: $SCRIPT_PATH"
+    exit 1
+fi
+
 export ASE_SIESTA_COMMAND="mpirun siesta < PREFIX.fdf > PREFIX.out"
-# Run the specified script using uv
-echo "Running $SCRIPT_TO_RUN"
-uv run python "$SCRIPT_TO_RUN"
+
+echo "Running python $SCRIPT_PATH"
+uv run python "$SCRIPT_PATH"
