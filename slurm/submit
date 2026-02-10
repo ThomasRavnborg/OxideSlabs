@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -e
+
+# Make sure a script is provided
+if [[ -z "$1" ]]; then
+    echo "Usage: $0 <script.py>"
+    exit 1
+fi
+
+SCRIPT="$1"
+JOB_NAME="$(basename "$SCRIPT" .py)"
+
+# Resolve the path of this wrapper (slurm folder)
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+# Submit the job
+sbatch --job-name="$JOB_NAME" "$SCRIPT_DIR/run.sh" "$SCRIPT"
