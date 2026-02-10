@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+SCRIPT="$1"
+if [ -z "$SCRIPT" ]; then
+    echo "Usage: run test.py"
+    exit 1
+fi
+
+JOB_NAME="$(basename "$SCRIPT" .py)"
+
+exec sbatch \
+  --job-name="$JOB_NAME" \
+  "$REPO_ROOT/slurm/run.sh" \
+  "$SCRIPT"
