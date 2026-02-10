@@ -3,10 +3,10 @@
 #SBATCH -N 1
 #SBATCH -n 24
 #SBATCH --time=10:00:00
+#SBATCH --job-name=siesta
 
 set -e
 
-# Always run from repo root
 cd "$SLURM_SUBMIT_DIR"
 
 module purge
@@ -21,7 +21,11 @@ fi
 SCRIPT_NAME="$1"
 SCRIPT_PATH="scripts/$SCRIPT_NAME"
 
-# === Safety checks ===
+echo "argv: $@"
+echo "SCRIPT_PATH='$SCRIPT_PATH'"
+ls -l scripts
+
+# === Hard checks ===
 if [ -d "$SCRIPT_PATH" ]; then
     echo "Error: $SCRIPT_PATH is a directory"
     exit 1
@@ -34,5 +38,5 @@ fi
 
 export ASE_SIESTA_COMMAND="mpirun siesta < PREFIX.fdf > PREFIX.out"
 
-echo "Running python $SCRIPT_PATH"
+echo "Running uv run python $SCRIPT_PATH"
 uv run python "$SCRIPT_PATH"
