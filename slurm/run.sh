@@ -9,6 +9,8 @@ set -e
 
 cd "$SLURM_SUBMIT_DIR"
 
+export PYTHONPATH="$PWD:$PYTHONPATH"
+
 module purge
 module load Siesta/5.4.0-foss-2024a
 
