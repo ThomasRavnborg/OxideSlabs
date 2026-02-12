@@ -10,7 +10,7 @@ def cleanFiles(directory='.', formats=[], confirm=True):
     """
     # Keeps a default set of important file formats and the user-specified ones
     default_formats = ['.py', '.ipynb', '.csv', '.fdf', '.out',
-                       '.DM', '.FA ', '.XV','.HSX','.DOS', '.xyz','.yaml','.traj']
+                       '.DM', '.FA ', '.XV', '.HSX', '.bands', '.DOS', '.xyz', '.yaml', '.traj']
     joined_formats = default_formats + formats
     # Identify all files in the directory and the files to keep/delete
     allfiles = {item for item in os.listdir(directory) if os.path.isfile(os.path.join(directory, item))}

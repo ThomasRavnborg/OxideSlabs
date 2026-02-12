@@ -54,6 +54,7 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     fdf_args = {
         'PAO.BasisSize': basis,
         'PAO.SplitNorm': split,
+        'Diag.Algorithm': 'ELPA',
         "MD.TypeOfRun": "CG",
         "MD.NumCGsteps": 0,  # forces only
     }
