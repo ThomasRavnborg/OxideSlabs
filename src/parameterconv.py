@@ -53,7 +53,7 @@ def get_enthalpy(formula):
     Parameters:
     - formula: Chemical formula of the material for which enthalpy is to be read.
     Returns:
-    - Enthalpy value read from the output file.
+    - Enthalpy value (in eV).
     """
     dir = 'results/bulk/basis/'
     # Read basis enthalpy from file
@@ -67,12 +67,31 @@ def get_maxforce(formula):
     Parameters:
     - formula: Chemical formula of the material for which maximum force is to be read.
     Returns:
-    - Maximum force value read from the output file.
+    - Maximum force (in eV/Å).
     """
     dir = 'results/bulk/basis/'
     sile = si.get_sile(f'{dir}{formula}.FA')
     forces = sile.read_force()
     return np.max(np.abs(forces))
+
+def get_bandgap(formula):
+    """Function to read bandgap from Siesta output files.
+    Parameters:
+    - formula: Chemical formula of the material for which bandgap is to be read.
+    Returns:
+    - Bandgap value at Gamma (in eV).
+    """
+    dir = 'results/bulk/basis/'
+    # Read eigenvalues and Fermi energy from files
+    eig = si.get_sile(f'{dir}{formula}.EIG').read_data()
+    Ef = si.io.siesta.stdoutSileSiesta(f'{dir}{formula}.out').read_energy()['fermi']
+    # Shift eigenvalues by Fermi energy and calculate bandgap
+    eig -= Ef
+    eig = eig.flatten()
+    VBM = eig[eig <= 0].max()
+    CBM = eig[eig > 0].min()
+    Eg = CBM - VBM
+    return Eg
 
 def basis_opt(atoms, shifts, splits):
     """Function to optimize basis set parameters by running multiple Siesta calculations.
@@ -90,15 +109,18 @@ def basis_opt(atoms, shifts, splits):
             run_siesta(atoms, shift=sh, split=sp)
             enthalpy = get_enthalpy(atoms.symbols)
             maxforce = get_maxforce(atoms.symbols)
+            bandgap = get_bandgap(atoms.symbols)
         except Exception as e:
             enthalpy = None
             maxforce = None
-
+            bandgap = None
+        
         rows.append({
             "Shift": sh,
             "Split": sp,
             "Enthalpy": enthalpy,
             "MaxForce": maxforce,
+            "Bandgap": bandgap,
         })
 
     df = pd.DataFrame(rows)
@@ -120,15 +142,18 @@ def grid_conv(atoms, meshcuts, kpoints):
             run_siesta(atoms, cutoff=mc, kmesh=[kp, kp, kp])
             enthalpy = get_enthalpy(atoms.symbols)
             maxforce = get_maxforce(atoms.symbols)
+            bandgap = get_bandgap(atoms.symbols)
         except Exception as e:
             enthalpy = None
             maxforce = None
+            bandgap = None
 
         rows.append({
             "MeshCutoff": mc,
             "KPoints": kp,
             "Enthalpy": enthalpy,
             "MaxForce": maxforce,
+            "Bandgap": bandgap
         })
 
     df = pd.DataFrame(rows)
