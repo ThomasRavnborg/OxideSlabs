@@ -9,6 +9,8 @@ from ase.io import read
 from ase.units import Ry
 from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
+# GPAW
+from gpaw import GPAW
 # Phonopy
 from phonopy import Phonopy
 from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
@@ -20,7 +22,7 @@ from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
 def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
-                      cutoff=200, kmesh=[5, 5, 5]):
+                      cutoff=200, kmesh=[5, 5, 5], mode='lcao'):
     """Function to calculate phonon properties of a bulk structure using Phonopy and SIESTA.
     Parameters:
     - atoms: ASE Atoms object representing the relaxed bulk structure.
@@ -30,35 +32,14 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     - split: Split norm for basis functions (default is 0.15).
     - cutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kmesh: K-point mesh as a list (default is [5, 5, 5]).
+    - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     Returns:
     - None. The function performs phonon calculations and saves the phonon data to a .yaml file.
     """
     # Parameters
     scell_matrix = np.diag([2, 2, 2])  # Supercell size
     dd = 0.01 # displacement distance in Å
-    # Get current working directory and set directory for results
-    cwd = os.getcwd()
-    dir = 'results/bulk/phonons/'
-    symbols = atoms.symbols
-    # Calculation parameters in a dictionary
-    calc_params = {
-        'label': f'{symbols}',
-        'xc': xcf,
-        'basis_set': basis,
-        'mesh_cutoff': cutoff * Ry,
-        'energy_shift': shift * Ry,
-        'kpts': kmesh,
-        'directory': dir,
-        'pseudo_path': cwd + '/pseudos'
-    }
-    fdf_args = {
-        'PAO.BasisSize': basis,
-        'PAO.SplitNorm': split,
-        'Diag.Algorithm': 'ELPA',
-        "MD.TypeOfRun": "CG",
-        "MD.NumCGsteps": 0,  # forces only
-    }
-    
+
     # Convert ASE Atoms to PhonopyAtoms
     unitcell = PhonopyAtoms(symbols=atoms.get_chemical_symbols(),
                             positions=atoms.get_positions(),
@@ -71,7 +52,48 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     supercells = phonon.supercells_with_displacements
     parprint(f"Generated {len(supercells)} supercells with displacements.")
 
-    # Calculate forces for displaced supercells using SIESTA
+    # Get current working directory and set directory for results
+    cwd = os.getcwd()
+    dir = 'results/bulk/phonons/'
+    symbols = atoms.symbols
+    # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
+    if mode == 'lcao':
+        # Calculation parameters
+        calc_params = {
+            'label': f'{symbols}',
+            'xc': xcf,
+            'basis_set': basis,
+            'mesh_cutoff': cutoff * Ry,
+            'energy_shift': shift * Ry,
+            'kpts': kmesh,
+            'directory': dir,
+            'pseudo_path': cwd + '/pseudos'
+        }
+        # fdf arguments
+        fdf_args = {
+            'PAO.BasisSize': basis,
+            'PAO.SplitNorm': split,
+            'Diag.Algorithm': 'ELPA',
+            "MD.TypeOfRun": "CG",
+            "MD.NumCGsteps": 0,  # forces only
+        }
+        # Set up the Siesta calculator
+        calc = Siesta(**calc_params, fdf_arguments=fdf_args)
+    
+    elif mode == 'pw':
+        calc_params = {
+            'xc': xcf,
+            'basis': basis.lower(),
+            'mode': {'name': 'pw', 'ecut': cutoff * Ry},
+            'kpts': {'size': kmesh, 'gamma': True},
+            'occupations': {'name': 'fermi-dirac','width': 0.05},
+            'convergence': {'density': 1e-6, 'forces': 1e-5},
+            'txt': f"{dir}{symbols}_{mode}.txt"
+        }
+        # Set up the GPAW calculator
+        calc = GPAW(**calc_params)
+
+    # Calculate forces for displaced supercells
     forces = []
     # Loop over all supercells and calculate forces
     for i, sc in enumerate(supercells):
@@ -84,8 +106,7 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
                           cell=sc.cell,
                           pbc=True)  # Assume periodic boundary conditions
         
-        # Attach the SIESTA calculator to this ASE atoms object
-        calc = Siesta(**calc_params, fdf_arguments=fdf_args)
+        # Attach the calculator to this ASE atoms object
         atoms_ase.calc = calc
         
         # Calculate forces on the displaced supercell
@@ -97,7 +118,7 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     # Set forces in Phonopy and calculate force constants
     phonon.forces = forces
     # Save phonopy .yaml file
-    phonon.save(f'{dir}{symbols}_phonon.yaml')
+    phonon.save(f'{dir}{symbols}_{mode}.yaml')
     # Remove unnecessary files generated during the relaxation
     cleanFiles(directory=dir, confirm=False)
 
