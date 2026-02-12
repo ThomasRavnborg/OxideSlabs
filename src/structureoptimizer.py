@@ -1,12 +1,14 @@
-# Libraries
+# Importing packages and modules
+import os
+import sisl as si
+# ASE
 from ase import Atoms
 from ase.calculators.siesta import Siesta
 from ase.calculators.siesta.parameters import Species, PAOBasisBlock
 from ase.units import Ry
-import os
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
-import sisl as si
+# Custom modules
 from src.cleanfiles import cleanFiles
 
 # Function to generate perovskite structure
@@ -34,7 +36,7 @@ def perovskite(formula):
     return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
 
 def relax_ase(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
-              cutoff=200, kmesh=[5, 5, 5], fmax=0.005, filt=True):
+              cutoff=200, kmesh=[10, 10, 10], fmax=0.005, filt=True):
     """Function to relax a bulk structure using ASE BFGS optimizer with Siesta calculator.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
@@ -43,7 +45,7 @@ def relax_ase(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     - shift: Energy shift in Ry (default is 0.01 Ry).
     - split: Split norm for basis functions (default is 0.15).
     - cutoff: Mesh cutoff in Ry (default is 200 Ry).
-    - kmesh: K-point mesh as a list (default is [5, 5, 5]).
+    - kmesh: K-point mesh as a list (default is [10, 10, 10]).
     - fmax: Maximum force criterion for convergence in eV/Å (default is 0.005 eV/Å).
     - filt: Boolean indicating whether to optimize unit cell parameters (True) or only atomic positions (False).
     Returns:
@@ -83,7 +85,7 @@ def relax_ase(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
         opt_conf = atoms
 
     # Use BFGS optimizer
-    opt = BFGS(opt_conf, logfile=dir+'relax.log', trajectory=dir+'relax.traj')
+    opt = BFGS(opt_conf, logfile=f'{dir}{symbols}_relax.log', trajectory=f'{dir}{symbols}.traj')
     # Run the optimization until forces are smaller than fmax
     opt.run(fmax=fmax)
     # Write atoms object to file
@@ -93,7 +95,7 @@ def relax_ase(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
 
 
 def relax_siesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
-                 cutoff=200, kmesh=[5, 5, 5], fmax=0.005, smax=0.01):
+                 cutoff=200, kmesh=[10, 10, 10], fmax=0.005, smax=0.01):
     """Function to relax a bulk structure with a single Siesta calculation.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
@@ -102,14 +104,14 @@ def relax_siesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     - split: Split norm for basis functions (default is 0.15).
     - cutoff: Mesh cutoff in Ry (default is 200 Ry).
     - shift: Energy shift in Ry (default is 0.01 Ry).
-    - kmesh: K-point mesh as a list (default is [5, 5, 5]).
+    - kmesh: K-point mesh as a list (default is [10, 10, 10]).
     - fmax: Maximum force criterion for convergence in eV/Å (default is 0.005 eV/Å).
     - smax: Maximum stress criterion for convergence in GPa (default is 0.01 GPa).
     Returns:
     - None. The function performs the relaxation and saves the relaxed structure to an xyz file.
     """
     cwd = os.getcwd()
-    dir = 'results/bulk/relax/'
+    dir = 'results/bulk/relaxsiesta/'
     symbols = atoms.symbols
 
     # Species information for recognizing .psf pseudopotential files

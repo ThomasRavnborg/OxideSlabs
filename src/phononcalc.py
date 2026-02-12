@@ -3,8 +3,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
-from src.plotsettings import PlotSettings
-PlotSettings().set_global_style()
 # ASE
 from ase import Atoms
 from ase.io import read
@@ -16,6 +14,10 @@ from phonopy import Phonopy
 from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.interface.calculator import read_crystal_structure
+# Custom modules
+from src.cleanfiles import cleanFiles
+from src.plotsettings import PlotSettings
+PlotSettings().set_global_style()
 
 def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
                       cutoff=200, kmesh=[5, 5, 5]):
@@ -93,9 +95,10 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     
     # Set forces in Phonopy and calculate force constants
     phonon.forces = forces
-    
     # Save phonopy .yaml file
     phonon.save(f'{dir}{symbols}_phonon.yaml')
+    # Remove unnecessary files generated during the relaxation
+    cleanFiles(directory=dir, confirm=False)
 
 def order_labels(symbols, handles, labels):
     # Define a custom order for the labels
