@@ -38,17 +38,17 @@ def perovskite(formula):
         return [[a, 0, 0], [0, a, 0], [0, 0, a]]
     return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
 
-def relax_ase(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
-              cutoff=200, kmesh=[10, 10, 10], fmax=0.005, mode='lcao', filt=True):
+def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+              MeshCutoff=200, kgrid=(10, 10, 10), fmax=0.005, mode='lcao', filt=True, dir='results/bulk/relax'):
     """Function to relax a bulk structure using ASE BFGS optimizer with SIESTA or GPAW calculator.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
-    - shift: Energy shift in Ry (default is 0.01 Ry).
-    - split: Split norm for basis functions (default is 0.15).
-    - cutoff: Mesh cutoff in Ry (default is 200 Ry).
-    - kmesh: K-point mesh as a list (default is [10, 10, 10]).
+    - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
+    - SplitNorm: Split norm for basis functions (default is 0.15).
+    - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
+    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - fmax: Maximum force criterion for convergence in eV/Å (default is 0.005 eV/Å).
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - filt: Boolean indicating whether to optimize unit cell parameters (True) or only atomic positions (False).
@@ -56,7 +56,6 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
     - None. The function performs the relaxation and saves the relaxed structure to an xyz file.
     """
     cwd = os.getcwd()
-    dir = 'results/bulk/relax/'
     symbols = atoms.symbols
 
     # For SIESTA, calculations are performed with atomic orbitals (LCAO)
@@ -64,19 +63,19 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
         parprint(f"Relaxing structure for {symbols} using SIESTA.")
         # Calculation parameters in a dictionary
         calc_params = {
-            'label': f'{symbols}_{mode}',
+            'label': f'{symbols}',
             'xc': xcf,
             'basis_set': basis,
-            'mesh_cutoff': cutoff * Ry,
-            'energy_shift': shift * Ry,
-            'kpts': kmesh,
+            'mesh_cutoff': MeshCutoff * Ry,
+            'energy_shift': EnergyShift * Ry,
+            'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': cwd+'/pseudos'
+            'pseudo_path': os.path.join(cwd, 'pseudos')
         }
         # fdf arguments in a dictionary
         fdf_args = {
             'PAO.BasisSize': basis,
-            'PAO.SplitNorm': split
+            'PAO.SplitNorm': SplitNorm
         }
         # Set up the Siesta calculator
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
@@ -88,11 +87,11 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),
-            'mode': {'name': 'pw', 'ecut': cutoff * Ry},
-            'kpts': {'size': kmesh, 'gamma': True},
+            'mode': {'name': 'pw', 'ecut': MeshCutoff * Ry},
+            'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': f"{dir}{symbols}_{mode}.txt"
+            'txt': os.path.join(dir, f"{symbols}.txt")
         }
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
@@ -109,33 +108,34 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
         opt_conf = atoms
 
     # Use BFGS optimizer
-    opt = BFGS(opt_conf, logfile=f'{dir}{symbols}_{mode}.log', trajectory=f'{dir}{symbols}_{mode}.traj')
+    opt = BFGS(opt_conf,
+               logfile=os.path.join(dir, f"{symbols}.log"),
+               trajectory=os.path.join(dir, f"{symbols}.traj"))
     # Run the optimization until forces are smaller than fmax
     opt.run(fmax=fmax)
     # Write atoms object to file
-    atoms.write(f'{dir}{symbols}_{mode}.xyz')
+    atoms.write(os.path.join(dir, f"{symbols}.xyz"))
     # Remove unnecessary files generated during the relaxation
     cleanFiles(directory=dir, confirm=False)
 
 
-def relax_siesta(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
-                 cutoff=200, kmesh=[10, 10, 10], fmax=0.005, smax=0.01):
+def relax_siesta(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+                 MeshCutoff=200, kgrid=(10, 10, 10), fmax=0.005, smax=0.01, dir='results/bulk/relaxsiesta'):
     """Function to relax a bulk structure with a single Siesta calculation.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
-    - split: Split norm for basis functions (default is 0.15).
-    - cutoff: Mesh cutoff in Ry (default is 200 Ry).
-    - shift: Energy shift in Ry (default is 0.01 Ry).
-    - kmesh: K-point mesh as a list (default is [10, 10, 10]).
+    - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
+    - SplitNorm: Split norm for basis functions (default is 0.15).
+    - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
+    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - fmax: Maximum force criterion for convergence in eV/Å (default is 0.005 eV/Å).
     - smax: Maximum stress criterion for convergence in GPa (default is 0.01 GPa).
     Returns:
     - None. The function performs the relaxation and saves the relaxed structure to an xyz file.
     """
     cwd = os.getcwd()
-    dir = 'results/bulk/relaxsiesta/'
     symbols = atoms.symbols
 
     # Species information for recognizing .psf pseudopotential files
@@ -150,16 +150,16 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
         'label': f'{symbols}',
         'xc': xcf,
         'basis_set': basis,
-        'mesh_cutoff': cutoff * Ry,
-        'energy_shift': shift * Ry,
-        'kpts': kmesh,
+        'mesh_cutoff': MeshCutoff * Ry,
+        'energy_shift': EnergyShift * Ry,
+        'kpts': kgrid,
         'directory': dir,
-        'pseudo_path': cwd + '/pseudos'
+        'pseudo_path': os.path.join(cwd, 'pseudos')
     }
     
     fdf_args = {
         'PAO.BasisSize': basis,
-        'PAO.SplitNorm': split,
+        'PAO.SplitNorm': SplitNorm,
         'WriteMDHistory': 'T',
         'MD.TypeOfRun': 'CG',
         'Diag.Algorithm': 'ELPA',
@@ -176,10 +176,10 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
     # Run the single Siesta calculation
     atoms.get_potential_energy()
     # Read relaxed structure geometry from HSX file
-    sile = si.get_sile(f'{dir}{symbols}.XV')
+    sile = si.get_sile(os.path.join(dir, f"{symbols}.XV"))
     geom = sile.read_geometry()
     # Convert into ase atoms object and save to xyz file
     atoms = geom.to.ase()
-    atoms.write(f'{dir}{symbols}.xyz')
+    atoms.write(os.path.join(dir, f"{symbols}.xyz"))
     # Remove unnecessary files generated during the relaxation
     cleanFiles(directory=dir, confirm=False)

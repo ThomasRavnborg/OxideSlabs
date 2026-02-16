@@ -10,9 +10,11 @@ set -e
 cd "$SLURM_SUBMIT_DIR"
 
 export PYTHONPATH="$PWD:$PYTHONPATH"
+export GPAW_SETUP_PATH="$(dirname "$(readlink -f "$0")")/gpaw_data:$GPAW_SETUP_PATH"
 
 module purge
 module load Siesta/5.4.0-foss-2024a
+module load GPAW/25.7.0-foss-2025b
 
 # === Input ===
 if [ -z "$1" ]; then
