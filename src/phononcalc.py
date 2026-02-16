@@ -21,23 +21,27 @@ from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
-def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
-                      cutoff=200, kmesh=[5, 5, 5], mode='lcao'):
+def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+                      MeshCutoff=200, kgrid=(10, 10, 10), mode='lcao',
+                      dir='results/bulk/phonons', par=False):
     """Function to calculate phonon properties of a bulk structure using Phonopy and SIESTA.
     Parameters:
     - atoms: ASE Atoms object representing the relaxed bulk structure.
-    - xcf: Exchange-correlation functional to be used (default is 'PBE').
+    - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
-    - shift: Energy shift in Ry (default is 0.01 Ry).
-    - split: Split norm for basis functions (default is 0.15).
-    - cutoff: Mesh cutoff in Ry (default is 200 Ry).
-    - kmesh: K-point mesh as a list (default is [5, 5, 5]).
+    - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
+    - SplitNorm: Split norm for basis functions (default is 0.15).
+    - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
+    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
+    - dir: Directory to save the results (default is 'results/bulk/phonons').
+    - par: Whether the SIESTA calculator is parallel (default is False).
     Returns:
     - None. The function performs phonon calculations and saves the phonon data to a .yaml file.
     """
-    # Parameters
-    scell_matrix = np.diag([2, 2, 2])  # Supercell size
+    # Parameters for phonon calculations
+    N = 2  # Supercell size in each direction
+    scell_matrix = np.diag([N, N, N])  # Supercell size
     dd = 0.01 # displacement distance in Å
 
     # Convert ASE Atoms to PhonopyAtoms
@@ -54,7 +58,6 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
 
     # Get current working directory and set directory for results
     cwd = os.getcwd()
-    dir = 'results/bulk/phonons/'
     symbols = atoms.symbols
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
     if mode == 'lcao':
@@ -63,20 +66,24 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
             'label': f'{symbols}',
             'xc': xcf,
             'basis_set': basis,
-            'mesh_cutoff': cutoff * Ry,
-            'energy_shift': shift * Ry,
-            'kpts': kmesh,
+            'mesh_cutoff': MeshCutoff * Ry,
+            'energy_shift': EnergyShift * Ry,
+            'kpts': tuple(x // N for x in kgrid),  # Reduce k-point grid for supercell calculations
             'directory': dir,
-            'pseudo_path': cwd + '/pseudos'
+            'pseudo_path': os.path.join(cwd, 'pseudos')
         }
         # fdf arguments
         fdf_args = {
             'PAO.BasisSize': basis,
-            'PAO.SplitNorm': split,
-            'Diag.Algorithm': 'ELPA',
+            'PAO.SplitNorm': SplitNorm,
             "MD.TypeOfRun": "CG",
             "MD.NumCGsteps": 0,  # forces only
         }
+
+        if par:
+            # Change diagonalization algorithm when running in parallel
+            fdf_args['Diag.Algorithm'] = 'ELPA'
+
         # Set up the Siesta calculator
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
     
@@ -84,11 +91,11 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),
-            'mode': {'name': 'pw', 'ecut': cutoff * Ry},
-            'kpts': {'size': kmesh, 'gamma': True},
+            'mode': {'name': 'pw', 'ecut': MeshCutoff * Ry},
+            'kpts': {'size': tuple(x // N for x in kgrid), 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': f"{dir}{symbols}_{mode}.txt"
+            'txt': os.path.join(dir, f"{symbols}_{mode}.txt")
         }
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
@@ -118,7 +125,7 @@ def calculate_phonons(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15,
     # Set forces in Phonopy and calculate force constants
     phonon.forces = forces
     # Save phonopy .yaml file
-    phonon.save(f'{dir}{symbols}_{mode}.yaml')
+    phonon.save(os.path.join(dir, f"{symbols}.yaml"))
     # Remove unnecessary files generated during the relaxation
     cleanFiles(directory=dir, confirm=False)
 

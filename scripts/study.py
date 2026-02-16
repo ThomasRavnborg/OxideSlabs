@@ -1,0 +1,71 @@
+import os
+from ase.io import read
+from itertools import product
+from src.utils import SiestaProject
+from src.structureoptimizer import perovskite, relax_ase
+from src.bandscalc import calculate_bands
+from src.phononcalc import calculate_phonons
+
+# Create atoms object for BaTiO3 and initialize project
+atoms = perovskite('BaTiO3')
+project = SiestaProject(material=str(atoms.symbols))
+
+# Define lists of parameters to iterate over
+xcfs =    ['PBEsol']
+basis =   ['DZP']
+shifts =  [0.008, 0.01, 0.012]
+splits =  [0.1, 0.15, 0.2]
+cutoffs = [800, 1000]
+grids =   [10]
+
+# Find all combinations of parameters and store in a list of dictionaries
+combinations = list(product(xcfs, basis, shifts, splits, cutoffs, grids))
+print(f"Total combinations: {len(combinations)}")
+param_dicts = []
+for combo in combinations:
+    param_dicts.append({
+        'xcf': combo[0],
+        'basis': combo[1],
+        'EnergyShift': combo[2],
+        'SplitNorm': combo[3],
+        'MeshCutoff': combo[4],
+        'kgrid': (combo[5], combo[5], combo[5])
+    })
+
+# Loop over parameter combinations and prepare calculations
+for params in param_dicts:
+    # Find calculation ID for this parameter set, or create a new one if it doesn't exist
+    calc_id = project.prepare_calculation(params)
+
+    # Check what step needs to be run for this calculation and set directory
+    next_step = project.what_to_run(calc_id)
+    dir = os.path.join(project.material_path, calc_id)
+
+    # Run the appropriate calculation based on the next step
+    if next_step == "relax":
+        # Run relaxation
+        print(f"Running relaxation for calculation {calc_id}")
+        relax_ase(atoms, **params, dir=os.path.join(dir, next_step))
+        # Update dataframe and move to next step
+        calc_id = project.prepare_calculation(params)
+        next_step = project.what_to_run(calc_id)
+    
+    if next_step == "bands":
+        # Run band structure calculation
+        print(f"Running band structure calculation for calculation {calc_id}")
+        atoms = read(os.path.join(dir, 'relax', f'{project.material}.xyz'))
+        calculate_bands(atoms, **params, dir=os.path.join(dir, next_step))
+        # Update to next step
+        calc_id = project.prepare_calculation(params)
+        next_step = project.what_to_run(calc_id)
+
+    if next_step == "phonons":
+        print(f"Running phonon calculation for calculation {calc_id}")
+        atoms = read(os.path.join(dir, 'relax', f'{project.material}.xyz'))
+        calculate_phonons(atoms, **params, dir=os.path.join(dir, next_step))
+        # Update to next step
+        calc_id = project.prepare_calculation(params)
+        next_step = project.what_to_run(calc_id)
+
+    if next_step == "complete":
+        print(f"All steps complete for calculation {calc_id}. Skipping.")

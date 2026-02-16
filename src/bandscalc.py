@@ -9,6 +9,7 @@ from ase.io import read
 from ase.calculators.siesta import Siesta
 from ase import Atoms
 from ase.units import Ry
+from ase.dft.kpoints import bandpath
 from ase.parallel import parprint
 # GPAW
 from gpaw import GPAW
@@ -17,23 +18,24 @@ from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
-def calculate_bands(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
-                    cutoff=600, kmesh=[10, 10, 10], mode='lcao'):
+def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+                    MeshCutoff=200, kgrid=(10, 10, 10), mode='lcao',
+                    dir='results/bulk/bandstructure', par=False):
     """Function to calculate band structure and PDOS of a bulk structure using SIESTA.
     Parameters:
     - atoms: ASE Atoms object representing the relaxed bulk structure.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
-    - shift: Energy shift in Ry (default is 0.01 Ry).
-    - split: Split norm for basis functions (default is 0.15).
-    - cutoff: Mesh cutoff in Ry (default is 600 Ry).
-    - kmesh: K-point mesh as a list (default is [10, 10, 10]).
+    - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
+    - SplitNorm: Split norm for basis functions (default is 0.15).
+    - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
+    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
+    - par: Whether the SIESTA calculator is parallel (default is False).
     Returns:
     - None. The function performs band structure calculation and saves the data to a file.
     """
     cwd = os.getcwd()
-    dir = 'results/bulk/bandstructure/'
     symbols = atoms.symbols
 
     if mode == 'lcao':
@@ -43,23 +45,22 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
             'label': f'{symbols}',
             'xc': xcf,
             'basis_set': basis,
-            'mesh_cutoff': cutoff * Ry,
-            'energy_shift': shift * Ry,
-            'kpts': kmesh,
+            'mesh_cutoff': MeshCutoff * Ry,
+            'energy_shift': EnergyShift * Ry,
+            'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': cwd + '/pseudos'
+            'pseudo_path': os.path.join(cwd, 'pseudos')
         }
         # fdf arguments in a dictionary
         fdf_args = {
             'PAO.BasisSize': basis,
-            'PAO.SplitNorm': split,
-            'Diag.Algorithm': 'ELPA',
+            'PAO.SplitNorm': SplitNorm,
             'BandLinesScale': 'ReciprocalLatticeVectors',
             '%block BandLines': '''
             1 0.000 0.000 0.000 \Gamma
             60 0.500 0.000 0.000 X
             60 0.500 0.500 0.500 R
-            60 0.000 0.500 0.000 M
+            60 0.500 0.500 0.000 M
             60 0.000 0.000 0.000 \Gamma
             60 0.500 0.500 0.500 R
             %endblock BandLines''',
@@ -73,6 +74,11 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
             -20.00 15.00 0.200 500 eV
             %endblock Projected.DensityOfStates'''
         }
+
+        if par:
+            # Change diagonalization algorithm when running in parallel
+            fdf_args['Diag.Algorithm'] = 'ELPA'
+
         # Set up the Siesta calculator
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
 
@@ -80,11 +86,11 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),
-            'mode': {'name': 'pw', 'ecut': cutoff * Ry},
-            'kpts': {'size': kmesh, 'gamma': True},
+            'mode': {'name': 'pw', 'ecut': MeshCutoff * Ry},
+            'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': f"{dir}{symbols}_{mode}.txt"
+            'txt': os.path.join(dir, f"{symbols}_{mode}.txt")
         }
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
@@ -114,18 +120,18 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', shift=0.01, split=0.15,
         e_nk = e_kn.T
         e_nk -= ef
         # Save the bandstructure data to a file
-        np.savez(f'{dir}{symbols}_BS.npz', X=X, x=x, bands=e_nk)
+        np.savez(os.path.join(dir, f"{symbols}_BS.npz"), X=X, x=x, bands=e_nk)
 
         # The density of states (DOS) is calculated
         E, DOS = BScalc.get_dos(spin=0, npts=500, width=0.2)
         # Save the DOS data to a file
-        np.savez(f'{dir}{symbols}_DOS.npz', E=E, DOS=DOS)
+        np.savez(os.path.join(dir, f"{symbols}_DOS.npz"), E=E, DOS=DOS)
 
     # Remove unnecessary files generated during the relaxation
     cleanFiles(directory=dir, confirm=False)
 
 # Define a function that plots the bandstructure and DOS together
-def plot_bands(formula, mode='lcao'):
+def plot_bands(formula, mode='lcao', dir='results/bulk/bandstructure'):
     """Function to plot bandstructure and DOS for a given formula.
     Requires that the bandstructure and PDOS have already been calculated and saved to files.
     Parameters:
@@ -133,7 +139,6 @@ def plot_bands(formula, mode='lcao'):
     Returns:
     - None. The function reads the bandstructure and PDOS data from files and plots the results.
     """
-    dir = 'results/bulk/bandstructure/'
     
     # Define tickmarks for the x- and y-axis
     ytickmarks = np.arange(-6, 8, 2)
@@ -145,13 +150,13 @@ def plot_bands(formula, mode='lcao'):
     # Subplot 1 - Band structure
     if mode == 'lcao':
         # Read the bandstructure data from the file generated by Siesta using SISL
-        sile_bands = si.get_sile(f'{dir}{formula}.bands')
+        sile_bands = si.get_sile(os.path.join(dir, f"{formula}.bands"))
         X, x, bands = sile_bands.read_data()
         bands = np.squeeze(bands).T
 
     elif mode == 'pw':
         # Read the bandstructure data from the file generated by GPAW
-        data = np.load(f'{dir}{formula}_BS.npz', allow_pickle=True)
+        data = np.load(os.path.join(dir, f"{formula}_BS.npz"), allow_pickle=True)
         X = data['X']
         x = data['x']
         bands = data['bands']
@@ -182,14 +187,14 @@ def plot_bands(formula, mode='lcao'):
     # Subplot 2 - Density of states (DOS)
     if mode == 'lcao':
         # Read the PDOS data from the file generated by Siesta using SISL
-        sile_PDOS = si.get_sile(f'{dir}{formula}.PDOS')
+        sile_PDOS = si.get_sile(os.path.join(dir, f"{formula}.PDOS"))
         geom, E, PDOS = sile_PDOS.read_data()
         PDOS = np.squeeze(PDOS)
         DOS = PDOS.sum(axis=0)
 
     elif mode == 'pw':
         # Read the DOS data from the file generated by GPAW
-        data = np.load(f'{dir}{formula}_DOS.npz', allow_pickle=True)
+        data = np.load(os.path.join(dir, f"{formula}_DOS.npz"), allow_pickle=True)
         E = data['E']
         DOS = data['DOS']
 
@@ -214,7 +219,7 @@ def plot_bands(formula, mode='lcao'):
     plt.show()
 
 # Define a function that plots the bandstructure and DOS together
-def plot_bands_SISL(formula):
+def plot_bands_SISL(formula, dir='results/bulk/bandstructure'):
     """Legacy function to plot bandstructure and DOS for a given formula.
     Uses SISL to read the Hamiltonian and geometry, and to calculate the bandstructure and DOS.
     Parameters:
@@ -222,9 +227,8 @@ def plot_bands_SISL(formula):
     Returns:
     - None. The function performs band structure calculation and plots the results.
     """
-    dir = 'results/bulk/relaxsiesta/'
     # Read the Hamiltonian and geometry from the HSX file generated by Siesta
-    sile_HSX = si.get_sile(f'{dir}{formula}.HSX')
+    sile_HSX = si.get_sile(os.path.join(dir, f"{formula}.HSX"))
     H = sile_HSX.read_hamiltonian()
     geom = sile_HSX.read_geometry()
     Ef = sile_HSX.read_fermi_level()
