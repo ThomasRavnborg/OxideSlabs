@@ -9,8 +9,6 @@ from ase.io import read
 from ase.units import Ry
 from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
-# GPAW
-from gpaw import GPAW
 # Phonopy
 from phonopy import Phonopy
 from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
@@ -88,6 +86,7 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
     
     elif mode == 'pw':
+        from gpaw import GPAW
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),

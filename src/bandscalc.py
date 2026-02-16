@@ -11,8 +11,6 @@ from ase import Atoms
 from ase.units import Ry
 from ase.dft.kpoints import bandpath
 from ase.parallel import parprint
-# GPAW
-from gpaw import GPAW
 # Custom modules
 from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
@@ -83,6 +81,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
 
     elif mode == 'pw':
+        from gpaw import GPAW
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),
