@@ -54,7 +54,7 @@ for params in param_dicts:
         # Run band structure calculation
         print(f"Running band structure calculation for calculation {calc_id}")
         atoms = read(os.path.join(dir, 'relax', f'{project.material}.xyz'))
-        calculate_bands(atoms, **params, dir=os.path.join(dir, next_step))
+        calculate_bands(atoms, **params, dir=os.path.join(dir, next_step), par=True)
         # Update to next step
         calc_id = project.prepare_calculation(params)
         next_step = project.what_to_run(calc_id)
@@ -62,7 +62,7 @@ for params in param_dicts:
     if next_step == "phonons":
         print(f"Running phonon calculation for calculation {calc_id}")
         atoms = read(os.path.join(dir, 'relax', f'{project.material}.xyz'))
-        calculate_phonons(atoms, **params, dir=os.path.join(dir, next_step))
+        calculate_phonons(atoms, **params, dir=os.path.join(dir, next_step), par=True)
         # Update to next step
         calc_id = project.prepare_calculation(params)
         next_step = project.what_to_run(calc_id)
