@@ -10,6 +10,7 @@ from ase.units import Ry
 from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
 # Phonopy
+import phonopy as ph
 from phonopy import Phonopy
 from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
 from phonopy.structure.atoms import PhonopyAtoms
@@ -233,10 +234,13 @@ def get_phonon_pdos(phonon, bulk=True):
     return (pdos, freq, symbols)
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion(phonon, bulk=True):
+def plot_dispersion(formula, ids=[], mode='lcao', pDOS=True, bulk=True):
     """Function to plot the phonon dispersion and DOS together.
     Parameters:
-    - phonon: Phonopy object containing phonon data.
+    - formula: Chemical formula of the material.
+    - ids: List of IDs to plot.
+    - mode: Calculation mode ('lcao' or 'pw').
+    - pDOS: Whether to plot the projected density of states (PDOS) (default is True).
     - bulk: Boolean indicating if the system is bulk (True) or slab (False).
     Returns:
     - None. The function creates a plot of the phonon dispersion and DOS.
@@ -253,23 +257,54 @@ def plot_dispersion(phonon, bulk=True):
     # Make a simple figure where graphs are plotted
     fig = plt.figure(figsize=[6.6, 5])
     
-    # Subplot 1 - Phonon dispersion
+    # Define two axes, one for the band structure and one for the DOS
     ax1 = fig.add_axes([0, 0, 1, 1])
-    # Set title
-    #ax1.set_title('{} dispersion with {} using {}'.format(formula, xcf))
-    # Extract phonon dispersion data
-    (dist, X, freq, labels) = get_phonon_dispersion(phonon, bulk)
-    # Plot vertical lines at symmetry points
-    ax1.vlines(X, ytickmarks[0], ytickmarks[-1], color='0.5', lw=1)
-    # Plot dashed line at 0
-    ax1.axhline(y=0, color='k', linestyle=':')
-    # Determine the number of segments between symmetry points and the number of modes
-    n_segments = len(freq)
-    n_modes = freq[0].shape[1]
-    # Loop over all segments and modes and plot everything
-    for i in range(n_segments):
-        for j in range(n_modes):
-            ax1.plot(dist[i], freq[i][:, j], color='k', lw=1.5)
+    ax2 = fig.add_axes([1.05, 0, 0.4, 1])
+    
+    for i, id in enumerate(ids):
+        # Load Phonopy object from YAML file
+        dir = os.path.join('results/bulk/',formula, id, 'phonons')
+        phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+        col = plt.get_cmap("viridis")(i / (len(ids) - 1))
+        # Extract phonon dispersion data
+        (dist, X, freq, labels) = get_phonon_dispersion(phonon, bulk)
+        if i == 0:
+            # Plot vertical lines at symmetry points
+            ax1.vlines(X, ytickmarks[0], ytickmarks[-1], color='0.5', lw=1)
+            # Plot dashed line at 0
+            ax1.axhline(y=0, color='k', linestyle=':')
+        # Determine the number of segments between symmetry points and the number of modes
+        n_segments = len(freq)
+        n_modes = freq[0].shape[1]
+        # Loop over all segments and modes and plot everything
+        for i in range(n_segments):
+            for j in range(n_modes):
+                if i == 0 and j == 0:
+                    ax1.plot(dist[i], freq[i][:, j], color=col, lw=1.5, label=f'ID {id}')
+                else:
+                    ax1.plot(dist[i], freq[i][:, j], color=col, lw=1.5)
+        
+        # Plot dashed line at Fermi level
+        ax2.axhline(y=0, color='k', linestyle=':')
+        # Extract total DOS data
+        (dosx, dosy) = get_phonon_dos(phonon, bulk)
+        # Plot total DOS
+        ax2.plot(dosx, dosy, lw=1.5, color=col, label=f'ID {id}')
+        
+        if pDOS:
+            ax2.fill_between(dosx, dosy, color='lightgray', alpha=0.5)
+            # Extract PDOS data
+            (pdosx, pdosy, symbols) = get_phonon_pdos(phonon, bulk)
+            # Plot PDOS
+            for i in range(pdosx.shape[0]):
+                ax2.plot(pdosx[i], pdosy, lw=1.5, color=colors[symbols[i]], label=f'{symbols[i]}')
+            # Get all handles and labels
+            handles, labels = ax2.get_legend_handles_labels()
+            # Remove duplicates and sort for the legend
+            sorted_handles, sorted_labels = order_labels(symbols, handles, labels)
+            # Add legend with duplicates removed and sorted labels
+            ax2.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
+
     # Set x- and y-label
     ax1.set_xlabel('k-points')
     ax1.set_ylabel('Frequency, $\omega$ (THz)', fontsize=14)
@@ -281,42 +316,17 @@ def plot_dispersion(phonon, bulk=True):
     ax1.set_ylim(ytickmarks[0], ytickmarks[-1])
     # Add minor tickmarks to the y-axis
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
-    # Initialize plot settings
-    #PlotSettings().set_style_ax(ax)
     
-    # Subplot 2 - Density of states (DOS)
-    ax2 = fig.add_axes([1.05, 0, 0.4, 1])
-    # Add title
-    #ax2.set_title('Density of states')
-    # Plot dashed line at Fermi level
-    ax2.axhline(y=0, color='k', linestyle=':')
-    # Extract total DOS data
-    (dosx, dosy) = get_phonon_dos(phonon, bulk)
-    # Plot total DOS
-    ax2.plot(dosx, dosy, lw=1.5, color='k', label='DOS')
-    ax2.fill_between(dosx, dosy, color='lightgray', alpha=0.5)
-    # Extract PDOS data
-    (pdosx, pdosy, symbols) = get_phonon_pdos(phonon, bulk)
-    # Plot PDOS
-    for i in range(pdosx.shape[0]):
-        ax2.plot(pdosx[i], pdosy, lw=1.5,
-                         color=colors[symbols[i]], label=f'{symbols[i]}')
     # Set x-label
     ax2.set_xlabel('DOS (states/THz)')
-    # Get all handles and labels
-    handles, labels = ax2.get_legend_handles_labels()
-    # Remove duplicates and sort for the legend
-    sorted_handles, sorted_labels = order_labels(symbols, handles, labels)
-    # Add legend with duplicates removed and sorted labels
-    ax2.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
+
+    ax2.legend(loc='upper right')
     # Force x- and y-ticks
     ax2.set_xticks(xtickmarks, xtickmarks)
     ax2.set_yticks(ytickmarks, ytickmarks)
     # Set limits to match
     ax2.set_xlim(xtickmarks[0], xtickmarks[-1])
     ax2.set_ylim(ytickmarks[0], ytickmarks[-1])
-    # Initialize plot settings
-    #PlotSettings(ax2)
     # Hide y-tick labels
     ax2.set_yticklabels([])
     
