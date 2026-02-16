@@ -13,10 +13,10 @@ project = SiestaProject(material=str(atoms.symbols))
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZP']
-shifts =  [0.008, 0.01, 0.012]
+shifts =  [0.004, 0.006, 0.008, 0.01, 0.012]
 splits =  [0.1, 0.15, 0.2]
-cutoffs = [800, 1000]
-grids =   [10]
+cutoffs = [1000]
+grids =   [10, 12]
 
 # Find all combinations of parameters and store in a list of dictionaries
 combinations = list(product(xcfs, basis, shifts, splits, cutoffs, grids))
