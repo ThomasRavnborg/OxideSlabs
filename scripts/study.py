@@ -2,7 +2,7 @@ import os
 from ase.io import read
 from itertools import product
 from src.utils import SiestaProject
-from src.structureoptimizer import perovskite, relax_ase
+from src.structureoptimizer import perovskite, relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 
@@ -13,23 +13,25 @@ project = SiestaProject(material=str(atoms.symbols))
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZP']
-shifts =  [0.005, 0.006, 0.007, 0.008]
+pseudos = [2, 3, 4]
+shifts =  [0.006, 0.008, 0.01]
 splits =  [0.15]
-cutoffs = [1500]
-grids =   [20]
+cutoffs = [1000]
+grids =   [10]
 
 # Find all combinations of parameters and store in a list of dictionaries
-combinations = list(product(xcfs, basis, shifts, splits, cutoffs, grids))
+combinations = list(product(xcfs, basis, pseudos, shifts, splits, cutoffs, grids))
 print(f"Total combinations: {len(combinations)}")
 param_dicts = []
 for combo in combinations:
     param_dicts.append({
         'xcf': combo[0],
         'basis': combo[1],
-        'EnergyShift': combo[2],
-        'SplitNorm': combo[3],
-        'MeshCutoff': combo[4],
-        'kgrid': (combo[5], combo[5], combo[5])
+        'pseudo': combo[2],
+        'EnergyShift': combo[3],
+        'SplitNorm': combo[4],
+        'MeshCutoff': combo[5],
+        'kgrid': (combo[6], combo[6], combo[6])
     })
 
 # Loop over parameter combinations and prepare calculations
@@ -39,7 +41,16 @@ for params in param_dicts:
 
     # Check what step needs to be run for this calculation and set directory
     next_step = project.what_to_run(calc_id)
+    next_step = "siesta"
     dir = os.path.join(project.material_path, calc_id)
+
+    if next_step == "complete":
+        print(f"All steps complete for calculation {calc_id}. Skipping.")
+
+    if next_step == "siesta":
+        relax_siesta(atoms, **params, dir=os.path.join(dir, next_step))
+        next_step = project.what_to_run(calc_id)
+
 
     # Run the appropriate calculation based on the next step
     if next_step == "relax":
@@ -48,7 +59,7 @@ for params in param_dicts:
         relax_ase(atoms, **params, dir=os.path.join(dir, next_step))
         # Update dataframe and move to next step
         calc_id = project.prepare_calculation(params)
-        next_step = project.what_to_run(calc_id)
+        #next_step = project.what_to_run(calc_id)
     
     if next_step == "bands":
         # Run band structure calculation
@@ -66,6 +77,3 @@ for params in param_dicts:
         # Update to next step
         calc_id = project.prepare_calculation(params)
         next_step = project.what_to_run(calc_id)
-
-    if next_step == "complete":
-        print(f"All steps complete for calculation {calc_id}. Skipping.")

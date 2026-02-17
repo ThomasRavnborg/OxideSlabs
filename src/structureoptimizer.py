@@ -37,7 +37,8 @@ def perovskite(formula):
     return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
 
 def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-              MeshCutoff=200, kgrid=(10, 10, 10), fmax=0.005, mode='lcao', filt=True, dir='results/bulk/relax'):
+              MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1,
+              fmax=0.005, mode='lcao', filt=True, dir='results/bulk/relax'):
     """Function to relax a bulk structure using ASE BFGS optimizer with SIESTA or GPAW calculator.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
@@ -47,6 +48,7 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
+    - pseudo: Integer index for selecting pseudopotential (default is 1).
     - fmax: Maximum force criterion for convergence in eV/Å (default is 0.005 eV/Å).
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - filt: Boolean indicating whether to optimize unit cell parameters (True) or only atomic positions (False).
@@ -68,7 +70,7 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
         }
         # fdf arguments in a dictionary
         fdf_args = {
@@ -119,7 +121,8 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
 
 
 def relax_siesta(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-                 MeshCutoff=200, kgrid=(10, 10, 10), fmax=0.005, smax=0.01, dir='results/bulk/relaxsiesta'):
+              MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1,
+              fmax=0.005, smax=0.01, dir='results/bulk/relaxsiesta'):
     """Function to relax a bulk structure with a single Siesta calculation.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
@@ -129,6 +132,7 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
+    - pseudo: Pseudopotential number to be used (default is 1).
     - fmax: Maximum force criterion for convergence in eV/Å (default is 0.005 eV/Å).
     - smax: Maximum stress criterion for convergence in GPa (default is 0.01 GPa).
     Returns:
@@ -153,7 +157,7 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0
         'energy_shift': EnergyShift * Ry,
         'kpts': kgrid,
         'directory': dir,
-        'pseudo_path': os.path.join(cwd, 'pseudos')
+        'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}'),
     }
     
     fdf_args = {
