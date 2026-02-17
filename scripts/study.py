@@ -41,16 +41,10 @@ for params in param_dicts:
 
     # Check what step needs to be run for this calculation and set directory
     next_step = project.what_to_run(calc_id)
-    next_step = "siesta"
     dir = os.path.join(project.material_path, calc_id)
 
     if next_step == "complete":
         print(f"All steps complete for calculation {calc_id}. Skipping.")
-
-    if next_step == "siesta":
-        relax_siesta(atoms, **params, dir=os.path.join(dir, next_step))
-        next_step = project.what_to_run(calc_id)
-
 
     # Run the appropriate calculation based on the next step
     if next_step == "relax":
@@ -59,7 +53,7 @@ for params in param_dicts:
         relax_ase(atoms, **params, dir=os.path.join(dir, next_step))
         # Update dataframe and move to next step
         calc_id = project.prepare_calculation(params)
-        #next_step = project.what_to_run(calc_id)
+        next_step = project.what_to_run(calc_id)
     
     if next_step == "bands":
         # Run band structure calculation
