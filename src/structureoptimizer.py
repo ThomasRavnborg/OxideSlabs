@@ -83,7 +83,7 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
     # In GPAW, calculations are performed with plane waves (PW)
     elif mode == 'pw':
         parprint(f"Relaxing structure for {symbols} using GPAW.")
-        from gpaw import GPAW
+        #from gpaw import GPAW
         parprint('Note that shift and split do not apply to pw calculations and will be ignored.')
         calc_params = {
             'xc': xcf,

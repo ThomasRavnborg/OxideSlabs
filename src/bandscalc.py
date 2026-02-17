@@ -17,8 +17,8 @@ from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
 def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-                    MeshCutoff=200, kgrid=(10, 10, 10), mode='lcao',
-                    dir='results/bulk/bandstructure', par=False):
+                    MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1,
+                    mode='lcao', dir='results/bulk/bandstructure', par=False):
     """Function to calculate band structure and PDOS of a bulk structure using SIESTA.
     Parameters:
     - atoms: ASE Atoms object representing the relaxed bulk structure.
@@ -28,6 +28,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
+    - pseudo: Integer index for selecting pseudopotential (default is 1).
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - par: Whether the SIESTA calculator is parallel (default is False).
     Returns:
@@ -47,7 +48,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
         }
         # fdf arguments in a dictionary
         fdf_args = {
@@ -81,7 +82,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
 
     elif mode == 'pw':
-        from gpaw import GPAW
+        #from gpaw import GPAW
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),
