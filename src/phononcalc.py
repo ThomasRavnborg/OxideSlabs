@@ -9,6 +9,8 @@ from ase.io import read
 from ase.units import Ry
 from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
+# GPAW
+from gpaw import GPAW
 # Phonopy
 import phonopy as ph
 from phonopy import Phonopy
@@ -235,11 +237,13 @@ def get_phonon_pdos(phonon, bulk=True):
     return (pdos, freq, symbols)
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion(formula, ids=[], mode='lcao', pDOS=True, bulk=True):
+def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results', pDOS=True, bulk=True):
     """Function to plot the phonon dispersion and DOS together.
     Parameters:
     - formula: Chemical formula of the material.
-    - ids: List of IDs to plot.
+    - ids: Numpy array of IDs to plot.
+    - vals: Numpy array of values corresponding to the IDs (e.g., different functionals or parameters).
+    - root: Root directory for results.
     - mode: Calculation mode ('lcao' or 'pw').
     - pDOS: Whether to plot the projected density of states (PDOS) (default is True).
     - bulk: Boolean indicating if the system is bulk (True) or slab (False).
@@ -251,10 +255,10 @@ def plot_dispersion(formula, ids=[], mode='lcao', pDOS=True, bulk=True):
     ytickmarks = np.arange(-15, 26, 5)
     xtickmarks = np.arange(0, 7, 1)
 
-    # Define colors
-    colors = {'Ba': 'tab:blue', 'Sr': 'tab:purple',
-              'Ti': 'tab:orange', 'O': 'tab:red'}
-    
+    # Define colors and styles for plotting (if needed)
+    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink']
+    styles = ['-', '--', '-.', ':', '-', '--', '-.']
+
     # Make a simple figure where graphs are plotted
     fig = plt.figure(figsize=[6.6, 5])
     
@@ -262,18 +266,16 @@ def plot_dispersion(formula, ids=[], mode='lcao', pDOS=True, bulk=True):
     ax1 = fig.add_axes([0, 0, 1, 1])
     ax2 = fig.add_axes([1.05, 0, 0.4, 1])
     
-    for i, id in enumerate(ids):
-        # Load Phonopy object from YAML file
-        dir = os.path.join('results/bulk/',formula, id, 'phonons')
-        phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
-        col = plt.get_cmap("viridis")(i / (len(ids) - 1))
+    def _plot_disp(ax, phonon, val, col='k', style='-'):
         # Extract phonon dispersion data
         (dist, X, freq, labels) = get_phonon_dispersion(phonon, bulk)
-        if i == 0:
-            # Plot vertical lines at symmetry points
-            ax1.vlines(X, ytickmarks[0], ytickmarks[-1], color='0.5', lw=1)
-            # Plot dashed line at 0
-            ax1.axhline(y=0, color='k', linestyle=':')
+        dist = np.array(dist)
+        dist /= dist[-1][-1]  # Normalize distances to the total length of the path
+        X /= X[-1]  # Normalize high symmetry point locations to the total length of the path
+        # Plot vertical lines at symmetry points
+        ax.vlines(X, ytickmarks[0], ytickmarks[-1], color='0.5', lw=1)
+        # Plot dashed line at 0
+        ax.axhline(y=0, color='k', linestyle=':')
         # Determine the number of segments between symmetry points and the number of modes
         n_segments = len(freq)
         n_modes = freq[0].shape[1]
@@ -281,46 +283,71 @@ def plot_dispersion(formula, ids=[], mode='lcao', pDOS=True, bulk=True):
         for i in range(n_segments):
             for j in range(n_modes):
                 if i == 0 and j == 0:
-                    ax1.plot(dist[i], freq[i][:, j], color=col, lw=1.5, label=f'ID {id}')
+                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5, label=f'{val}', linestyle=style)
                 else:
-                    ax1.plot(dist[i], freq[i][:, j], color=col, lw=1.5)
-        
-        # Plot dashed line at Fermi level
-        ax2.axhline(y=0, color='k', linestyle=':')
+                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5, linestyle=style)
+        # Set x- and y-ticks
+        ax.set_xticks(X, labels)
+        ax.set_yticks(ytickmarks, ytickmarks)
+        # Set x- and y-limits
+        ax.set_xlim(X[0], X[-1])
+        ax.set_ylim(ytickmarks[0], ytickmarks[-1])
+
+    def _plot_dos(ax, phonon, val, col='k', style='-'):
         # Extract total DOS data
         (dosx, dosy) = get_phonon_dos(phonon, bulk)
         # Plot total DOS
-        ax2.plot(dosx, dosy, lw=1.5, color=col, label=f'ID {id}')
-        
+        ax.plot(dosx, dosy, lw=1.5, color=col, label=f'{val}', linestyle=style)
         if pDOS:
-            ax2.fill_between(dosx, dosy, color='lightgray', alpha=0.5)
-            # Extract PDOS data
-            (pdosx, pdosy, symbols) = get_phonon_pdos(phonon, bulk)
+            ax.fill_between(dosx, dosy, color='lightgray', alpha=0.5)
+
+    def _plot_pdos(ax, phonon):
+        atom_colors = {'Ba': 'tab:blue', 'Sr': 'tab:purple',
+                       'Ti': 'tab:orange', 'O': 'tab:red'}
+        # Extract PDOS data
+        (pdosx, pdosy, symbols) = get_phonon_pdos(phonon, bulk)
+        # Plot PDOS
+        for i in range(pdosx.shape[0]):
+            ax.plot(pdosx[i], pdosy, lw=1.5, color=atom_colors[symbols[i]], label=f'{symbols[i]}')
+        # Get all handles and labels
+        handles, labels = ax.get_legend_handles_labels()
+        # Remove duplicates and sort for the legend
+        sorted_handles, sorted_labels = order_labels(symbols, handles, labels)
+        # Add legend with duplicates removed and sorted labels
+        ax.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
+
+    # Plot dashed line at Fermi level for both subplots
+    ax1.axhline(y=0, color='k', linestyle=':')
+    ax2.axhline(y=0, color='k', linestyle=':')
+
+    dir = 'results/bulk/GPAW'
+    phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+    # Plot phonon dispersion
+    _plot_disp(ax1, phonon, 'GPAW')
+    # Plot total DOS
+    _plot_dos(ax2, phonon, 'GPAW')
+
+    for i in range(len(ids)):
+        # Load Phonopy object from YAML file
+        dir = os.path.join(root, 'bulk/',formula, ids[i], 'phonons')
+        phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+        
+        # Plot phonon dispersion
+        _plot_disp(ax1, phonon, vals[i], col=colors[i], style=styles[i])
+        # Plot total DOS
+        _plot_dos(ax2, phonon, vals[i], col=colors[i], style=styles[i])
+        if pDOS:
             # Plot PDOS
-            for i in range(pdosx.shape[0]):
-                ax2.plot(pdosx[i], pdosy, lw=1.5, color=colors[symbols[i]], label=f'{symbols[i]}')
-            # Get all handles and labels
-            handles, labels = ax2.get_legend_handles_labels()
-            # Remove duplicates and sort for the legend
-            sorted_handles, sorted_labels = order_labels(symbols, handles, labels)
-            # Add legend with duplicates removed and sorted labels
-            ax2.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
+            _plot_pdos(ax2, phonon)
 
     # Set x- and y-label
     ax1.set_xlabel('k-points')
     ax1.set_ylabel('Frequency, $\omega$ (THz)', fontsize=14)
-    # Set x- and y-ticks
-    ax1.set_xticks(X, labels)
-    ax1.set_yticks(ytickmarks, ytickmarks)
-    # Set x- and y-limits
-    ax1.set_xlim(X[0], X[-1])
-    ax1.set_ylim(ytickmarks[0], ytickmarks[-1])
     # Add minor tickmarks to the y-axis
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
     
-    # Set x-label
-    ax2.set_xlabel('DOS (states/THz)')
 
+    ax2.set_xlabel('DOS (states/THz)')
     ax2.legend(loc='upper right')
     # Force x- and y-ticks
     ax2.set_xticks(xtickmarks, xtickmarks)

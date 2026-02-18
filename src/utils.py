@@ -23,8 +23,7 @@ class SiestaProject:
     """
 
 
-    def __init__(self, material="BaTiO3", bulk=True):
-        root = 'results'
+    def __init__(self, material="BaTiO3", root = 'results', bulk=True):
         if bulk:
             sym = "bulk"
         else:
