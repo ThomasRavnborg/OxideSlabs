@@ -42,5 +42,6 @@ fi
 
 export ASE_SIESTA_COMMAND="mpirun siesta < PREFIX.fdf > PREFIX.out"
 
-echo "Running uv run python $SCRIPT_PATH"
-uv run python "$SCRIPT_PATH"
+echo "run python $SCRIPT_PATH"
+#uv run python "$SCRIPT_PATH"
+run python "$SCRIPT_PATH"
