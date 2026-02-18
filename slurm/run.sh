@@ -42,6 +42,7 @@ fi
 
 export ASE_SIESTA_COMMAND="mpirun siesta < PREFIX.fdf > PREFIX.out"
 
-echo "run python $SCRIPT_PATH"
+echo "Running python in parallel $SCRIPT_PATH"
 #uv run python "$SCRIPT_PATH"
-python "$SCRIPT_PATH"
+#python "$SCRIPT_PATH"
+srun python "$SCRIPT_PATH"
