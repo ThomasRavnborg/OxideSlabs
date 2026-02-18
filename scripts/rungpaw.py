@@ -1,9 +1,11 @@
 # Import
 
 import os
+print('Main file environment variables:')
 print(os.environ['GPAW_SETUP_PATH'])
 print(os.environ['PATH'])
 print(os.environ['PYTHONPATH'])
+
 
 from ase import Atoms
 from ase.io import read

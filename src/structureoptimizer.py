@@ -9,6 +9,11 @@ from ase.units import Ry
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
 from ase.parallel import parprint
+import os
+print('Structureopt enviroment paths:')
+print(os.environ['GPAW_SETUP_PATH'])
+print(os.environ['PATH'])
+print(os.environ['PYTHONPATH'])
 # GPAW
 from gpaw import GPAW
 # Custom modules
