@@ -1,4 +1,10 @@
 # Import
+
+import os
+print(os.environ['GPAW_SETUP_PATH'])
+print(os.environ['PATH'])
+print(os.environ['PYTHONPATH'])
+
 from ase import Atoms
 from ase.io import read
 from src.structureoptimizer import perovskite, relax_ase
