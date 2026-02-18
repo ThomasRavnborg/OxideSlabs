@@ -9,6 +9,8 @@ from ase.units import Ry
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
 from ase.parallel import parprint
+# GPAW
+from gpaw import GPAW
 # Custom modules
 from src.cleanfiles import cleanFiles
 
