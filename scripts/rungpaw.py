@@ -1,12 +1,4 @@
 # Import
-
-import os
-print('Main file environment variables:')
-print(os.environ['GPAW_SETUP_PATH'])
-print(os.environ['PATH'])
-print(os.environ['PYTHONPATH'])
-
-
 from ase import Atoms
 from ase.io import read
 from src.structureoptimizer import perovskite, relax_ase
@@ -25,16 +17,16 @@ def run(formula):
     # Run relaxation using GPAW for atomic positions and cell optimization
     relax_ase(atoms, xcf='PBEsol',
               MeshCutoff=100, kgrid=(10, 10, 10),
-              mode='pw', dir=f'results/bulk/GPAW/{formula}')
+              mode='pw', dir=f'results/bulk/GPAW')
     # Read relaxed structure
-    relaxed_atoms = read(f'results/bulk/GPAW/{formula}/{formula}.xyz')
+    relaxed_atoms = read(f'results/bulk/GPAW/{formula}.xyz')
     # Calculate band structure and PDOS
     calculate_bands(relaxed_atoms, xcf='PBEsol',
                     MeshCutoff=100, kgrid=(10, 10, 10),
-                    mode='pw', dir=f'results/bulk/GPAW/{formula}')
+                    mode='pw', dir=f'results/bulk/GPAW')
     # Calculate phonon dispersion
     calculate_phonons(relaxed_atoms, xcf='PBEsol', basis='DZP',
                       MeshCutoff=100, kgrid=(10, 10, 10),
-                      mode='pw', dir=f'results/bulk/GPAW/{formula}')
+                      mode='pw', dir=f'results/bulk/GPAW')
 
 run('BaTiO3')
