@@ -15,8 +15,8 @@ relax_ase(SrTiO3, xcf='PBEsol',
           MeshCutoff=100, kgrid=(10, 10, 10),
           mode='pw', dir='results/bulk/GPAW')
 # Read relaxed structures
-BaTiO3 = read('results/bulk/relaxsiesta/BaTiO3.xyz')
-SrTiO3 = read('results/bulk/relaxsiesta/SrTiO3.xyz')
+BaTiO3 = read('results/bulk/GPAW/BaTiO3.xyz')
+SrTiO3 = read('results/bulk/GPAW/SrTiO3.xyz')
 # Calculate band structure and PDOS
 calculate_bands(BaTiO3, xcf='PBEsol',
                 MeshCutoff=100, kgrid=(10, 10, 10),

@@ -11,6 +11,7 @@ wheels/
 
 # Results, tools and output files
 results/
+resultsold/
 tools/
 mount/
 *.log
