@@ -25,10 +25,6 @@ fi
 SCRIPT_NAME="$1"
 SCRIPT_PATH="scripts/$SCRIPT_NAME"
 
-echo "argv: $@"
-echo "SCRIPT_PATH='$SCRIPT_PATH'"
-ls -l scripts
-
 # === Hard checks ===
 if [ -d "$SCRIPT_PATH" ]; then
     echo "Error: $SCRIPT_PATH is a directory"

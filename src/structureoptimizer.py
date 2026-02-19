@@ -39,12 +39,13 @@ def perovskite(formula):
         return [[a, 0, 0], [0, a, 0], [0, 0, a]]
     return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
 
-def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-              MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1,
-              fmax=0.005, mode='lcao', filt=True, dir='results/bulk/relax'):
+def relax_ase(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+              MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1, fmax=0.005, mode='lcao',
+              filt=True, dir='results/bulk/relax'):
     """Function to relax a bulk structure using ASE BFGS optimizer with SIESTA or GPAW calculator.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
+    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
     - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
@@ -60,6 +61,12 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
     """
     cwd = os.getcwd()
     symbols = atoms.symbols
+
+    if not bulk:
+        # Center the slab in the cell and add vacuum in the z-direction
+        atoms.center(axis=2, vacuum=10.0)
+        # For slab calculations, set k-point sampling to 1 in the z-direction
+        kgrid[2] = 1
 
     # For SIESTA, calculations are performed with atomic orbitals (LCAO)
     if mode == 'lcao':
@@ -126,12 +133,13 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
         cleanFiles(directory=dir, confirm=False)
 
 
-def relax_siesta(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-              MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1,
-              fmax=0.005, smax=0.01, dir='results/bulk/relaxsiesta'):
+def relax_siesta(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+              MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1, fmax=0.005, smax=0.01,
+              dir='results/bulk/relaxsiesta'):
     """Function to relax a bulk structure with a single Siesta calculation.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
+    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
     - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
@@ -147,11 +155,14 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0
     cwd = os.getcwd()
     symbols = atoms.symbols
 
-    # Species information for recognizing .psf pseudopotential files
+    # Species information for setting up ghost atoms
     spc = [
-      Species(symbol=f'{symbols[0]}', pseudopotential=f'{symbols[0]}.psf'),
-      Species(symbol=f'{symbols[1]}', pseudopotential=f'{symbols[1]}.psf'),
-      Species(symbol=f'{symbols[2]}', pseudopotential=f'{symbols[2]}.psf')
+        Species(symbol=f'{symbols[0]}'),
+        Species(symbol=f'{symbols[0]}', ghost=True),
+        Species(symbol=f'{symbols[1]}'),
+        Species(symbol=f'{symbols[1]}', ghost=True),
+        Species(symbol=f'{symbols[2]}'),
+        Species(symbol=f'{symbols[2]}', ghost=True)
     ]
 
     # Calculation parameters in a dictionary
