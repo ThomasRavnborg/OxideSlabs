@@ -94,7 +94,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
             'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': os.path.join(dir, f"{symbols}_{mode}.txt")
+            'txt': None
         }
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
@@ -110,7 +110,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
             symmetry='off',
             kpts={'path': 'GXRMGR', 'npoints': 300},
             convergence={'bands': 16},
-            txt=None)
+            txt=os.path.join(dir, f"{symbols}_BS.txt"))
         
         path = bandpath('GXRMGR', BScalc.atoms.cell, npoints=300)
         
