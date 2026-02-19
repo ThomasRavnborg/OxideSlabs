@@ -87,9 +87,6 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
         if par:
             # Change diagonalization algorithm when running in parallel
             fdf_args['Diag.Algorithm'] = 'ELPA'
-
-        # Set up the Siesta calculator
-        calc = Siesta(**calc_params, fdf_arguments=fdf_args)
     
     elif mode == 'pw':
         #from gpaw import GPAW
@@ -100,11 +97,8 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
             'kpts': {'size': tuple(x // N for x in kgrid), 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': os.path.join(dir, f"{symbols}_PH.txt"),
-            'symmetry': {'point_group': False, 'time_reversal': False, 'symmorphic': False}
+            'txt': os.path.join(dir, f"{symbols}_PH.txt")
         }
-        # Set up the GPAW calculator
-        calc = GPAW(**calc_params)
 
     # Calculate forces for displaced supercells
     forces = []
@@ -119,6 +113,14 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
                           cell=sc.cell,
                           pbc=True)  # Assume periodic boundary conditions
         
+        # Set up the calculator based on the selected mode
+        if mode == 'lcao':
+            # Set up the Siesta calculator
+            calc = Siesta(**calc_params, fdf_arguments=fdf_args)
+        elif mode == 'pw':
+            # Set up the GPAW calculator
+            calc = GPAW(**calc_params)
+
         # Attach the calculator to this ASE atoms object
         atoms_ase.calc = calc
         
