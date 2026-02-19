@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --partition=xeon24el8_test
+#SBATCH --partition=xeon24el8
 #SBATCH -N 1
 #SBATCH -n 24
-#SBATCH --time=00:10:00
+#SBATCH --time=10:00:00
 #SBATCH --job-name=siesta
 
 set -e
