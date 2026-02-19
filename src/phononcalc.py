@@ -126,9 +126,10 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
         
         # Append forces to the list
         forces.append(force)
+
+    # Set forces in Phonopy and calculate force constants
+    phonon.forces = forces
     if world.rank == 0:
-        # Set forces in Phonopy and calculate force constants
-        phonon.forces = forces
         # Save phonopy .yaml file
         phonon.save(os.path.join(dir, f"{symbols}.yaml"))
     if mode == 'lcao':
