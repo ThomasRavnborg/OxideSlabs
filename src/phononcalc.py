@@ -100,7 +100,7 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
             'kpts': {'size': tuple(x // N for x in kgrid), 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': os.path.join(dir, f"{symbols}_{mode}.txt")
+            'txt': os.path.join(dir, f"{symbols}_PH.txt")
         }
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
