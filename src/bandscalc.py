@@ -10,6 +10,7 @@ from ase.calculators.siesta import Siesta
 from ase import Atoms
 from ase.units import Ry
 from ase.dft.kpoints import bandpath
+from ase.parallel import world
 from ase.parallel import parprint
 # GPAW
 from gpaw import GPAW
@@ -56,6 +57,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
         fdf_args = {
             'PAO.BasisSize': basis,
             'PAO.SplitNorm': SplitNorm,
+            'SCF.DM.Tolerance': 1e-6,
             'BandLinesScale': 'ReciprocalLatticeVectors',
             '%block BandLines': '''
             1 0.000 0.000 0.000 \Gamma
@@ -112,25 +114,26 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
         
         path = bandpath('GXRMGR', BScalc.atoms.cell, npoints=300)
         
-        x, X, labels = path.get_linear_kpoint_axis()
-        X = np.array([X, labels])
+        if world.rank == 0:
+            x, X, labels = path.get_linear_kpoint_axis()
+            X = np.array([X, labels])
         
-        # Find Fermi energy
-        ef = BScalc.get_fermi_level()
-        # These arrays give us the datapoints and off-sets to the fermi energy
-        e_kn = np.array([BScalc.get_eigenvalues(kpt=k) for k in range(len(BScalc.get_ibz_k_points()))])
-        e_nk = e_kn.T
-        e_nk -= ef
-        # Save the bandstructure data to a file
-        np.savez(os.path.join(dir, f"{symbols}_BS.npz"), X=X, x=x, bands=e_nk)
+            # Find Fermi energy
+            ef = BScalc.get_fermi_level()
+            # These arrays give us the datapoints and off-sets to the fermi energy
+            e_kn = np.array([BScalc.get_eigenvalues(kpt=k) for k in range(len(BScalc.get_ibz_k_points()))])
+            e_nk = e_kn.T
+            e_nk -= ef
+            # Save the bandstructure data to a file
+            np.savez(os.path.join(dir, f"{symbols}_BS.npz"), X=X, x=x, bands=e_nk)
 
-        # The density of states (DOS) is calculated
-        E, DOS = BScalc.get_dos(spin=0, npts=500, width=0.2)
-        # Save the DOS data to a file
-        np.savez(os.path.join(dir, f"{symbols}_DOS.npz"), E=E, DOS=DOS)
-
-    # Remove unnecessary files generated during the relaxation
-    cleanFiles(directory=dir, confirm=False)
+            # The density of states (DOS) is calculated
+            E, DOS = BScalc.get_dos(spin=0, npts=500, width=0.2)
+            # Save the DOS data to a file
+            np.savez(os.path.join(dir, f"{symbols}_DOS.npz"), E=E, DOS=DOS)
+    elif mode == 'lcao':
+        # Remove unnecessary files generated from SIESTA
+        cleanFiles(directory=dir, confirm=False)
 
 # Define a function that plots the bandstructure and DOS together
 def plot_bands(formula, ids=np.array([]), vals=np.array([]), root='results'):

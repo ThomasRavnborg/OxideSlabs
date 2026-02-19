@@ -8,6 +8,7 @@ from ase.calculators.siesta.parameters import Species, PAOBasisBlock
 from ase.units import Ry
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
+from ase.parallel import world
 from ase.parallel import parprint
 # GPAW
 from gpaw import GPAW
@@ -77,7 +78,8 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
         # fdf arguments in a dictionary
         fdf_args = {
             'PAO.BasisSize': basis,
-            'PAO.SplitNorm': SplitNorm
+            'PAO.SplitNorm': SplitNorm,
+            'SCF.DM.Tolerance': 1e-6,
         }
         # Set up the Siesta calculator
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
@@ -116,10 +118,12 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15
                trajectory=os.path.join(dir, f"{symbols}.traj"))
     # Run the optimization until forces are smaller than fmax
     opt.run(fmax=fmax)
-    # Write atoms object to file
-    atoms.write(os.path.join(dir, f"{symbols}.xyz"))
-    # Remove unnecessary files generated during the relaxation
-    cleanFiles(directory=dir, confirm=False)
+    if world.rank == 0:
+        # Write atoms object to file (only on master process to avoid conflicts)
+        atoms.write(os.path.join(dir, f"{symbols}.xyz"))
+    if mode == 'lcao':
+        # Remove unnecessary files generated from SIESTA
+        cleanFiles(directory=dir, confirm=False)
 
 
 def relax_siesta(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
