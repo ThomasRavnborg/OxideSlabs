@@ -327,14 +327,14 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     ax1.axhline(y=0, color='k', linestyle=':')
     ax2.axhline(y=0, color='k', linestyle=':')
 
-    """
+    
     dir = 'results/bulk/GPAW'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
     _plot_disp(ax1, phonon, 'GPAW')
     # Plot total DOS
     _plot_dos(ax2, phonon, 'GPAW')
-    """
+    
 
     for i in range(len(ids)):
         # Load Phonopy object from YAML file
