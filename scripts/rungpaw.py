@@ -34,5 +34,4 @@ def run(formula, task):
                         MeshCutoff=100, kgrid=(10, 10, 10),
                         mode='pw', dir=f'results/bulk/GPAW')
 
-run('BaTiO3', 'bands')
 run('BaTiO3', 'phonons')
