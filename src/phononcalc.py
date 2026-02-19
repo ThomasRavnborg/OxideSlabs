@@ -7,6 +7,7 @@ from matplotlib.ticker import AutoMinorLocator
 from ase import Atoms
 from ase.io import read
 from ase.units import Ry
+from ase.parallel import world
 from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
 # GPAW
@@ -78,6 +79,7 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
         fdf_args = {
             'PAO.BasisSize': basis,
             'PAO.SplitNorm': SplitNorm,
+            'SCF.DM.Tolerance': 1e-6,
             "MD.TypeOfRun": "CG",
             "MD.NumCGsteps": 0,  # forces only
         }
@@ -124,13 +126,14 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
         
         # Append forces to the list
         forces.append(force)
-    
-    # Set forces in Phonopy and calculate force constants
-    phonon.forces = forces
-    # Save phonopy .yaml file
-    phonon.save(os.path.join(dir, f"{symbols}.yaml"))
-    # Remove unnecessary files generated during the relaxation
-    cleanFiles(directory=dir, confirm=False)
+    if world.rank == 0:
+        # Set forces in Phonopy and calculate force constants
+        phonon.forces = forces
+        # Save phonopy .yaml file
+        phonon.save(os.path.join(dir, f"{symbols}.yaml"))
+    if mode == 'lcao':
+        # Remove unnecessary files generated from SIESTA
+        cleanFiles(directory=dir, confirm=False)
 
 def order_labels(symbols, handles, labels):
     # Define a custom order for the labels
