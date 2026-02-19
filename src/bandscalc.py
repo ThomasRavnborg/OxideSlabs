@@ -125,7 +125,7 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
         e_nk = e_kn.T
         e_nk -= ef
         # The density of states (DOS) is calculated
-        E, DOS = BScalc.get_dos(spin=0, npts=2000, width=0.2)
+        E, DOS = calc.get_dos(spin=0, npts=2000, width=0.2)
         # Shift energy values to fermi level
         E -= ef
         # Save the bandstructure and DOS data to files on the master process
