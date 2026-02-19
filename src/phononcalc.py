@@ -100,7 +100,8 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
             'kpts': {'size': tuple(x // N for x in kgrid), 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': os.path.join(dir, f"{symbols}_PH.txt")
+            'txt': os.path.join(dir, f"{symbols}_PH.txt"),
+            'symmetry': {'point_group': False, 'time_reversal': False, 'symmorphic': False}
         }
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
@@ -324,12 +325,14 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     ax1.axhline(y=0, color='k', linestyle=':')
     ax2.axhline(y=0, color='k', linestyle=':')
 
+    """
     dir = 'results/bulk/GPAW'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
     _plot_disp(ax1, phonon, 'GPAW')
     # Plot total DOS
     _plot_dos(ax2, phonon, 'GPAW')
+    """
 
     for i in range(len(ids)):
         # Load Phonopy object from YAML file

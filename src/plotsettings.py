@@ -30,22 +30,34 @@ class PlotSettings():
             "savefig.dpi": 300                   # High resolution for saving
         })
 
-    def set_style_ax(self, ax, gridlines=False, minimalist=False):
-        # Minor ticks
-        ax.xaxis.set_minor_locator(AutoMinorLocator())
-        ax.yaxis.set_minor_locator(AutoMinorLocator())
-        # Minimalist style
-        if minimalist:
+
+    # Function to set consistent styles for individual axes
+    def set_style_ax(self, ax, style='default', minor=True, gridlines=False):
+        if minor:
+            # Minor ticks
+            ax.xaxis.set_minor_locator(AutoMinorLocator())
+            ax.yaxis.set_minor_locator(AutoMinorLocator())
+        
+        if style == 'default':
+            # Ticks on all sides, pointing inwards, with specific lengths and widths
+            ax.tick_params(which='both', direction='in', top=True, right=True)
+            ax.tick_params(which='major', length=7, width=1.2)
+            ax.tick_params(which='minor', length=4, width=1)
+
+        if style == 'minimalist':
+            # Minimalist style
             # Hide top and right spines (borders)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             # Ticks only on bottom and left
             ax.tick_params(which='both', top=False, right=False)
-        else:
-            # Tick parameters
-            ax.tick_params(which='both', direction='in', top=True, right=True)
-            ax.tick_params(which='major', length=7, width=1.2)
-            ax.tick_params(which='minor', length=4, width=1)
+        
+        if style == 'bands':
+            # Ticks on all sides, pointing outwards, with specific lengths and widths
+            ax.tick_params(which='both', direction='out', labelsize = 16, pad = 4)
+            ax.tick_params(which='major', length=6)
+            ax.tick_params(which='minor', length=3)
+
         # Optional grid
         if gridlines:
             ax.grid(True, which="major", linestyle="--", linewidth=0.6, alpha=0.7)
