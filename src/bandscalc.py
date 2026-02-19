@@ -180,6 +180,14 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
         # Normalize X and x to the total length of the path (the last value in X and x respectively)
         X /= X[-1]
         x /= x[-1]
+        # Find lowest energy (VBM) and highest energy (CBM)
+        VBM = bands[bands <= 0].max()
+        CBM = bands[bands > 0].min()
+        Eg = CBM - VBM
+        print(f'Bandgap: {Eg:.3f} eV')
+        # Shift bands to set VBM at 0 eV
+        bands -= VBM
+
         # Set x-ticks to the symmetry points and label them
         ax.xaxis.set_ticks(X)
         ax.set_xticklabels(labels)
@@ -217,7 +225,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     dir = 'results/bulk/GPAW'
     _plot_bandstructure(ax1, dir, 'GPAW', mode='pw')
     _plot_dos(ax2, dir, 'GPAW', mode='pw')
-    """
+    
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
         dir = os.path.join('results/bulk/',formula, ids[i], 'bands')
@@ -229,7 +237,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
 
         # Subplot 2 - Density of states (DOS)
         _plot_dos(ax2, dir, vals[i], col=col)
-    """
+    
     # Set x- and y-label
     ax1.set_xlabel('k-points')
     ax1.set_ylabel('Energy, $E-E_F$ (eV)')
