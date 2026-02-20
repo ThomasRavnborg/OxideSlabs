@@ -367,3 +367,81 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     
     # Show figure
     plt.show()
+
+
+# Define a function that plots the dispersion and DOS together
+def plot_dispersion2(formula, ids=np.array([]), vals=np.array([])):
+    """Function to plot the phonon dispersion seperately
+    Parameters:
+    - formula: Chemical formula of the material.
+    - ids: Numpy array of IDs to plot.
+    - vals: Numpy array of values corresponding to the IDs (e.g., different functionals or parameters).
+    Returns:
+    - None. The function creates a plot of the phonon dispersion and DOS.
+    """
+    
+    # Define tickmarks for the x- and y-axis
+    E_tickmarks = np.arange(-10, 26, 5)
+
+    # Define a list of colors for the plots (if needed)
+    colors = ["black", "blue", "red", "purple", "orange", "green"]
+    N = len(ids) + 1
+
+    # Create N subplots for the band structure along x
+    fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')
+
+    plt.subplots_adjust(wspace=0.05)
+    
+    def _plot_disp(ax, phonon, val, col='k'):
+        # Extract phonon dispersion data
+        (dist, X, freq, labels) = get_phonon_dispersion(phonon)
+        dist = np.array(dist)
+        dist /= dist[-1][-1]  # Normalize distances to the total length of the path
+        X /= X[-1]  # Normalize high symmetry point locations to the total length of the path
+
+        # Set title
+        ax.set_title(f"{val}")
+        # Plot vertical lines at symmetry points
+        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=1)
+        # Plot dashed line at 0
+        ax.axhline(y=0, color='k', linestyle=':')
+        # Determine the number of segments between symmetry points and the number of modes
+        n_segments = len(freq)
+        n_modes = freq[0].shape[1]
+        # Loop over all segments and modes and plot everything
+        for i in range(n_segments):
+            for j in range(n_modes):
+                ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5)
+        # Set x- and y-ticks
+        ax.xaxis.set_ticks(X[0:-2])
+        ax.set_xticklabels(labels[0:-2])
+        ax.set_yticks(E_tickmarks, E_tickmarks.astype(int))
+        # Set x- and y-limits
+        ax.set_xlim(X[0], X[-2])
+        ax.set_ylim(E_tickmarks[0], E_tickmarks[-1])
+        # Add minor tickmarks to the y-axis
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
+        # Apply custom plot settings to the axes
+        PlotSettings().set_style_ax(ax, style='default', minor=False)
+
+    
+    dir = 'results/bulk/GPAW'
+    phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+    # Plot phonon dispersion
+    _plot_disp(axes[0], phonon, 'pw', col=colors[0])
+    
+    # Cycle through the list of IDs and plot the dispersion
+    for i in range(len(ids)):
+        # Load Phonopy object from YAML file
+        dir = os.path.join('results/bulk/',formula, ids[i], 'phonons')
+        phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+        # Plot phonon dispersion
+        _plot_disp(axes[i+1], phonon, vals[i], col=colors[i+1])
+        # Remove y-tick labels for all but the first and last subplot
+        if i < len(ids) - 1:
+            axes[i+1].set_yticklabels([])
+    
+    # Move y-axis of the last subplot to the right but maintain the y-tickmarks on the left
+    axes[-1].tick_params(axis='y', labelright=True, labelleft=False)
+    # Show figure
+    plt.show()
