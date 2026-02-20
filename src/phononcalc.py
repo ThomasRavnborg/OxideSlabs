@@ -10,8 +10,6 @@ from ase.units import Ry
 from ase.parallel import world
 from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
-# GPAW
-from gpaw import GPAW
 # Phonopy
 import phonopy as ph
 from phonopy import Phonopy
@@ -89,7 +87,7 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
             fdf_args['Diag.Algorithm'] = 'ELPA'
     
     elif mode == 'pw':
-        #from gpaw import GPAW
+        from gpaw import GPAW
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),

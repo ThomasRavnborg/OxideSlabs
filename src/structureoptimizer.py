@@ -10,8 +10,6 @@ from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
 from ase.parallel import world
 from ase.parallel import parprint
-# GPAW
-from gpaw import GPAW
 # Custom modules
 from src.cleanfiles import cleanFiles
 
@@ -105,6 +103,7 @@ def relax_ase(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             'convergence': {'density': 1e-6, 'forces': 1e-5},
             'txt': os.path.join(dir, f"{symbols}.txt")
         }
+        from gpaw import GPAW
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
     

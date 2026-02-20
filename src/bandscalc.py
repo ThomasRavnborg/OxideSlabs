@@ -12,8 +12,6 @@ from ase.units import Ry
 from ase.dft.kpoints import bandpath
 from ase.parallel import world
 from ase.parallel import parprint
-# GPAW
-from gpaw import GPAW
 # Custom modules
 from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
@@ -97,6 +95,7 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
             'convergence': {'density': 1e-6, 'forces': 1e-5},
             'txt': None
         }
+        from gpaw import GPAW
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
 
