@@ -14,7 +14,7 @@ class PlotSettings():
         # Global plot style settings
         plt.rcParams.update({
             "font.family": "serif",
-            "font.serif": ["DejaVu Serif"],
+            "font.serif": ["DejaVu Serif"],      # Use DejaVu Serif for text
             "mathtext.fontset": "cm",            # Use Computer Modern for math
             "font.size": 14,                     # Base font size
             "axes.labelsize": 16,                # Axis label font size
@@ -41,8 +41,11 @@ class PlotSettings():
         if style == 'default':
             # Ticks on all sides, pointing inwards, with specific lengths and widths
             ax.tick_params(which='both', direction='in', top=True, right=True)
-            ax.tick_params(which='major', length=7, width=1.2)
-            ax.tick_params(which='minor', length=4, width=1)
+            ax.tick_params(which='major', length=6, width=1)
+            ax.tick_params(which='minor', length=3, width=1)
+            # Change spine widths
+            for spine in ax.spines.values():
+                spine.set_linewidth(1)
 
         if style == 'minimalist':
             # Minimalist style

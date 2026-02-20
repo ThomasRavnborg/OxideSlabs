@@ -15,7 +15,6 @@ class Perovskite:
     """
     def __init__(self, formula='ABX3', a=4.0, N=1, bulk=True):
         self.formula = formula
-        self.a = a
         sca_pos = [[0, 0, 0],
                    [1/2, 1/2, 1/2],
                    [1/2, 0, 1/2],
@@ -25,7 +24,7 @@ class Perovskite:
             return [[a, 0, 0], [0, a, 0], [0, 0, a]]
         
         # Create an atoms object for the unit cell of the perovskite structure
-        atoms_ucell = Atoms(self.formula, cell=unitCell(self.a), scaled_positions=sca_pos)
+        atoms_ucell = Atoms(self.formula, cell=unitCell(a), scaled_positions=sca_pos)
 
         if bulk:
             atoms_ucell.pbc = (True, True, True)
@@ -47,3 +46,5 @@ class Perovskite:
                     del slab[i]
             slab.pbc = (True, True, False)
             self.atoms = slab
+    def __repr__(self):
+        return f'Perovskite(symbols={self.atoms.symbols}, cell={self.atoms.cell}, positions={self.atoms.positions.tolist()}, pbc={self.atoms.pbc})'

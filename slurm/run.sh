@@ -13,8 +13,8 @@ export PYTHONPATH="$PWD:$PYTHONPATH"
 export GPAW_SETUP_PATH="$(dirname "$(readlink -f "$0")")/gpaw_data:$GPAW_SETUP_PATH"
 
 module purge
-#module load Siesta/5.4.0-foss-2024a
-module load GPAW/25.7.0-foss-2025b
+module load Siesta/5.4.0-foss-2024a
+#module load GPAW/25.7.0-foss-2025b
 
 # === Input ===
 if [ -z "$1" ]; then
@@ -38,7 +38,6 @@ fi
 
 export ASE_SIESTA_COMMAND="mpirun siesta < PREFIX.fdf > PREFIX.out"
 
-echo "Running python in parallel $SCRIPT_PATH"
-#uv run python "$SCRIPT_PATH"
-#python "$SCRIPT_PATH"
-gpaw -P 24 python "$SCRIPT_PATH"
+echo "Running uv run $SCRIPT_PATH"
+uv run python "$SCRIPT_PATH"
+#gpaw -P 24 python "$SCRIPT_PATH"
