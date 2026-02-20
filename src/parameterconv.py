@@ -9,7 +9,7 @@ import pandas as pd
 from itertools import product
 
 def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-               MeshCutoff=200, kgrid=(10, 10, 10), dir='results/bulk/relax'):
+               MeshCutoff=300, kgrid=(5, 5, 5), dir='results/bulk/basis'):
     """Function to run Siesta calculation on atoms object.
     Parameters:
     - perovskite: Custom object representing the structure to be relaxed.
@@ -18,9 +18,9 @@ def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
     - basis: Basis set to be used (default is 'DZP').
     - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
     - SplitNorm: Split norm for basis functions (default is 0.15).
-    - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
-    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - dir: Directory where results will be saved (default is 'results/bulk/relax').
+    - MeshCutoff: Mesh cutoff in Ry (default is 300 Ry).
+    - kgrid: K-point mesh as a tuple (default is (5, 5, 5)).
+    - dir: Directory where results will be saved (default is 'results/bulk/basis').
     Returns:
     - None. The function runs the calculation and outputs files in the specified directory.
     """
@@ -44,7 +44,8 @@ def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
     # FDF arguments in a dictionary
     fdf_args = {
         'PAO.BasisSize': basis,
-        'PAO.SplitNorm': SplitNorm
+        'PAO.SplitNorm': SplitNorm,
+        'UseTreeTimer': True
     }
     
     # Set up the Siesta calculator and attach it to the atoms object
@@ -53,43 +54,40 @@ def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
     # Run the calculation
     atoms.get_potential_energy()
 
-def get_enthalpy(formula):
+def get_enthalpy(formula, dir):
     """Function to read enthalpy from Siesta output files.
     Parameters:
     - formula: Chemical formula of the material for which enthalpy is to be read.
     Returns:
     - Enthalpy value (in eV).
     """
-    dir = 'results/bulk/basis/'
     # Read basis enthalpy from file
-    with open(f'{dir}{formula}.BASIS_ENTHALPY', 'r') as file:
+    with open(os.path.join(dir, f'{formula}.BASIS_ENTHALPY'), 'r') as file:
         lines = file.readlines()
     enthalpy = float(lines[0].split()[-1])
     return enthalpy
 
-def get_maxforce(formula):
+def get_maxforce(formula, dir):
     """Function to read maximum force from Siesta output files.
     Parameters:
     - formula: Chemical formula of the material for which maximum force is to be read.
     Returns:
     - Maximum force (in eV/Å).
     """
-    dir = 'results/bulk/basis/'
-    sile = si.get_sile(f'{dir}{formula}.FA')
+    sile = si.get_sile(os.path.join(dir, f'{formula}.FA'))
     forces = sile.read_force()
     return np.max(np.abs(forces))
 
-def get_bandgap(formula):
+def get_bandgap(formula, dir):
     """Function to read bandgap from Siesta output files.
     Parameters:
     - formula: Chemical formula of the material for which bandgap is to be read.
     Returns:
     - Bandgap value at Gamma (in eV).
     """
-    dir = 'results/bulk/basis/'
     # Read eigenvalues and Fermi energy from files
-    eig = si.get_sile(f'{dir}{formula}.EIG').read_data()
-    Ef = si.io.siesta.stdoutSileSiesta(f'{dir}{formula}.out').read_energy()['fermi']
+    eig = si.get_sile(os.path.join(dir, f'{formula}.EIG')).read_data()
+    Ef = si.io.siesta.stdoutSileSiesta(os.path.join(dir, f'{formula}.out')).read_energy()['fermi']
     # Shift eigenvalues by Fermi energy and calculate bandgap
     eig -= Ef
     eig = eig.flatten()
@@ -107,30 +105,31 @@ def basis_opt(perovskite, shifts, splits):
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
-    dir = 'results/bulk/basis/'
+
     formula = perovskite.formula
+    dir = f'resultsold/bulk/{formula}/basis'
     rows = []
     for sh, sp in product(shifts, splits):
         try:
-            run_siesta(perovskite, shift=sh, split=sp)
-            enthalpy = get_enthalpy(formula)
-            maxforce = get_maxforce(formula)
-            bandgap = get_bandgap(formula)
+            run_siesta(perovskite, EnergyShift=sh, SplitNorm=sp, dir=dir)
+            enthalpy = get_enthalpy(formula, dir)
+            maxforce = get_maxforce(formula, dir)
+            #bandgap = get_bandgap(formula, dir)
         except Exception as e:
             enthalpy = None
             maxforce = None
-            bandgap = None
+            #bandgap = None
         
         rows.append({
-            "Shift": sh,
-            "Split": sp,
+            "EnergyShift": sh,
+            "SplitNorm": sp,
             "Enthalpy": enthalpy,
             "MaxForce": maxforce,
-            "Bandgap": bandgap,
+            #"Bandgap": bandgap,
         })
 
     df = pd.DataFrame(rows)
-    df.to_csv(f'{dir}basisopt.csv')
+    df.to_csv(os.path.join(dir, 'basisopt.csv'))
 
 def grid_conv(perovskite, meshcuts, kpoints):
     """Function to optimize grid parameters by running multiple Siesta calculations.
@@ -141,27 +140,28 @@ def grid_conv(perovskite, meshcuts, kpoints):
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
-    dir = 'results/bulk/grid/'
+
     formula = perovskite.formula
+    dir = f'resultsold/bulk/{formula}/basis'
     rows = []
     for mc, kp in product(meshcuts, kpoints):
         try:
-            run_siesta(perovskite, cutoff=mc, kmesh=[kp, kp, kp])
-            enthalpy = get_enthalpy(formula)
-            maxforce = get_maxforce(formula)
-            bandgap = get_bandgap(formula)
+            run_siesta(perovskite, MeshCutoff=mc, kgrid=(kp, kp, kp), dir=dir)
+            enthalpy = get_enthalpy(formula, dir)
+            maxforce = get_maxforce(formula, dir)
+            #bandgap = get_bandgap(formula, dir)
         except Exception as e:
             enthalpy = None
             maxforce = None
-            bandgap = None
+            #bandgap = None
 
         rows.append({
             "MeshCutoff": mc,
-            "KPoints": kp,
+            "kgrid": (kp, kp, kp),
             "Enthalpy": enthalpy,
             "MaxForce": maxforce,
-            "Bandgap": bandgap
+            #"Bandgap": bandgap
         })
 
     df = pd.DataFrame(rows)
-    df.to_csv(f'{dir}gridopt.csv')
+    df.to_csv(os.path.join(dir, 'gridopt.csv'))
