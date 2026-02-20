@@ -8,38 +8,43 @@ import numpy as np
 import pandas as pd
 from itertools import product
 
-def run_siesta(atoms, xcf='PBE', basis='DZP', shift=0.01, split=0.15, cutoff=200, kmesh=[5, 5, 5]):
+def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+               MeshCutoff=200, kgrid=(10, 10, 10), dir='results/bulk/relax'):
     """Function to run Siesta calculation on atoms object.
     Parameters:
-    - atoms: ASE Atoms object representing the structure to be calculated.
-    - xcf: Exchange-correlation functional to be used (default is 'PBE').
+    - perovskite: Custom object representing the structure to be relaxed.
+    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+    - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
-    - shift: Energy shift in Ry (default is 0.01 Ry).
-    - split: Split norm for basis functions (default is 0.15).
-    - cutoff: Mesh cutoff in Ry (default is 200 Ry).
-    - kmesh: K-point mesh as a list (default is [5, 5, 5]).
+    - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
+    - SplitNorm: Split norm for basis functions (default is 0.15).
+    - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
+    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
+    - dir: Directory where results will be saved (default is 'results/bulk/relax').
     Returns:
     - None. The function runs the calculation and outputs files in the specified directory.
     """
     cwd = os.getcwd()
-    dir = 'results/bulk/basis/'
+
+    formula = perovskite.formula
+    atoms = perovskite.atoms
 
     # Calculation parameters in a dictionary
     calc_params = {
-        'label': f'{atoms.symbols}',
+        'label': f'{formula}',
         'xc': xcf,
         'basis_set': basis,
-        'mesh_cutoff': cutoff * Ry,
-        'energy_shift': shift * Ry,
-        'kpts': kmesh,
+        'mesh_cutoff': MeshCutoff * Ry,
+        'energy_shift': EnergyShift * Ry,
+        'kpts': kgrid,
         'directory': dir,
-        'pseudo_path': cwd + '/pseudos'
+        'pseudo_path': os.path.join(cwd, f'pseudos/{xcf}')
     }
 
     # FDF arguments in a dictionary
     fdf_args = {
         'PAO.BasisSize': basis,
-        'PAO.SplitNorm': split
+        'PAO.SplitNorm': SplitNorm
     }
     
     # Set up the Siesta calculator and attach it to the atoms object
@@ -93,23 +98,24 @@ def get_bandgap(formula):
     Eg = CBM - VBM
     return Eg
 
-def basis_opt(atoms, shifts, splits):
+def basis_opt(perovskite, shifts, splits):
     """Function to optimize basis set parameters by running multiple Siesta calculations.
     Parameters:
-    - atoms: ASE Atoms object representing the structure to be calculated.
+    - perovskite: Custom object representing the structure to be calculated.
     - shifts: List of energy shift values to be tested.
     - splits: List of split norm values to be tested.
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
     dir = 'results/bulk/basis/'
+    formula = perovskite.formula
     rows = []
     for sh, sp in product(shifts, splits):
         try:
-            run_siesta(atoms, shift=sh, split=sp)
-            enthalpy = get_enthalpy(atoms.symbols)
-            maxforce = get_maxforce(atoms.symbols)
-            bandgap = get_bandgap(atoms.symbols)
+            run_siesta(perovskite, shift=sh, split=sp)
+            enthalpy = get_enthalpy(formula)
+            maxforce = get_maxforce(formula)
+            bandgap = get_bandgap(formula)
         except Exception as e:
             enthalpy = None
             maxforce = None
@@ -126,23 +132,24 @@ def basis_opt(atoms, shifts, splits):
     df = pd.DataFrame(rows)
     df.to_csv(f'{dir}basisopt.csv')
 
-def grid_conv(atoms, meshcuts, kpoints):
+def grid_conv(perovskite, meshcuts, kpoints):
     """Function to optimize grid parameters by running multiple Siesta calculations.
     Parameters:
-    - atoms: ASE Atoms object representing the structure to be calculated.
+    - perovskite: Custom object representing the structure to be calculated.
     - meshcuts: List of mesh cutoff values to be tested.
     - kpoints: List of k-point mesh values to be tested.
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
     dir = 'results/bulk/grid/'
+    formula = perovskite.formula
     rows = []
     for mc, kp in product(meshcuts, kpoints):
         try:
-            run_siesta(atoms, cutoff=mc, kmesh=[kp, kp, kp])
-            enthalpy = get_enthalpy(atoms.symbols)
-            maxforce = get_maxforce(atoms.symbols)
-            bandgap = get_bandgap(atoms.symbols)
+            run_siesta(perovskite, cutoff=mc, kmesh=[kp, kp, kp])
+            enthalpy = get_enthalpy(formula)
+            maxforce = get_maxforce(formula)
+            bandgap = get_bandgap(formula)
         except Exception as e:
             enthalpy = None
             maxforce = None

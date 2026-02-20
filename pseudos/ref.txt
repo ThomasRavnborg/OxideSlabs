@@ -2,3 +2,5 @@
 2: DOJO Ti.psf
 3: Simune Ti.psf
 4: gga Ti.psf
+PBE: DOJO Ti.psml from PBE
+PBEsol: DOJO Ti.psml from PBEsol
