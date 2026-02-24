@@ -52,7 +52,8 @@ def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
     calc = Siesta(**calc_params, fdf_arguments=fdf_args)
     atoms.calc = calc
     # Run the calculation
-    atoms.get_potential_energy()
+    energy = atoms.get_potential_energy()
+    return energy
 
 def get_enthalpy(formula, dir):
     """Function to read enthalpy from Siesta output files.
@@ -107,29 +108,37 @@ def basis_opt(perovskite, shifts, splits):
     """
 
     formula = perovskite.formula
-    dir = f'resultsold/bulk/{formula}/basis'
-    rows = []
-    for sh, sp in product(shifts, splits):
-        try:
-            run_siesta(perovskite, EnergyShift=sh, SplitNorm=sp, dir=dir)
-            enthalpy = get_enthalpy(formula, dir)
-            maxforce = get_maxforce(formula, dir)
-            #bandgap = get_bandgap(formula, dir)
-        except Exception as e:
-            enthalpy = None
-            maxforce = None
-            #bandgap = None
-        
-        rows.append({
-            "EnergyShift": sh,
-            "SplitNorm": sp,
-            "Enthalpy": enthalpy,
-            "MaxForce": maxforce,
-            #"Bandgap": bandgap,
-        })
+    dir = f'results/bulk/{formula}/basis'
 
-    df = pd.DataFrame(rows)
-    df.to_csv(os.path.join(dir, 'basisopt.csv'))
+    # Set up paths and read existing results if available
+    csv_path = f'results/bulk/{formula}/basis'
+    if os.path.exists(os.path.join(csv_path, 'basisopt.csv')):
+        df = pd.read_csv(os.path.join(csv_path, 'basisopt.csv'))
+    else:
+        df = pd.DataFrame(columns=['EnergyShift', 'SplitNorm', 'Energy', 'Enthalpy'])
+
+    rows = []
+    for shift, split in product(shifts, splits):
+        # Check if results have been obtained
+        if ((df['EnergyShift'] == shift) & (df['SplitNorm'] == split)).any():
+            print(f"EnergyShift={shift} Ry and SplitNorm={split} is in the DataFrame. Skipping.")
+        else:
+            # Get energy and enthalpy from SIESTA
+            energy = run_siesta(perovskite, EnergyShift=shift, SplitNorm=split, dir=dir)
+            enthalpy = get_enthalpy(formula, dir)
+            # Append results
+            rows.append({
+                "EnergyShift": shift,
+                "SplitNorm": split,
+                "Energy": energy,
+                "Enthalpy": enthalpy
+            })
+    # Create new dataframe
+    df_new = pd.DataFrame(rows)
+    # Update old datafrem with new results
+    df = pd.concat([df, df_new], ignore_index=True)
+    # Save new results
+    df.to_csv(os.path.join(csv_path, 'basisopt.csv'))
 
 def grid_conv(perovskite, meshcuts, kpoints):
     """Function to optimize grid parameters by running multiple Siesta calculations.
@@ -142,7 +151,7 @@ def grid_conv(perovskite, meshcuts, kpoints):
     """
 
     formula = perovskite.formula
-    dir = f'resultsold/bulk/{formula}/basis'
+    dir = f'results/bulk/{formula}/basis'
     rows = []
     for mc, kp in product(meshcuts, kpoints):
         try:

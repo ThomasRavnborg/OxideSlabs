@@ -1,12 +1,13 @@
 # Import modules
-from src.structureoptimizer import perovskite
+from src.structure import Perovskite
 from src.parameterconv import basis_opt
+import numpy as np
+import pandas as pd
+import os
 # Define shifts and splits for calculations
-shifts = [0.001, 0.002, 0.004, 0.006, 0.008, 0.01, 0.02, 0.03, 0.04]  # in Ry
-splits = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+shifts = np.arange(0.001, 0.016, 0.001)  # in Ry
+splits = np.arange(0.1, 0.41, 0.02)
 # Create perovskite atoms object
-BaTiO3 = perovskite('BaTiO3')
-# Move one of the atoms to create a force
-BaTiO3[1].position += [0.1, 0.0, 0.0]
-# Run basis "optimization" which outputs a .csv
+BaTiO3 = Perovskite('BaTiO3', a=3.97)
+# Run basis "optimization" which outputs/updates a .csv
 basis_opt(BaTiO3, shifts, splits)
