@@ -261,8 +261,8 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     xtickmarks = np.arange(0, 7, 1)
 
     # Define colors and styles for plotting (if needed)
-    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink']
-    styles = ['-', '--', '-.', ':', '-', '--', '-.']
+    colors = ["black", "blue", "red", "purple", "orange", "green"]
+    #styles = ['-', '--', '-.', ':', '-', '--', '-.']
 
     # Make a simple figure where graphs are plotted
     fig = plt.figure(figsize=[6.6, 5])
@@ -271,7 +271,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     ax1 = fig.add_axes([0, 0, 1, 1])
     ax2 = fig.add_axes([1.05, 0, 0.4, 1])
     
-    def _plot_disp(ax, phonon, val, col='k', style='-'):
+    def _plot_disp(ax, phonon, val, col='k'):
         # Extract phonon dispersion data
         (dist, X, freq, labels) = get_phonon_dispersion(phonon, bulk)
         dist = np.array(dist)
@@ -288,9 +288,9 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
         for i in range(n_segments):
             for j in range(n_modes):
                 if i == 0 and j == 0:
-                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5, label=f'{val}', linestyle=style)
+                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5, label=f'{val}')
                 else:
-                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5, linestyle=style)
+                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5)
         # Set x- and y-ticks
         ax.set_xticks(X, labels)
         ax.set_yticks(ytickmarks, ytickmarks)
@@ -329,9 +329,9 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     dir = 'results/bulk/GPAW'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
-    _plot_disp(ax1, phonon, 'GPAW')
+    _plot_disp(ax1, phonon, 'GPAW', col=colors[0])
     # Plot total DOS
-    _plot_dos(ax2, phonon, 'GPAW')
+    _plot_dos(ax2, phonon, 'GPAW', col=colors[0])
     
 
     for i in range(len(ids)):
@@ -340,9 +340,9 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
         phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
         
         # Plot phonon dispersion
-        _plot_disp(ax1, phonon, vals[i], col=colors[i], style=styles[i])
+        _plot_disp(ax1, phonon, vals[i], col=colors[i+1])
         # Plot total DOS
-        _plot_dos(ax2, phonon, vals[i], col=colors[i], style=styles[i])
+        _plot_dos(ax2, phonon, vals[i], col=colors[i+1])
         if pDOS:
             # Plot PDOS
             _plot_pdos(ax2, phonon)

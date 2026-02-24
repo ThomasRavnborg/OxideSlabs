@@ -98,7 +98,7 @@ def get_bandgap(formula, dir):
     Eg = CBM - VBM
     return Eg
 
-def basis_opt(perovskite, shifts, splits):
+def basis_opt(perovskite, shifts, splits, basis='DZP'):
     """Function to optimize basis set parameters by running multiple Siesta calculations.
     Parameters:
     - perovskite: Custom object representing the structure to be calculated.
@@ -109,14 +109,13 @@ def basis_opt(perovskite, shifts, splits):
     """
     
     formula = perovskite.formula
-    dir = f'results/bulk/{formula}/basis'
+    dir = f'results/bulk/{formula}/{basis}'
 
     if os.path.exists(os.path.join(dir, 'basisopt.csv')):
         df = pd.read_csv(os.path.join(dir, 'basisopt.csv'))
     else:
         df = pd.DataFrame(columns=['EnergyShift', 'SplitNorm', 'Energy', 'Enthalpy'])
 
-    #rows = []
     for shift, split in product(shifts, splits):
         # Check if results have been obtained
         if ((df['EnergyShift'] == shift) & (df['SplitNorm'] == split)).any():

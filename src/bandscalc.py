@@ -160,8 +160,11 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     """
 
     # Define tickmarks for the x- and y-axis
-    ytickmarks = np.arange(-6, 8, 2)
-    xtickmarks = np.arange(0, 7, 1)
+    E_tickmarks = np.arange(-6, 8, 2)
+    dos_tickmarks = np.arange(0, 7, 1)
+
+    # Define a list of colors for the plots (if needed)
+    colors = ["black", "blue", "red", "purple", "orange", "green"]
     
     # Make a simple figure where graphs are plotted
     fig = plt.figure(figsize=[6.6, 5])
@@ -206,7 +209,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
         ax.xaxis.set_ticks(X)
         ax.set_xticklabels(labels)
         # Plot vertical lines at symmetry points
-        ax.vlines(X, ytickmarks[0], ytickmarks[-1], color='0.5', linewidth=1)
+        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', linewidth=1)
         ax.set_xlim(X[0], X[-1])
 
         # Plot band-structures
@@ -238,27 +241,25 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     ax2.axhline(y=0, color='k', linestyle=':')
 
     dir = 'results/bulk/GPAW'
-    CBM, VBM = _plot_bandstructure(ax1, dir, 'GPAW', mode='pw')
+    CBM, VBM = _plot_bandstructure(ax1, dir, 'GPAW', mode='pw', col=colors[0])
     shift = VBM + (CBM - VBM)/2
-    _plot_dos(ax2, dir, 'GPAW', mode='pw', shift=shift)
+    _plot_dos(ax2, dir, 'GPAW', mode='pw', shift=shift, col=colors[0])
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
         dir = os.path.join('results/bulk/',formula, ids[i], 'bands')
-        # Cycle through a list of colors for the plots
-        col = plt.get_cmap("viridis")(i / (len(ids) - 1))
 
         # Subplot 1 - Band structure
-        CBM, VBM = _plot_bandstructure(ax1, dir, vals[i], col=col)
+        CBM, VBM = _plot_bandstructure(ax1, dir, vals[i], col=colors[i+1])
         shift = VBM + (CBM - VBM)/2
         # Subplot 2 - Density of states (DOS)
-        _plot_dos(ax2, dir, vals[i], col=col, shift=shift)
+        _plot_dos(ax2, dir, vals[i], col=colors[i+1], shift=shift)
     
     # Set x- and y-label
     ax1.set_xlabel('k-points')
     ax1.set_ylabel('Energy, $E-E_F$ (eV)')
     # Set x- and y-limits
-    ax1.set_ylim(ytickmarks[0], ytickmarks[-1])
+    ax1.set_ylim(E_tickmarks[0], E_tickmarks[-1])
     # Add minor tickmarks to the y-axis
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
     # Apply custom plot settings to the axes
@@ -268,11 +269,11 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     # Customize y-axis label and other parameters if needed
     ax2.set_xlabel('DOS (1/eV)')
     # Force x- and y-ticks
-    ax2.set_xticks(xtickmarks, xtickmarks)
-    ax2.set_yticks(ytickmarks, ytickmarks)
+    ax2.set_xticks(dos_tickmarks, dos_tickmarks)
+    ax2.set_yticks(E_tickmarks, E_tickmarks)
     # Set limits to match
-    ax2.set_xlim(xtickmarks[0], xtickmarks[-1])
-    ax2.set_ylim(ytickmarks[0], ytickmarks[-1])
+    ax2.set_xlim(dos_tickmarks[0], dos_tickmarks[-1])
+    ax2.set_ylim(E_tickmarks[0], E_tickmarks[-1])
     # Hide y-tick labels
     ax2.set_yticklabels([])
     # Apply custom plot settings to the axes
