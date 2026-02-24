@@ -7,6 +7,7 @@ import sisl as si
 import numpy as np
 import pandas as pd
 from itertools import product
+from src.cleanfiles import cleanFiles
 
 def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                MeshCutoff=300, kgrid=(5, 5, 5), dir='results/bulk/basis'):
@@ -110,10 +111,8 @@ def basis_opt(perovskite, shifts, splits):
     formula = perovskite.formula
     dir = f'results/bulk/{formula}/basis'
 
-    # Set up paths and read existing results if available
-    csv_path = f'results/bulk/{formula}/basis'
-    if os.path.exists(os.path.join(csv_path, 'basisopt.csv')):
-        df = pd.read_csv(os.path.join(csv_path, 'basisopt.csv'))
+    if os.path.exists(os.path.join(dir, 'basisopt.csv')):
+        df = pd.read_csv(os.path.join(dir, 'basisopt.csv'))
     else:
         df = pd.DataFrame(columns=['EnergyShift', 'SplitNorm', 'Energy', 'Enthalpy'])
 
@@ -138,7 +137,9 @@ def basis_opt(perovskite, shifts, splits):
     # Update old datafrem with new results
     df = pd.concat([df, df_new], ignore_index=True)
     # Save new results
-    df.to_csv(os.path.join(csv_path, 'basisopt.csv'))
+    df.to_csv(os.path.join(dir, 'basisopt.csv'))
+    # Clean directory of SIESTA calculations
+    cleanFiles(directory=dir, confirm=False)
 
 def grid_conv(perovskite, meshcuts, kpoints):
     """Function to optimize grid parameters by running multiple Siesta calculations.
