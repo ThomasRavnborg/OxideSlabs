@@ -116,7 +116,7 @@ def basis_opt(perovskite, shifts, splits):
     else:
         df = pd.DataFrame(columns=['EnergyShift', 'SplitNorm', 'Energy', 'Enthalpy'])
 
-    rows = []
+    #rows = []
     for shift, split in product(shifts, splits):
         # Check if results have been obtained
         if ((df['EnergyShift'] == shift) & (df['SplitNorm'] == split)).any():
@@ -127,23 +127,18 @@ def basis_opt(perovskite, shifts, splits):
                                 MeshCutoff=800, kgrid=(10, 10, 10))
             enthalpy = get_enthalpy(formula, dir)
             # Append results
-            rows.append({
+            row = {
                 "EnergyShift": shift,
                 "SplitNorm": split,
                 "Energy": energy,
                 "Enthalpy": enthalpy
-            })
-    # If there are no new rows to add, skip the rest of the process
-    if len(rows) == 0:
-        print("No new results to add. Exiting.")
-        return
-    # Create new dataframe
-    df_new = pd.DataFrame(rows)
-    print(df_new)
-    # Update old datafrem with new results
-    df = pd.concat([df, df_new], ignore_index=True)
-    # Save new results
-    df.to_csv(os.path.join(dir, 'basisopt.csv'), index=False)
+            }
+            # Create new dataframe
+            df_new = pd.DataFrame([row])
+            # Update old datafrem with new results
+            df = pd.concat([df, df_new], ignore_index=True)
+            # Save new results
+            df.to_csv(os.path.join(dir, 'basisopt.csv'), index=False)
     # Clean directory of SIESTA calculations
     cleanFiles(directory=dir, confirm=False)
 
