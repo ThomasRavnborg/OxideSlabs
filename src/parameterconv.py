@@ -107,7 +107,7 @@ def basis_opt(perovskite, shifts, splits):
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
-
+    
     formula = perovskite.formula
     dir = f'results/bulk/{formula}/basis'
 

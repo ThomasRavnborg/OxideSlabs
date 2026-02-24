@@ -14,8 +14,8 @@ project = SiestaProject(material=str(atoms.symbols))
 xcfs =    ['PBEsol']
 basis =   ['DZP']
 pseudos = ['PBEsol']
-shifts =  [0.004, 0.006, 0.008, 0.01, 0.012]
-splits =  [0.15]
+shifts =  [0.006]
+splits =  [0.2]
 cutoffs = [1000]
 grids =   [10]
 
