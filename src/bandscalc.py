@@ -258,7 +258,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     dir = 'results/bulk/test_bands'
     CBM, VBM = _plot_bandstructure(ax1, dir, 'test', col='orange')
     shift = VBM + (CBM - VBM)/2
-    _plot_dos(ax2, dir, 'test', mode='pw', shift=shift, col='orange')
+    _plot_dos(ax2, dir, 'test', shift=shift, col='orange')
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
@@ -378,8 +378,11 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
         # Apply custom plot settings to the axes
         PlotSettings().set_style_ax(ax, style='default', minor=False)
     
-    dir = 'results/bulk/GPAW'
-    _plot_bandstructure(axes[0], dir, 'PW', col=colors[0], mode='pw')
+    #dir = 'results/bulk/GPAW'
+    #_plot_bandstructure(axes[0], dir, 'PW', col=colors[0], mode='pw')
+
+    dir = 'results/bulk/test_bands'
+    _plot_bandstructure(axes[0], dir, 'test', col=colors[0])
     axes[0].set_ylabel('Energy, $E-E_F$ (eV)')
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID

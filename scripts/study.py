@@ -12,9 +12,9 @@ project = SiestaProject(material=str(atoms.symbols))
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['TZP']
+basis =   ['DZP']
 pseudos = ['PBEsol']
-shifts =  [0.01]
+shifts =  [0.002, 0.02, 0.03, 0.04]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [10]
