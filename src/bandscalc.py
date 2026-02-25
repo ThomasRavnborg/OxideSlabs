@@ -254,6 +254,11 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     CBM, VBM = _plot_bandstructure(ax1, dir, 'PW', mode='pw', col=colors[0])
     shift = VBM + (CBM - VBM)/2
     _plot_dos(ax2, dir, 'PW', mode='pw', shift=shift, col=colors[0])
+
+    dir = 'results/bulk/test_bands'
+    CBM, VBM = _plot_bandstructure(ax1, dir, 'test', col='orange')
+    shift = VBM + (CBM - VBM)/2
+    _plot_dos(ax2, dir, 'test', mode='pw', shift=shift, col='orange')
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
