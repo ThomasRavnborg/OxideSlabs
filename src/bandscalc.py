@@ -251,9 +251,9 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     ax2.axhline(y=0, color='k', linestyle=':')
 
     dir = 'results/bulk/GPAW'
-    CBM, VBM = _plot_bandstructure(ax1, dir, 'GPAW', mode='pw', col=colors[0])
+    CBM, VBM = _plot_bandstructure(ax1, dir, 'PW', mode='pw', col=colors[0])
     shift = VBM + (CBM - VBM)/2
-    _plot_dos(ax2, dir, 'GPAW', mode='pw', shift=shift, col=colors[0])
+    _plot_dos(ax2, dir, 'PW', mode='pw', shift=shift, col=colors[0])
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
@@ -266,7 +266,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
         _plot_dos(ax2, dir, vals[i], col=colors[i+1], shift=shift, pDOS=True)
     
     # Set x- and y-label
-    ax1.set_xlabel('k-points')
+    #ax1.set_xlabel('k-points')
     ax1.set_ylabel('Energy, $E-E_F$ (eV)')
     # Set x- and y-limits
     ax1.set_ylim(E_tickmarks[0], E_tickmarks[-1])
@@ -363,9 +363,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
         # Plot band-structures
         for j, e_k in enumerate(bands):
             ax.plot(x, e_k, color=col)
-        # Set x- and y-label
-        #ax.set_xlabel('k-points')
-        #ax.set_ylabel('Energy, $E-E_F$ (eV)')
+        # Set y-ticks to the defined tickmarks and label them
         ax.set_yticks(E_tickmarks, E_tickmarks.astype(str))
         # Set x- and y-limits
         ax.set_xlim(X[0], X[-2])
@@ -376,7 +374,8 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
         PlotSettings().set_style_ax(ax, style='default', minor=False)
     
     dir = 'results/bulk/GPAW'
-    _plot_bandstructure(axes[0], dir, 'pw', col=colors[0], mode='pw')
+    _plot_bandstructure(axes[0], dir, 'PW', col=colors[0], mode='pw')
+    axes[0].set_ylabel('Energy, $E-E_F$ (eV)')
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
@@ -387,7 +386,6 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
         if i < len(ids) - 1:
             axes[i+1].set_yticklabels([])
     
-    axes[0].set_ylabel('Energy, $E-E_F$ (eV)')
     # Move y-axis of the last subplot to the right but maintain the y-tickmarks on the left
     axes[-1].tick_params(axis='y', labelright=True, labelleft=False)
     # Show figure
@@ -444,7 +442,7 @@ def plot_bands_SISL(formula, dir='results/bulk/bandstructure'):
     ax1.plot(lk, eigs, color='k')
 
     # Set x- and y-label
-    ax1.set_xlabel('k-points')
+    #ax1.set_xlabel('k-points')
     ax1.set_ylabel('Energy, $E-E_F$ (eV)')
     # Set x- and y-limits
     ax1.set_xlim(xtick[0], xtick[-1])

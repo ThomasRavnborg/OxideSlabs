@@ -329,9 +329,9 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     dir = 'results/bulk/GPAW'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
-    _plot_disp(ax1, phonon, 'GPAW', col=colors[0])
+    _plot_disp(ax1, phonon, 'PW', col=colors[0])
     # Plot total DOS
-    _plot_dos(ax2, phonon, 'GPAW', col=colors[0])
+    _plot_dos(ax2, phonon, 'PW', col=colors[0])
     if pDOS:
         # Plot PDOS
         _plot_pdos(ax2, phonon)
@@ -351,7 +351,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
 
     # Set x- and y-label
     ax1.set_xlabel('k-points')
-    ax1.set_ylabel('Frequency, $\omega$ (THz)', fontsize=14)
+    ax1.set_ylabel('Frequency, $\omega$ (THz)')
     # Add minor tickmarks to the y-axis
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
     
@@ -430,8 +430,8 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([])):
     dir = 'results/bulk/GPAW'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
-    _plot_disp(axes[0], phonon, 'pw', col=colors[0])
-    axes[0].set_ylabel('DOS (states/THz)')
+    _plot_disp(axes[0], phonon, 'PW', col=colors[0])
+    axes[0].set_ylabel('Frequency, $\omega$ (THz)')
     
     # Cycle through the list of IDs and plot the dispersion
     for i in range(len(ids)):
