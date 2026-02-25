@@ -10,12 +10,14 @@ from src.phononcalc import calculate_phonons
 atoms = perovskite('BaTiO3')
 project = SiestaProject(material=str(atoms.symbols))
 
+project.remove_calculation('0060')
+
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZP']
 pseudos = ['PBEsol']
-shifts =  [0.002, 0.02, 0.03, 0.04]
-splits =  [0.15]
+shifts =  [0.0001, 0.001, 0.01]
+splits =  [0.1, 0.15, 0.2]
 cutoffs = [1000]
 grids =   [10]
 
