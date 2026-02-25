@@ -12,6 +12,9 @@ wheels/
 # Visual Studio Code settings
 .vscode
 
+# Git
+.gitattributes
+
 # Results, tools and output files
 results/
 resultsold/
