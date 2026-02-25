@@ -64,6 +64,8 @@ for params in param_dicts:
         calc_id = project.prepare_calculation(params)
         next_step = project.what_to_run(calc_id)
 
+    next_step = 'skip_phonons'  # Temporary: skip phonon calculations for now
+
     if next_step == "phonons":
         print(f"Running phonon calculation for calculation {calc_id}")
         atoms = read(os.path.join(dir, 'relax', f'{project.material}.xyz'))

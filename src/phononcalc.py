@@ -332,8 +332,10 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
     _plot_disp(ax1, phonon, 'GPAW', col=colors[0])
     # Plot total DOS
     _plot_dos(ax2, phonon, 'GPAW', col=colors[0])
+    if pDOS:
+        # Plot PDOS
+        _plot_pdos(ax2, phonon)
     
-
     for i in range(len(ids)):
         # Load Phonopy object from YAML file
         dir = os.path.join(root, 'bulk/',formula, ids[i], 'phonons')
@@ -429,6 +431,7 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([])):
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
     _plot_disp(axes[0], phonon, 'pw', col=colors[0])
+    axes[0].set_ylabel('DOS (states/THz)')
     
     # Cycle through the list of IDs and plot the dispersion
     for i in range(len(ids)):
