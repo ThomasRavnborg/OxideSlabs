@@ -22,7 +22,7 @@ from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-                      MeshCutoff=200, kgrid=(10, 10, 10), mode='lcao',
+                      MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
                       dir='results/bulk/phonons', par=False):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
@@ -33,6 +33,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
+    - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - dir: Directory to save the results (default is 'results/bulk/phonons').
     - par: Whether the SIESTA calculator is parallel (default is False).
@@ -77,7 +78,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             'energy_shift': EnergyShift * Ry,
             'kpts': tuple(x // N for x in kgrid),  # Reduce k-point grid for supercell calculations
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos', f'{xcf}')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
         }
         # fdf arguments
         fdf_args = {

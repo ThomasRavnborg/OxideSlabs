@@ -60,6 +60,7 @@ def get_enthalpy(formula, dir):
     """Function to read enthalpy from Siesta output files.
     Parameters:
     - formula: Chemical formula of the material for which enthalpy is to be read.
+    - dir: Directory where the Siesta output files are located.
     Returns:
     - Enthalpy value (in eV).
     """
@@ -73,6 +74,7 @@ def get_total_force(formula, dir):
     """Function to read total force from Siesta output files.
     Parameters:
     - formula: Chemical formula of the material for which total force is to be read.
+    - dir: Directory where the Siesta output files are located.
     Returns:
     - Total force (in eV/Å).
     """
@@ -84,17 +86,24 @@ def get_bandgap(formula, dir):
     """Function to read bandgap from Siesta output files.
     Parameters:
     - formula: Chemical formula of the material for which bandgap is to be read.
+    - dir: Directory where the Siesta output files are located.
     Returns:
-    - Bandgap value at Gamma (in eV).
+    - Indirect bandgap (in eV).
     """
-    # Read eigenvalues and Fermi energy from files
-    eig = si.get_sile(os.path.join(dir, f'{formula}.EIG')).read_data()
-    Ef = si.io.siesta.stdoutSileSiesta(os.path.join(dir, f'{formula}.out')).read_energy()['fermi']
-    # Shift eigenvalues by Fermi energy and calculate bandgap
+    # Read eigenvalues and Fermi level from SIESTA output files
+    sile = si.get_sile(os.path.join(dir, f'{formula}.EIG'))
+    eig = sile.read_data()
+    Ef = sile.read_fermi_level()
+    # Remove spin dimension and derermine number of bands
+    eig = eig[0]
+    nbands = eig.shape[1]
+    # Shift by Fermi level
     eig -= Ef
-    eig = eig.flatten()
-    VBM = eig[eig <= 0].max()
-    CBM = eig[eig > 0].min()
+    # Determine number of occupied bands (2 spins and 2 bands)
+    n_occ = round(nbands/4)
+    # Compute indirect gap
+    VBM = np.max(eig[:, n_occ-1])
+    CBM = np.min(eig[:, n_occ])
     Eg = CBM - VBM
     return Eg
 
@@ -125,12 +134,16 @@ def basis_opt(perovskite, shifts, splits):
             energy = run_siesta(perovskite, EnergyShift=shift, SplitNorm=split, dir=dir,
                                 MeshCutoff=800, kgrid=(10, 10, 10))
             enthalpy = get_enthalpy(formula, dir)
+            force = get_total_force(formula, dir)
+            bandgap = get_bandgap(formula, dir)
             # Append results
             row = {
                 "EnergyShift": shift,
                 "SplitNorm": split,
                 "Energy": energy,
-                "Enthalpy": enthalpy
+                "Enthalpy": enthalpy,
+                "TotalForce": force,
+                "Bandgap": bandgap
             }
             # Create new dataframe
             df_new = pd.DataFrame([row])

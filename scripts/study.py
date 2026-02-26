@@ -17,8 +17,8 @@ project = SiestaProject(material=formula)
 xcfs =    ['PBEsol']
 basis =   ['DZP']
 pseudos = ['PBEsol']
-shifts =  [0.001]
-splits =  [0.1]
+shifts =  [0.0001, 0.001, 0.01]
+splits =  [0.05, 0.1, 0.15, 0.2]
 cutoffs = [1000]
 grids =   [10]
 
@@ -30,7 +30,7 @@ for combo in combinations:
     param_dicts.append({
         'xcf': combo[0],
         'basis': combo[1],
-        #'pseudo': combo[2],
+        'pseudo': combo[2],
         'EnergyShift': combo[3],
         'SplitNorm': combo[4],
         'MeshCutoff': combo[5],
@@ -73,8 +73,6 @@ for params in param_dicts:
         # Update to next step
         calc_id = project.prepare_calculation(params)
         next_step = project.what_to_run(calc_id)
-
-    next_step = 'skip_phonons'  # Temporary: skip phonon calculations for now
 
     # If phonon calculation needs to be run, run it and update the calculation ID and next step
     if next_step == "phonons":
