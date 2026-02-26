@@ -17,12 +17,12 @@ from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
-def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-                    MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1, mode='lcao',
+def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+                    MeshCutoff=200, kgrid=(10, 10, 10), mode='lcao',
                     dir='results/bulk/bandstructure', par=False):
     """Function to calculate band structure and PDOS of a bulk structure using SIESTA.
     Parameters:
-    - atoms: ASE Atoms object representing the relaxed bulk structure.
+    - perovskite: Custom object representing the relaxed bulk structure.
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
@@ -30,27 +30,35 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - pseudo: Integer index for selecting pseudopotential (default is 1).
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - par: Whether the SIESTA calculator is parallel (default is False).
     Returns:
     - None. The function performs band structure calculation and saves the data to a file.
     """
     cwd = os.getcwd()
-    symbols = atoms.symbols
+    formula = perovskite.formula
+    atoms = perovskite.atoms
+    bulk = perovskite.bulk
+    #symbols = atoms.symbols
+
+    if not bulk:
+        # Center the slab in the cell and add vacuum in the z-direction
+        atoms.center(axis=2, vacuum=10.0)
+        # For slab calculations, set k-point sampling to 1 in the z-direction
+        kgrid[2] = 1
 
     if mode == 'lcao':
-        parprint(f"Calculating band structure and PDOS for {symbols} using SIESTA.")
+        parprint(f"Calculating band structure and PDOS for {formula} using SIESTA.")
         # Calculation parameters in a dictionary
         calc_params = {
-            'label': f'{symbols}',
+            'label': f'{formula}',
             'xc': xcf,
             'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{xcf}')
         }
         # fdf arguments in a dictionary
         fdf_args = {
@@ -66,11 +74,10 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
             60 0.000 0.000 0.000 \Gamma
             60 0.500 0.500 0.500 R
             %endblock BandLines''',
-            'BandLinesScale': 'ReciprocalLatticeVectors',
             '%block PDOS.kgrid_Monkhorst_Pack': '''
             40  0  0  0.0
-            0 40  0  0.0
-            0  0 40  0.0
+            0  40  0  0.0
+            0   0 40  0.0
             %endblock PDOS.kgrid_Monkhorst_Pack''',
             '%block Projected.DensityOfStates': '''
             -20.00 15.00 0.200 500 eV
@@ -80,12 +87,26 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
         if par:
             # Change diagonalization algorithm when running in parallel
             fdf_args['Diag.Algorithm'] = 'ELPA'
-
+        
+        if not bulk:
+            # Change band path and k-point sampling for slab calculations
+            fdf_args['%block BandLines'] = '''
+            1 0.000 0.000 0.000 \Gamma
+            60 0.500 0.000 0.000 X
+            60 0.500 0.500 0.000 M
+            60 0.000 0.000 0.000 \Gamma
+            %endblock BandLines'''
+            fdf_args['%block PDOS.kgrid_Monkhorst_Pack'] = '''
+            40  0  0  0.0
+            0  40  0  0.0
+            0   0  1  0.0
+            %endblock PDOS.kgrid_Monkhorst_Pack'''
+        
         # Set up the Siesta calculator
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
 
     elif mode == 'pw':
-        #from gpaw import GPAW
+        from gpaw import GPAW
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),
@@ -93,9 +114,11 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
             'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': None
+            'txt': os.path.join(dir, f"{formula}_BS.txt")
         }
-        from gpaw import GPAW
+        if not bulk:
+            # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+            calc_params["poissonsolver"] = {"dipolelayer": "xy"}
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
 
@@ -104,15 +127,19 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
     atoms.get_potential_energy()
 
     if mode == 'pw':
-        # Calculate bandstructure along a path (in this case 'GXRMGR')    
+        # Calculate bandstructure along a path
+        if bulk:
+            path = 'GXRMGR'
+        else:
+            path = 'GXMG'  
         BScalc = atoms.calc.fixed_density(
             nbands=32,
             symmetry='off',
-            kpts={'path': 'GXRMGR', 'npoints': 300},
+            kpts={'path': path, 'npoints': 300},
             convergence={'bands': 16},
-            txt=os.path.join(dir, f"{symbols}_BS.txt"))
+            txt=os.path.join(dir, f"{formula}_BS.txt"))
         
-        path = bandpath('GXRMGR', BScalc.atoms.cell, npoints=300)
+        path = bandpath(path, BScalc.atoms.cell, npoints=300)
         
         x, X, labels = path.get_linear_kpoint_axis()
         X = np.array([X, labels])
@@ -130,9 +157,9 @@ def calculate_bands(atoms, bulk=True, xcf='PBEsol', basis='DZP', EnergyShift=0.0
         # Save the bandstructure and DOS data to files on the master process
         if world.rank == 0:
             # Save the bandstructure data to a file
-            np.savez(os.path.join(dir, f"{symbols}_BS.npz"), X=X, x=x, bands=e_nk)
+            np.savez(os.path.join(dir, f"{formula}_BS.npz"), X=X, x=x, bands=e_nk)
             # Save the DOS data to a file
-            np.savez(os.path.join(dir, f"{symbols}_DOS.npz"), E=E, DOS=DOS)
+            np.savez(os.path.join(dir, f"{formula}_DOS.npz"), E=E, DOS=DOS)
     elif mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)

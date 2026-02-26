@@ -15,6 +15,7 @@ class Perovskite:
     """
     def __init__(self, formula='ABX3', a=4.0, N=1, bulk=True):
         self.formula = formula
+        self.bulk = bulk
         sca_pos = [[0, 0, 0],
                    [1/2, 1/2, 1/2],
                    [1/2, 0, 1/2],
@@ -48,3 +49,7 @@ class Perovskite:
             self.atoms = slab
     def __repr__(self):
         return f'Perovskite(symbols={self.atoms.symbols}, cell={self.atoms.cell}, positions={self.atoms.positions.tolist()}, pbc={self.atoms.pbc})'
+    
+    def set_atoms(self, atoms):
+        """Set the atoms object for the perovskite structure."""
+        self.atoms = atoms

@@ -21,29 +21,38 @@ from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
-def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-                      MeshCutoff=200, kgrid=(10, 10, 10), pseudo=1,
-                      mode='lcao', dir='results/bulk/phonons', par=False):
-    """Function to calculate phonon properties of a bulk structure using Phonopy and SIESTA.
+def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+                      MeshCutoff=200, kgrid=(10, 10, 10), mode='lcao',
+                      dir='results/bulk/phonons', par=False):
+    """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
-    - atoms: ASE Atoms object representing the relaxed bulk structure.
+    - perovskite: Custom object representing the relaxed structure.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
     - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - pseudo: Integer index for selecting pseudopotential (default is 1).
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - dir: Directory to save the results (default is 'results/bulk/phonons').
     - par: Whether the SIESTA calculator is parallel (default is False).
     Returns:
     - None. The function performs phonon calculations and saves the phonon data to a .yaml file.
     """
+    # Get current working directory (cwd)
+    cwd = os.getcwd()
+    # Get formula, atoms and bulk/slab information from the perovskite object
+    formula = perovskite.formula
+    atoms = perovskite.atoms
+    bulk = perovskite.bulk
+
     # Parameters for phonon calculations
-    N = 2  # Supercell size in each direction
-    scell_matrix = np.diag([N, N, N])  # Supercell size
-    dd = 0.01 # displacement distance in Å
+    N = 2  # Supercell size
+    dd = 0.01 # Displacement distance in Å
+    if bulk:
+        scell_matrix = np.diag([N, N, N])  # Supercell size for bulk
+    else:
+        scell_matrix = np.diag([N, N, 1])  # Supercell size for slab
 
     # Convert ASE Atoms to PhonopyAtoms
     unitcell = PhonopyAtoms(symbols=atoms.get_chemical_symbols(),
@@ -57,21 +66,18 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
     supercells = phonon.supercells_with_displacements
     parprint(f"Generated {len(supercells)} supercells with displacements.")
 
-    # Get current working directory and set directory for results
-    cwd = os.getcwd()
-    symbols = atoms.symbols
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
     if mode == 'lcao':
         # Calculation parameters
         calc_params = {
-            'label': f'{symbols}',
+            'label': f'{formula}',
             'xc': xcf,
             'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
             'kpts': tuple(x // N for x in kgrid),  # Reduce k-point grid for supercell calculations
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{xcf}')
         }
         # fdf arguments
         fdf_args = {
@@ -95,8 +101,11 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
             'kpts': {'size': tuple(x // N for x in kgrid), 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': os.path.join(dir, f"{symbols}_PH.txt")
+            'txt': os.path.join(dir, f"{formula}_PH.txt")
         }
+        if not bulk:
+            # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+            calc_params["poissonsolver"] = {"dipolelayer": "xy"}
 
     # Calculate forces for displaced supercells
     forces = []
@@ -111,6 +120,10 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
                           cell=sc.cell,
                           pbc=True)  # Assume periodic boundary conditions
         
+        if not bulk:
+            # Remove periodicity in the z-direction for slab calculations
+            atoms_ase.pbc = (True, True, False)
+
         # Set up the calculator based on the selected mode
         if mode == 'lcao':
             # Set up the Siesta calculator
@@ -132,7 +145,7 @@ def calculate_phonons(atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
     phonon.forces = forces
     if world.rank == 0:
         # Save phonopy .yaml file
-        phonon.save(os.path.join(dir, f"{symbols}.yaml"))
+        phonon.save(os.path.join(dir, f"{formula}.yaml"))
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)

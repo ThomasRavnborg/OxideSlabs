@@ -1,12 +1,11 @@
 # Import modules
-from src.structureoptimizer import perovskite
+from src.structure import Perovskite
 from src.parameterconv import grid_conv
+import numpy as np
 # Define shifts and splits for calculations
-meshcuts = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]  # in Ry
-kpoints = [5, 10, 15, 20]
+meshcuts = np.arange(200, 1001, 100)  # in Ry
+kpoints = np.arange(5, 16, 1)  # k-point grid size
 # Create perovskite atoms object
-BaTiO3 = perovskite('BaTiO3')
-# Move one of the atoms to create a force
-BaTiO3[1].position += [0.1, 0.0, 0.0]
+BaTiO3 = Perovskite('BaTiO3', a=4.01)
 # Run basis "optimization" which outputs a .csv
 grid_conv(BaTiO3, meshcuts, kpoints)

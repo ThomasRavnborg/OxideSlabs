@@ -11,7 +11,7 @@ from src.cleanfiles import cleanFiles
 
 def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                MeshCutoff=300, kgrid=(5, 5, 5), dir='results/bulk/basis'):
-    """Function to run Siesta calculation on atoms object.
+    """Function to run a single Siesta self-consistent calculation
     Parameters:
     - perovskite: Custom object representing the structure to be relaxed.
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
@@ -69,16 +69,16 @@ def get_enthalpy(formula, dir):
     enthalpy = float(lines[0].split()[-1])
     return enthalpy
 
-def get_maxforce(formula, dir):
-    """Function to read maximum force from Siesta output files.
+def get_total_force(formula, dir):
+    """Function to read total force from Siesta output files.
     Parameters:
-    - formula: Chemical formula of the material for which maximum force is to be read.
+    - formula: Chemical formula of the material for which total force is to be read.
     Returns:
-    - Maximum force (in eV/Å).
+    - Total force (in eV/Å).
     """
     sile = si.get_sile(os.path.join(dir, f'{formula}.FA'))
     forces = sile.read_force()
-    return np.max(np.abs(forces))
+    return np.linalg.norm(forces)
 
 def get_bandgap(formula, dir):
     """Function to read bandgap from Siesta output files.
@@ -98,7 +98,7 @@ def get_bandgap(formula, dir):
     Eg = CBM - VBM
     return Eg
 
-def basis_opt(perovskite, shifts, splits, basis='DZP'):
+def basis_opt(perovskite, shifts, splits):
     """Function to optimize basis set parameters by running multiple Siesta calculations.
     Parameters:
     - perovskite: Custom object representing the structure to be calculated.
@@ -109,7 +109,7 @@ def basis_opt(perovskite, shifts, splits, basis='DZP'):
     """
     
     formula = perovskite.formula
-    dir = f'results/bulk/{formula}/{basis}'
+    dir = f'results/bulk/{formula}/basis'
 
     if os.path.exists(os.path.join(dir, 'basisopt.csv')):
         df = pd.read_csv(os.path.join(dir, 'basisopt.csv'))
@@ -152,26 +152,38 @@ def grid_conv(perovskite, meshcuts, kpoints):
     """
 
     formula = perovskite.formula
-    dir = f'results/bulk/{formula}/basis'
-    rows = []
+    dir = f'results/bulk/{formula}/grid'
+
+    if os.path.exists(os.path.join(dir, 'gridconv.csv')):
+        df = pd.read_csv(os.path.join(dir, 'gridconv.csv'))
+    else:
+        df = pd.DataFrame(columns=['MeshCutoff', 'kgrid', 'Energy', 'Enthalpy'])
+
     for mc, kp in product(meshcuts, kpoints):
-        try:
-            run_siesta(perovskite, MeshCutoff=mc, kgrid=(kp, kp, kp), dir=dir)
+        # Check if results have been obtained
+        if ((df['MeshCutoff'] == mc) & (df['kgrid'] == f"({kp}, {kp}, {kp})")).any():
+            print(f"MeshCutoff={mc} and kgrid=({kp}, {kp}, {kp}) is in the DataFrame. Skipping.")
+        else:
+            # Get energy and enthalpy from SIESTA
+            energy = run_siesta(perovskite, EnergyShift=0.001, SplitNorm=0.1, dir=dir,
+                                MeshCutoff=mc, kgrid=(kp, kp, kp))
             enthalpy = get_enthalpy(formula, dir)
-            maxforce = get_maxforce(formula, dir)
-            #bandgap = get_bandgap(formula, dir)
-        except Exception as e:
-            enthalpy = None
-            maxforce = None
-            #bandgap = None
-
-        rows.append({
-            "MeshCutoff": mc,
-            "kgrid": (kp, kp, kp),
-            "Enthalpy": enthalpy,
-            "MaxForce": maxforce,
-            #"Bandgap": bandgap
-        })
-
-    df = pd.DataFrame(rows)
-    df.to_csv(os.path.join(dir, 'gridopt.csv'))
+            force = get_total_force(formula, dir)
+            bandgap = get_bandgap(formula, dir)
+            # Append results
+            row = {
+                "MeshCutoff": mc,
+                "kgrid": f"({kp}, {kp}, {kp})",
+                "Energy": energy,
+                "Enthalpy": enthalpy,
+                "TotalForce": force,
+                "Bandgap": bandgap
+            }
+            # Create new dataframe
+            df_new = pd.DataFrame([row])
+            # Update old datafrem with new results
+            df = pd.concat([df, df_new], ignore_index=True)
+            # Save new results
+            df.to_csv(os.path.join(dir, 'gridconv.csv'), index=False)
+    # Clean directory of SIESTA calculations
+    cleanFiles(directory=dir, confirm=False)
