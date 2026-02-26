@@ -14,10 +14,10 @@ project.remove_calculation('0060')
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['DZP']
+basis =   ['DZP', 'TZP']
 pseudos = ['PBEsol']
-shifts =  [0.0001, 0.001, 0.01]
-splits =  [0.1, 0.15, 0.2]
+shifts =  [0.001]
+splits =  [0.05]
 cutoffs = [1000]
 grids =   [10]
 
