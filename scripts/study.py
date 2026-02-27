@@ -9,7 +9,7 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 
 # Create atoms object for BaTiO3 and initialize project
-perovskite = Perovskite('BaTiO3', a=4.01)
+perovskite = Perovskite('SrTiO3', a=3.9)
 formula = perovskite.formula
 project = SiestaProject(material=formula)
 
