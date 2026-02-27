@@ -1,70 +1,86 @@
 # Importing packages and modules
+import os
 import numpy as np
 import pandas as pd
+from itertools import product
 # ASE
-from ase.io import read
+from ase.io import read, write
 from ase import Atoms
 from ase.build import make_supercell
 from ase.parallel import parprint
 # Phonopy
-import phonopy
+import phonopy as ph
 
 from src.parameterconv import run_siesta
+from src.cleanfiles import cleanFiles
 
-# Defining a function to get the energy for different displacements along a symmetry direction
-def get_energy(formula='BaTiO3', mode='pw', xcf='PBE', bulk=True, N=1, dis=0, q_index=0):
-    """Function to calculate the energy for a given displacement along a specific q-point in the Brillouin zone.
+
+def get_modevector(phonon, q):
+    """Function to extract the mode vector corresponding to the lowest frequency mode at a given q-point.
     Parameters:
-    - atomname: Name of the material (e.g., 'BaTiO3').
-    - mode: Calculation mode ('pw' for plane wave or 'lcao' for linear combination of atomic orbitals).
-    - xcf: Exchange-correlation functional to be used (e.g., 'PBE', 'PBEsol').
-    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False).
-    - N: Number of unit cells in each direction for bulk (int) or thickness of the slab in unit cells (float).
-    - dis: Displacement magnitude in Angstroms along the phonon mode.
-    - q_index: Index of the q-point along which to displace (0 for Γ, 1 for X, 2 for M).
+    - phonon: Phonopy object containing the phonon calculation results.
+    - q: q-point (in fractional coordinates) at which to extract the mode vector.
     Returns:
-    - Energy in eV for the given displacement.
+    - modevec: Mode vector corresponding to the most unstable mode at the given q-point.
+    - stable: Boolean indicating whether the mode is stable (True) or unstable (False).
     """
-    # Defining labels and symmetry points in fractional coordinates
-    q_labels = ['G', 'X', 'M']
-    qpoints = [[[0.0, 0.0, 0.0],   # Γ
-               [0.5, 0.0, 0.0],    # X
-               [0.5, 0.5, 0.0]]]   # M
-    # The specific q-point of interest
-    q = qpoints[0][q_index]
-    # Define supercell size
-    nx, ny, nz = 1, 1, 1 # supercell size
-    ncells = nx*ny*nz
+    # Determine number of atoms in the unitcell
+    N_unit = len(phonon.unitcell.symbols)
 
-    # Load .xyz and .yaml file from relaxation and phonon calculation
-    if bulk == True:
-        atoms = read(f'bulk/relax/{formula}_pw_{xcf}.xyz')
-        phonon = phonopy.load(f'bulk/phonon/{formula}_pw_{xcf}.yaml')
-    else:
-        atoms = read(f'slab/relax/{formula}_pw_{xcf}_d{N}.xyz')
-        phonon = phonopy.load(f'slab/phonon/{formula}_{mode}_{xcf}_d{N}.yaml')
-    
-    # Get the atomic masses and reshape
-    m = atoms.get_masses()
-    m = m[:, np.newaxis]
-    # Make supercell and get masses for the supercell
-    supercell = make_supercell(atoms, np.diag([nx, ny, nz]))
-    m_sc = np.tile(m, (ncells, 1))
-    
-    # Run band structure at the symmetry points
-    phonon.run_band_structure(qpoints, with_eigenvectors=True)
+    # Run band structure at the symmetry point to get eigenvectors
+    phonon.run_band_structure([[q]], with_eigenvectors=True)
     # Extract frequencies and eigenvectors
     band_structure = phonon.get_band_structure_dict()
-    frequencies = band_structure['frequencies'][0][q_index]
-    eigenvec = band_structure['eigenvectors'][0][q_index]
-    
+    frequencies = np.squeeze(band_structure['frequencies'])
+    eigenvecs = np.squeeze(band_structure['eigenvectors'])
+
     # Determine the mode index of the unstable mode
     mode_index = np.argmin(frequencies)
-    parprint("Most unstable mode index:", mode_index)
-    parprint("Frequency (THz):", frequencies[mode_index])
-    # Determine mode vector and reshape from (Natoms*3,) to (Natoms, 3)
-    modevec = eigenvec[:, mode_index]
-    modevec = modevec.reshape(len(atoms), 3)
+    # Determine if the mode is stable or unstable based on the frequency
+    if frequencies[mode_index] > 0:
+        stable = True
+    else:
+        stable = False
+    # Determine mode vector and reshape from (N_atoms*3,) to (N_atoms, 3)
+    modevec = eigenvecs[:, mode_index]
+    modevec = modevec.reshape(N_unit, 3)
+    return modevec, stable
+
+
+def displace_atoms(unitcell, q, modevec, dis):
+    """Function to generate a supercell and displace the atomic positions according to the mode vector and q-point.
+    Parameters:
+    - unitcell: ASE Atoms object containing the unit cell structure.
+    - q: q-point (in fractional coordinates) at which the mode vector is defined.
+    - modevec: Mode vector corresponding to the most unstable mode at the given q-point.
+    - dis: Displacement amplitude (in Å) to apply to the atomic positions.
+    Returns:
+    - supercell: ASE Atoms object containing the supercell structure with displaced atomic positions.
+    - supercell_matrix: 3x3 matrix defining the supercell transformation from the unit cell.
+    """
+    
+    # Determine number of atoms in the unitcell
+    N_unit = len(unitcell)
+
+    # Determine supercell size required for the given q-point
+    # If q[i] is 0, we can set the supercell size to 1 in that direction
+    nx = int(1/q[0]) if q[0] != 0 else 1
+    ny = int(1/q[1]) if q[1] != 0 else 1
+    nz = int(1/q[2]) if q[2] != 0 else 1
+
+    # ---------------------------------------
+    nx, ny, nz = 2, 2, 2   # temporary, to test the code
+    # ---------------------------------------
+
+    ncells = nx*ny*nz
+
+    # Get the atomic masses and reshape
+    m = unitcell.get_masses()
+    m = m[:, np.newaxis]
+    # Make supercell and get masses for the supercell
+    supercell_matrix = np.diag([nx, ny, nz])
+    supercell = make_supercell(unitcell, supercell_matrix)
+    m_sc = np.tile(m, (ncells, 1))
     
     # Expand the modevector to the entire supercell (with phase)
     modevec_sc = []
@@ -78,24 +94,83 @@ def get_energy(formula='BaTiO3', mode='pw', xcf='PBE', bulk=True, N=1, dis=0, q_
     modevec_sc = np.vstack(modevec_sc)
     
     # Displace atomic positions in the supercell
-    supercell.positions += np.real(dis/np.sqrt(m_sc*len(atoms)) * np.real(modevec_sc))
-    # Set up GPAW calculator
-    calc = GPAW(**mode_params, **calc_params)
-    supercell.calc = calc
-    # Run calculation and get potential energy (per unit cell)
-    energy = supercell.get_potential_energy()/ncells
-    parprint(f"Displacement {dis:.3f} Å along {q_labels[q_index]} → Energy: {energy:.6f} eV")
-    return energy
+    supercell.positions += np.real(dis/np.sqrt(m_sc*N_unit) * np.real(modevec_sc))
+    return supercell, supercell_matrix
 
-def run_frozen_phonon(atomname='BaTiO3', mode='pw', xcf='PBE', bulk=True, N=1,
-                      d_vals=np.array([]), q_in=np.arange(0, 1, 1)):
-    # Create a DataFrame where rows correspond to kpoints and columns correspond to cutoffs
-    matrix = [[get_energy(atomname, mode, xcf, bulk, N, dis, q) for q in q_in] for dis in d_vals]
-    # Convert the result into a pandas DataFrame
-    #df = pd.DataFrame(matrix, index=d_vals, columns=np.array(['G', 'X', 'M']))
-    df = pd.DataFrame(matrix, index=d_vals, columns=np.array(['G']))
-    # Save dataframe to csv
-    if bulk == True:
-        df.to_csv(f'doublewellv2/{atomname}_{mode}_{xcf}_dw.csv', index=True)
+
+def run_frozen_phonons(formula, id, qpoint, displacements):
+    """Function to compute frozen phonon energies by running multiple Siesta calculations.
+    Parameters:
+    - formula: Chemical formula of the material (e.g., 'SrTiO3').
+    - id: Unique identifier for the calculation (e.g., '0001').
+    - qpoint: q-point at which to compute frozen phonon energies (e.g., 'G', 'X', 'R', 'M').
+    - displacements: List of displacement amplitudes (in Å) to use for frozen phonon calculations.
+    Returns:
+    - None. The function runs multiple calculations and saves the results to a CSV and xyz file.
+    """
+    # Set the results directory
+    #dir_res = os.path.join('results/bulk/',formula,'frozen', qpoint)
+    dir_id = os.path.join('results/bulk/',formula, id)
+    dir_res = os.path.join(dir_id, 'frozen', qpoint)
+
+    # Load .xyz and .yaml file from relaxation and phonon calculation
+    unitcell = read(os.path.join(dir_id, f'relax/{formula}.xyz'))
+    phonon = ph.load(os.path.join(dir_id, f'phonons/{formula}.yaml'))
+
+    # Dictionary for q-points
+    q_dict = {
+        'G': [0.0, 0.0, 0.0],
+        'X': [0.5, 0.0, 0.0],
+        'R': [0.5, 0.5, 0.5],
+        'M': [0.5, 0.5, 0.0],
+    }
+    # Get q-point in fractional coordinates
+    q = q_dict[qpoint]
+    # Get mode vector and stability of the mode at the given q-point
+    modevec, stable = get_modevector(phonon, q)
+    if stable:
+        print(f"The mode at q-point {qpoint} is stable. No frozen phonon calculations will be run.")
+        return
+
+    if os.path.exists(os.path.join(dir_res, 'frozen.csv')):
+        df = pd.read_csv(os.path.join(dir_res, 'frozen.csv'))
     else:
-        df.to_csv(f'doublewellv2/{atomname}_{mode}_{xcf}_d{N}_dw.csv', index=True)
+        df = pd.DataFrame(columns=['displacement', 'Energy'])
+
+    images = []
+
+    for dis in displacements:
+        # Get supercell with displaced atomic positions for the given displacement amplitude
+        supercell, supercell_matrix = displace_atoms(unitcell, q, modevec, dis)
+        images.append(supercell)
+        # Check if results have been obtained for a given displacement
+        if (df['displacement'] == dis).any():
+            print(f"qpoint={qpoint}, displacement={dis} is in the DataFrame. Skipping.")
+        else:
+            # Determine the supercell size in each direction from the diagonal of the supercell matrix
+            nx, ny, nz = supercell_matrix.diagonal().astype(int)
+            
+            # Run a single-point SIESTA calculation to get the total energy
+            # Note that the k-point grid is scaled according to the supercell size
+            # This means fewer k-points will be used for larger supercells
+            energy = run_siesta(supercell, EnergyShift=0.001, SplitNorm=0.1,
+                                MeshCutoff=1000, kgrid=(10/nx, 10/ny, 10/nz), dir=dir_res)
+            # Scale energy by the number of unit cells in the supercell to get energy per unit cell
+            energy = energy / (nx*ny*nz)
+
+            # Append results
+            row = {
+                "displacement": dis,
+                "Energy": energy
+            }
+            # Create new dataframe
+            df_new = pd.DataFrame([row])
+            # Update old datafrem with new results
+            df = pd.concat([df, df_new], ignore_index=True)
+            # Save new results
+            df.to_csv(os.path.join(dir_res, 'frozen.csv'), index=False)
+
+    # Save the supercell structures with displacements as an xyz file
+    write(os.path.join(dir_res, 'frozen.xyz'), images)
+    # Clean directory of SIESTA calculations
+    cleanFiles(directory=dir_res, confirm=False)
