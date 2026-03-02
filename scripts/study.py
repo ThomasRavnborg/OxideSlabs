@@ -7,6 +7,7 @@ from src.structure import Perovskite
 from src.structureoptimizer import relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
+from src.frozenphonon import run_frozen_phonon
 
 # Create atoms object for BaTiO3 and initialize project
 perovskite = Perovskite('SrTiO3', a=3.9)
@@ -46,10 +47,6 @@ for params in param_dicts:
     next_step = project.what_to_run(calc_id)
     dir = os.path.join(project.material_path, calc_id)
 
-    # If all steps are complete, skip to the next parameter set
-    if next_step == "complete":
-        parprint(f"All steps complete for calculation {calc_id}. Skipping.")
-
     # If relaxation needs to be run, run it and update the calculation ID and next step
     if next_step == "relax":
         # Run relaxation
@@ -82,3 +79,14 @@ for params in param_dicts:
         # Update to next step
         calc_id = project.prepare_calculation(params)
         next_step = project.what_to_run(calc_id)
+    
+    # If all calculations are complete, run a frozen phonon calculation
+    if next_step == "complete":
+        parprint(f"Running frozen phonon calculation for calculation {calc_id}")
+        dir_step = os.path.join(dir, 'frozen')
+        # Run frozen phonon calculation
+        run_frozen_phonon(perovskite, **params, dir=dir_step, par=True)
+
+    # If all steps are complete, skip to the next parameter set
+    #if next_step == "complete":
+    #    parprint(f"All steps complete for calculation {calc_id}. Skipping.")

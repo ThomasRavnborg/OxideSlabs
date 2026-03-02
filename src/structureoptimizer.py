@@ -1,5 +1,7 @@
 # Importing packages and modules
 import os
+import time
+import numpy as np
 import sisl as si
 # ASE
 from ase import Atoms
@@ -124,13 +126,18 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
                logfile=os.path.join(dir, f"{formula}.log"),
                trajectory=os.path.join(dir, f"{formula}.traj"))
     # Run the optimization until forces are smaller than fmax
+    t0 = time.time() # Start timer
     opt.run(fmax=fmax)
+    t1 = time.time() # Stop timer
     if world.rank == 0:
         # Write atoms object to file (only on master process to avoid conflicts)
         atoms.write(os.path.join(dir, f"{formula}.xyz"))
+        # Write the time taken for optimization to a file
+        np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
+    
 
 
 def relax_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
@@ -202,13 +209,17 @@ def relax_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
     # Set up the Siesta calculator and attach it to the atoms object
     calc = Siesta(**calc_params, fdf_arguments=fdf_args)
     atoms.calc = calc
-    # Run the single Siesta calculation
+    # Run the Siesta calculation for relaxation and cell optimization
+    t0 = time.time() # Start timer
     atoms.get_potential_energy()
+    t1 = time.time() # Stop timer
     # Read relaxed structure geometry from HSX file
     sile = si.get_sile(os.path.join(dir, f"{formula}.XV"))
     geom = sile.read_geometry()
     # Convert into ase atoms object and save to xyz file
     atoms = geom.to.ase()
     atoms.write(os.path.join(dir, f"{formula}.xyz"))
+    # Write the time taken for optimization to a file
+    np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
     # Remove unnecessary files generated during the relaxation
     cleanFiles(directory=dir, confirm=False)

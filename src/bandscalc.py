@@ -1,5 +1,6 @@
 # Importing packages and modules
 import os
+import time
 import numpy as np
 import sisl as si
 import matplotlib.pyplot as plt
@@ -123,8 +124,10 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
 
-    # Attach the calculator to the atoms object and run calculation
+    # Attach the calculator to the atoms object
     atoms.calc = calc
+    # Run band structure and DOS calculation
+    t0 = time.time() # Start timer
     atoms.get_potential_energy()
 
     if mode == 'pw':
@@ -155,13 +158,20 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
         E, DOS = calc.get_dos(spin=0, npts=2000, width=0.2)
         # Shift energy values to fermi level
         E -= ef
+        t1 = time.time() # Stop timer
         # Save the bandstructure and DOS data to files on the master process
         if world.rank == 0:
             # Save the bandstructure data to a file
             np.savez(os.path.join(dir, f"{formula}_BS.npz"), X=X, x=x, bands=e_nk)
             # Save the DOS data to a file
             np.savez(os.path.join(dir, f"{formula}_DOS.npz"), E=E, DOS=DOS)
+            # Write the time taken for optimization to a file
+            np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
     elif mode == 'lcao':
+        # Stop timer
+        t1 = time.time() # Stop timer
+        # Write the time taken for band structure calculations to a file
+        np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
 

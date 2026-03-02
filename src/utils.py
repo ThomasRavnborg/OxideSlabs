@@ -169,8 +169,7 @@ class SiestaProject:
             self.material_path, calc_id, "phonons", f"{self.material}.yaml"
         )
         return os.path.exists(filepath)
-
-
+    
     # -----------------------------
     # CSV handling
     # -----------------------------

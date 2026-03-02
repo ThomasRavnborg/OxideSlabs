@@ -9,12 +9,12 @@ import pandas as pd
 from itertools import product
 from src.cleanfiles import cleanFiles
 
-def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
+def run_siesta(formula, atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                MeshCutoff=300, kgrid=(5, 5, 5), dir='results/bulk/basis'):
     """Function to run a single Siesta self-consistent calculation
     Parameters:
-    - perovskite: Custom object representing the structure to be relaxed.
-    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+    - formula: Chemical formula of the material for which the calculation is to be run (e.g., 'SrTiO3').
+    - atoms: ASE Atoms object representing the structure to be relaxed.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to be used (default is 'DZP').
     - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
@@ -26,9 +26,6 @@ def run_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNor
     - None. The function runs the calculation and outputs files in the specified directory.
     """
     cwd = os.getcwd()
-
-    formula = perovskite.formula
-    atoms = perovskite.atoms
 
     # Calculation parameters in a dictionary
     calc_params = {
@@ -107,17 +104,17 @@ def get_bandgap(formula, dir):
     Eg = CBM - VBM
     return Eg
 
-def basis_opt(perovskite, shifts, splits):
+def basis_opt(atoms, shifts, splits):
     """Function to optimize basis set parameters by running multiple Siesta calculations.
     Parameters:
-    - perovskite: Custom object representing the structure to be calculated.
+    - atoms: ASE Atoms object representing the structure to be calculated.
     - shifts: List of energy shift values to be tested.
     - splits: List of split norm values to be tested.
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
     
-    formula = perovskite.formula
+    formula = atoms.symbols
     dir = f'results/bulk/{formula}/basis'
 
     if os.path.exists(os.path.join(dir, 'basisopt.csv')):
@@ -131,7 +128,7 @@ def basis_opt(perovskite, shifts, splits):
             print(f"EnergyShift={shift} Ry and SplitNorm={split} is in the DataFrame. Skipping.")
         else:
             # Get energy and enthalpy from SIESTA
-            energy = run_siesta(perovskite, EnergyShift=shift, SplitNorm=split, dir=dir,
+            energy = run_siesta(atoms, EnergyShift=shift, SplitNorm=split, dir=dir,
                                 MeshCutoff=800, kgrid=(10, 10, 10))
             enthalpy = get_enthalpy(formula, dir)
             force = get_total_force(formula, dir)
@@ -154,17 +151,17 @@ def basis_opt(perovskite, shifts, splits):
     # Clean directory of SIESTA calculations
     cleanFiles(directory=dir, confirm=False)
 
-def grid_conv(perovskite, meshcuts, kpoints):
+def grid_conv(atoms, meshcuts, kpoints):
     """Function to optimize grid parameters by running multiple Siesta calculations.
     Parameters:
-    - perovskite: Custom object representing the structure to be calculated.
+    - atoms: ASE Atoms object representing the structure to be calculated.
     - meshcuts: List of mesh cutoff values to be tested.
     - kpoints: List of k-point mesh values to be tested.
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
 
-    formula = perovskite.formula
+    formula = atoms.symbols
     dir = f'results/bulk/{formula}/grid'
 
     if os.path.exists(os.path.join(dir, 'gridconv.csv')):
@@ -178,7 +175,7 @@ def grid_conv(perovskite, meshcuts, kpoints):
             print(f"MeshCutoff={mc} and kgrid=({kp}, {kp}, {kp}) is in the DataFrame. Skipping.")
         else:
             # Get energy and enthalpy from SIESTA
-            energy = run_siesta(perovskite, EnergyShift=0.001, SplitNorm=0.1, dir=dir,
+            energy = run_siesta(atoms, EnergyShift=0.001, SplitNorm=0.1, dir=dir,
                                 MeshCutoff=mc, kgrid=(kp, kp, kp))
             enthalpy = get_enthalpy(formula, dir)
             force = get_total_force(formula, dir)

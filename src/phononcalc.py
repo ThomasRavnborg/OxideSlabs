@@ -1,5 +1,6 @@
 # Importing packages and modules
 import os
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
@@ -110,6 +111,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
 
     # Calculate forces for displaced supercells
     forces = []
+    t0 = time.time() # Start timer
     # Loop over all supercells and calculate forces
     for i, sc in enumerate(supercells):
         # Print which supercell is being processed
@@ -141,12 +143,33 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         
         # Append forces to the list
         forces.append(force)
-
     # Set forces in Phonopy and calculate force constants
     phonon.forces = forces
+
+    # Specify band path and labels depending on bulk or slab
+    if bulk == True:
+        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.0],[0.0, 0.0, 0.0],[0.5, 0.5, 0.5]]]
+        labels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$", "R"]
+    else:
+        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
+                 [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
+        labels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
+    
+    # Get the band q-points and connections
+    qpoints, connections = get_band_qpoints_and_path_connections(path, npoints=300)
+    # Run band structure calculation
+    phonon.run_band_structure(qpoints, path_connections=connections,
+                              labels=labels, with_eigenvectors=True)
+
+
+
+    t1 = time.time() # Stop timer
     if world.rank == 0:
         # Save phonopy .yaml file
         phonon.save(os.path.join(dir, f"{formula}.yaml"))
+        # Write the time taken for phonon calculations to a file
+        np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
@@ -188,7 +211,7 @@ def get_phonon_dispersion(phonon, bulk=True):
                  [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
         labels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
     # Get the band q-points and connections
-    qpoints, connections = get_band_qpoints_and_path_connections(path, npoints=51)
+    qpoints, connections = get_band_qpoints_and_path_connections(path, npoints=300)
     # Run band structure and total DOS calculation
     phonon.run_band_structure(qpoints, path_connections=connections,
                               labels=labels, with_eigenvectors=True)
