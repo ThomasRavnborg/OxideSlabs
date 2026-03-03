@@ -7,7 +7,6 @@ from src.structure import Perovskite
 from src.structureoptimizer import relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
-from src.frozenphonon import run_frozen_phonon
 
 # Create atoms object for BaTiO3 and initialize project
 perovskite = Perovskite('SrTiO3', a=3.9)
