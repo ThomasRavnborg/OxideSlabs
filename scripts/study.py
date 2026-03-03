@@ -15,12 +15,12 @@ project = SiestaProject(material=formula)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['DZP']
+basis =   ['TZP']
 pseudos = ['PBEsol']
 shifts =  [0.01]
 splits =  [0.15]
-cutoffs = [900, 1000, 1100]
-grids =   [8, 10, 12]
+cutoffs = [1000]
+grids =   [10]
 
 def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
     """Run the full workflow for all combinations of parameters."""

@@ -13,6 +13,7 @@ from ase.calculators.siesta import Siesta
 from ase.parallel import parprint
 # Phonopy
 import phonopy as ph
+from phonopy import Phonopy
 # Custom modules
 from src.parameterconv import run_siesta
 from src.cleanfiles import cleanFiles
@@ -247,7 +248,6 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
             'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
-            'kpts': kgrid,
             'directory': dir,
             'pseudo_path': os.path.join(cwd, f'pseudos/{xcf}')
         }
@@ -266,7 +266,6 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
             'xc': xcf,
             'basis': basis.lower(),
             'mode': {'name': 'pw', 'ecut': MeshCutoff * Ry},
-            'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6},
             'txt': os.path.join(dir, f"{formula}_PH.txt")
@@ -274,6 +273,7 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
 
     # Loop over displacements, generate supercell with displaced atomic positions, run Siesta calculation, and save results
     images = []
+    forces_list = []
     t0 = time.time() # Start timer
     for dis in displacements:
         # Get supercell with displaced atomic positions for the given displacement amplitude
@@ -286,18 +286,24 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
             # Determine the supercell size in each direction from the diagonal of the supercell matrix
             nx, ny, nz = supercell_matrix.diagonal().astype(int)
             # Determine the k-point grid size for the SIESTA calculation based on the supercell size
-            kx, ky, kz = max(1, 6//nx), max(1, 6//ny), max(1, 6//nz)
-            
-             # Set up the calculator based on the selected mode
+            kx, ky, kz = max(1, kgrid[0]//nx), max(1, kgrid[1]//ny), max(1, kgrid[2]//nz)
             if mode == 'lcao':
+                # Set k-points for SIESTA calculation based on the supercell size
+                calc_params['kpts'] = (kx, ky, kz)
                 # Set up the Siesta calculator
                 calc = Siesta(**calc_params, fdf_arguments=fdf_args)
             elif mode == 'pw':
+                # Set k-points for GPAW calculation based on the supercell size
+                calc_params['kpts'] = {'size': (kx, ky, kz), 'gamma': True}
                 # Set up the GPAW calculator
                 calc = GPAW(**calc_params)
+            
+            # Attach the calculator to the supercell
             supercell.calc = calc
             # Run the calculation
             energy = supercell.get_potential_energy()
+            forces = supercell.get_forces()
+            forces_list.append(forces)
             # Scale energy by the number of unit cells in the supercell to get energy per unit cell
             energy = energy / (nx*ny*nz)
 
@@ -313,6 +319,11 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
             # Save new results
             df.to_csv(os.path.join(dir, 'frozen.csv'), index=False)
     
+    phonon = Phonopy(unitcell, supercell_matrix)
+    phonon.supercells_with_displacements = images
+    phonon.forces = forces_list
+    phonon.save("frozen.yaml")
+
     t1 = time.time() # Stop timer
     # Save the supercell structures with displacements as an xyz file
     write(os.path.join(dir, 'frozen.xyz'), images)
