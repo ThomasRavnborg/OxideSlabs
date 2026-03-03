@@ -67,7 +67,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     phonon.generate_displacements(distance=dd)
     supercells = phonon.supercells_with_displacements
     parprint(f"Generated {len(supercells)} supercells with displacements.")
-
+    #return supercells
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
     if mode == 'lcao':
         # Calculation parameters
@@ -85,7 +85,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         fdf_args = {
             'PAO.BasisSize': basis,
             'PAO.SplitNorm': SplitNorm,
-            'SCF.DM.Tolerance': 1e-6,
+            'SCF.DM.Tolerance': 1e-8,
             "MD.TypeOfRun": "CG",
             "MD.NumCGsteps": 0,  # forces only
         }
@@ -145,25 +145,6 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         forces.append(force)
     # Set forces in Phonopy and calculate force constants
     phonon.forces = forces
-
-    # Specify band path and labels depending on bulk or slab
-    if bulk == True:
-        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
-                [0.5, 0.5, 0.0],[0.0, 0.0, 0.0],[0.5, 0.5, 0.5]]]
-        labels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$", "R"]
-    else:
-        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
-                 [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
-        labels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
-    
-    # Get the band q-points and connections
-    qpoints, connections = get_band_qpoints_and_path_connections(path, npoints=300)
-    # Run band structure calculation
-    phonon.run_band_structure(qpoints, path_connections=connections,
-                              labels=labels, with_eigenvectors=True)
-
-
-
     t1 = time.time() # Stop timer
     if world.rank == 0:
         # Save phonopy .yaml file
