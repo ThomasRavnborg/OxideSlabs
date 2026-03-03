@@ -53,6 +53,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         if next_step == "complete" and not runall:
             parprint(f"All steps complete for calculation {calc_id}. Skipping.")
 
+        """
         # If relaxation needs to be run, run it and update the calculation ID and next step
         if next_step == "relax" or runall:
             # Run relaxation
@@ -62,7 +63,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             # Update dataframe and move to next step
             calc_id = project.prepare_calculation(params)
             next_step = project.what_to_run(calc_id)
-        
+        """
         # Set the atoms object for the next steps based on the relaxed structure
         #dir_relax = os.path.join(dir, 'relax')
         dir_relax = 'results/bulk/GPAW'
