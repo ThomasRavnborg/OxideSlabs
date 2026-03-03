@@ -21,3 +21,4 @@ resultsold/
 tools/
 mount/
 *.log
+*.out

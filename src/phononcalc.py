@@ -48,7 +48,7 @@ def phonopy_to_ase(atoms_phonopy):
 
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                       MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
-                      N_super = 2, dir='results/bulk/phonons', par=False):
+                      N_super=2, dir='results/bulk/phonons', par=False):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed structure.
