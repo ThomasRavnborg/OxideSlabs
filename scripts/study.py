@@ -57,7 +57,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         if next_step == "relax" or runall:
             # Run relaxation
             parprint(f"Running relaxation for calculation {calc_id}")
-            dir_step = os.path.join(dir, next_step)
+            dir_step = os.path.join(dir, 'relax')
             relax_ase(perovskite, **params, dir=dir_step)
             # Update dataframe and move to next step
             calc_id = project.prepare_calculation(params)
@@ -72,7 +72,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         if next_step == "bands" or runall:
             # Run band structure calculation
             parprint(f"Running band structure calculation for calculation {calc_id}")
-            dir_step = os.path.join(dir, next_step)
+            dir_step = os.path.join(dir, 'bands')
             calculate_bands(perovskite, **params, dir=dir_step, par=True)
             # Update to next step
             calc_id = project.prepare_calculation(params)
@@ -81,7 +81,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         # If phonon calculation needs to be run, run it and update the calculation ID and next step
         if next_step == "phonons" or runall:
             parprint(f"Running phonon calculation for calculation {calc_id}")
-            dir_step = os.path.join(dir, next_step)
+            dir_step = os.path.join(dir, 'phonons')
             calculate_phonons(perovskite, **params, dir=dir_step, par=True)
             # Update to next step
             calc_id = project.prepare_calculation(params)
