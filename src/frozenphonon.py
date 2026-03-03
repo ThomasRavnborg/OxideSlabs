@@ -3,6 +3,7 @@ import os
 import time
 import numpy as np
 import pandas as pd
+import sisl as si
 from itertools import product
 # ASE
 from ase.io import read, write
@@ -17,6 +18,7 @@ from phonopy import Phonopy
 # Custom modules
 from src.parameterconv import run_siesta
 from src.cleanfiles import cleanFiles
+from src.phononcalc import ase_to_phonopy, phonopy_to_ase
 
 def phonon_to_atoms(phonon, cell='unit'):
     if cell == 'unit':
@@ -64,13 +66,12 @@ def get_modevector(phonon, q):
     return modevec, stable
 
 
-def displace_atoms(unitcell, q, modevec, dis):
-    """Function to generate a supercell and displace the atomic positions according to the mode vector and q-point.
+def get_displacement(unitcell, q, modevec):
+    """Function to generate a supercell and get displacements according to the mode vector and q-point.
     Parameters:
     - unitcell: ASE Atoms object containing the unit cell structure.
     - q: q-point (in fractional coordinates) at which the mode vector is defined.
     - modevec: Mode vector corresponding to the most unstable mode at the given q-point.
-    - dis: Displacement amplitude (in Å) to apply to the atomic positions.
     Returns:
     - supercell: ASE Atoms object containing the supercell structure with displaced atomic positions.
     - supercell_matrix: 3x3 matrix defining the supercell transformation from the unit cell.
@@ -107,10 +108,11 @@ def displace_atoms(unitcell, q, modevec, dis):
                 phased_disp = modevec*np.exp(2j*np.pi*np.dot(q, R))
                 modevec_sc.append(phased_disp)
     modevec_sc = np.vstack(modevec_sc)
+    modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc*N_unit)
     
     # Displace atomic positions in the supercell
-    supercell.positions += dis * np.real(modevec_sc) / np.sqrt(m_sc*N_unit)
-    return supercell, supercell_matrix
+    #supercell.positions += dis * np.real(modevec_sc) / np.sqrt(m_sc*N_unit)
+    return modevec_sc, supercell, supercell_matrix
 
 
 def run_frozen_phonons(formula, id, qpoint, displacements, skip=True):
@@ -155,13 +157,19 @@ def run_frozen_phonons(formula, id, qpoint, displacements, skip=True):
     else:
         df = pd.DataFrame(columns=['displacement', 'Energy'])
 
+
+    modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
+
+
     # Loop over displacements, generate supercell with displaced atomic positions, run Siesta calculation, and save results
     images = []
     t0 = time.time() # Start timer
     for dis in displacements:
-        # Get supercell with displaced atomic positions for the given displacement amplitude
-        supercell, supercell_matrix = displace_atoms(unitcell, q, modevec, dis)
-        images.append(supercell)
+        # make a copy of the supercell to displace
+        supercell_disp = supercell.copy()
+        # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
+        supercell_disp.positions += dis * modevec_sc
+        images.append(supercell_disp)
         # Check if results have been obtained for a given displacement
         if (df['displacement'] == dis).any():
             print(f"qpoint={qpoint}, displacement={dis} is in the DataFrame. Skipping.")
@@ -174,7 +182,7 @@ def run_frozen_phonons(formula, id, qpoint, displacements, skip=True):
             # Run a single-point SIESTA calculation to get the total energy
             # Note that the k-point grid is scaled according to the supercell size
             # This means fewer k-points will be used for larger supercells
-            energy = run_siesta(formula, supercell, EnergyShift=0.01, SplitNorm=0.15,
+            energy = run_siesta(formula, supercell_disp, EnergyShift=0.01, SplitNorm=0.15,
                                 MeshCutoff=200, kgrid=(kx, ky, kz), dir=dir_res)
             # Scale energy by the number of unit cells in the supercell to get energy per unit cell
             energy = energy / (nx*ny*nz)
@@ -204,7 +212,7 @@ def run_frozen_phonons(formula, id, qpoint, displacements, skip=True):
 
 def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
-                             MeshCutoff=200, kgrid=(10, 10, 10),
+                             MeshCutoff=200, kgrid=(5, 5, 5),
                              pseudo='PBEsol', mode='lcao',
                              dir='resultsold/bulk/frozen'):
     # Get current working directory (cwd)
@@ -271,14 +279,18 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
             'txt': os.path.join(dir, f"{formula}_PH.txt")
         }
 
+    modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
+
     # Loop over displacements, generate supercell with displaced atomic positions, run Siesta calculation, and save results
     images = []
     forces_list = []
     t0 = time.time() # Start timer
     for dis in displacements:
-        # Get supercell with displaced atomic positions for the given displacement amplitude
-        supercell, supercell_matrix = displace_atoms(unitcell, q, modevec, dis)
-        images.append(supercell)
+        # Make a copy of the supercell to displace
+        supercell_disp = supercell.copy()
+        # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
+        supercell_disp.positions += dis * modevec_sc
+        images.append(supercell_disp)
         # Check if results have been obtained for a given displacement
         if (df['displacement'] == dis).any():
             print(f"qpoint={qpoint}, displacement={dis} is in the DataFrame. Skipping.")
@@ -299,10 +311,11 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
                 calc = GPAW(**calc_params)
             
             # Attach the calculator to the supercell
-            supercell.calc = calc
+            supercell_disp.calc = calc
             # Run the calculation
-            energy = supercell.get_potential_energy()
-            forces = supercell.get_forces()
+            energy = supercell_disp.get_potential_energy()
+            sile = si.get_sile(os.path.join(dir, f'{formula}.FA'))
+            forces = sile.read_force()
             forces_list.append(forces)
             # Scale energy by the number of unit cells in the supercell to get energy per unit cell
             energy = energy / (nx*ny*nz)
@@ -319,16 +332,15 @@ def calculate_frozen_phonons(phonon, displacements, xcf='PBEsol', basis='DZP',
             # Save new results
             df.to_csv(os.path.join(dir, 'frozen.csv'), index=False)
     
-    phonon = Phonopy(unitcell, supercell_matrix)
-    phonon.supercells_with_displacements = images
-    phonon.forces = forces_list
-    phonon.save("frozen.yaml")
+    forces_array = np.stack(forces_list)
 
     t1 = time.time() # Stop timer
     # Save the supercell structures with displacements as an xyz file
     write(os.path.join(dir, 'frozen.xyz'), images)
+    # Save the forces for each displacement as a numpy array
+    np.save(os.path.join(dir, 'forces.npy'), forces_array)
     # Write the time taken for frozen phonon calculations to a file
-    np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
+    np.save(os.path.join(dir, f"time.npy"), t1-t0)
     # Clean directory of SIESTA calculations
     cleanFiles(directory=dir, confirm=False)
     

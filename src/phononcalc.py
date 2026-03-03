@@ -22,9 +22,33 @@ from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
+
+def ase_to_phonopy(atoms_ase):
+    """Function to convert ASE Atoms object to PhonopyAtoms object.
+    Parameters:
+    - atoms_ase: ASE Atoms object representing the structure.
+    Returns:
+    - PhonopyAtoms object with the same structure as the input ASE Atoms.
+    """
+    return PhonopyAtoms(symbols=atoms_ase.get_chemical_symbols(),
+                        positions=atoms_ase.get_positions(),
+                        cell=atoms_ase.get_cell(),
+                        masses=atoms_ase.get_masses())
+
+def phonopy_to_ase(atoms_phonopy):
+    """Function to convert PhonopyAtoms object to ASE Atoms object.
+    Parameters:
+    - atoms_phonopy: PhonopyAtoms object representing the structure.
+    Returns:
+    - ASE Atoms object with the same structure as the input PhonopyAtoms.
+    """
+    return Atoms(symbols=atoms_phonopy.symbols,
+                 positions=atoms_phonopy.positions,
+                 cell=atoms_phonopy.cell)
+
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                       MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
-                      dir='results/bulk/phonons', par=False):
+                      N_super = 2, dir='results/bulk/phonons', par=False):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed structure.
@@ -49,7 +73,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     bulk = perovskite.bulk
 
     # Parameters for phonon calculations
-    N = 2  # Supercell size
+    N = N_super  # Supercell size
     dd = 0.01 # Displacement distance in Å
     if bulk:
         scell_matrix = np.diag([N, N, N])  # Supercell size for bulk
@@ -57,10 +81,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         scell_matrix = np.diag([N, N, 1])  # Supercell size for slab
 
     # Convert ASE Atoms to PhonopyAtoms
-    unitcell = PhonopyAtoms(symbols=atoms.get_chemical_symbols(),
-                            positions=atoms.get_positions(),
-                            cell=atoms.get_cell(),
-                            masses=atoms.get_masses())
+    unitcell = ase_to_phonopy(atoms)
     
     # Create Phonopy object and generate displacements
     phonon = Phonopy(unitcell, scell_matrix)
@@ -118,10 +139,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         parprint(f"Processing supercell {i + 1}/{len(supercells)}")
         
         # Convert PhonopyAtoms to ASE Atoms for each supercell
-        atoms_ase = Atoms(symbols=sc.symbols,
-                          positions=sc.positions,
-                          cell=sc.cell,
-                          pbc=True)  # Assume periodic boundary conditions
+        atoms_ase = phonopy_to_ase(sc)
         
         if not bulk:
             # Remove periodicity in the z-direction for slab calculations
@@ -148,9 +166,9 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     t1 = time.time() # Stop timer
     if world.rank == 0:
         # Save phonopy .yaml file
-        phonon.save(os.path.join(dir, f"{formula}.yaml"))
+        phonon.save(os.path.join(dir, f"{formula}_{N}.yaml"))
         # Write the time taken for phonon calculations to a file
-        np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
+        np.savez(os.path.join(dir, f"time_{N}.npz"), dt=t1-t0)
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)

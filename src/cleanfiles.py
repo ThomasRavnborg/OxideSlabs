@@ -9,7 +9,7 @@ def cleanFiles(directory='.', formats=[], confirm=True):
     - confirm (bool): If True, prompts the user for confirmation before deleting files.
     """
     # Keeps a default set of important file formats and the user-specified ones
-    default_formats = ['.py', '.ipynb', '.csv', '.npz', '.fdf', '.out', '.txt', '.log',
+    default_formats = ['.py', '.ipynb', '.csv', '.npy', '.npz', '.fdf', '.out', '.txt', '.log',
                        '.DM', '.FA', '.XV', '.HSX', '.bands','.PDOS', '.DOS', '.xyz', '.yaml', '.traj']
     joined_formats = default_formats + formats
     # Identify all files in the directory and the files to keep/delete
