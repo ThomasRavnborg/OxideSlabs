@@ -7,16 +7,15 @@ formula = 'BaTiO3'
 id = '0064'
 
 # Set the results directory
-dir_res = os.path.join('results/bulk/',formula,'frozen')
-dir_id = os.path.join('results/bulk/',formula, id)
+#dir_res = os.path.join('results/bulk/',formula,'frozen')
+dir = os.path.join('results/bulk/',formula, id)
 
-# Load .xyz and .yaml file from relaxation and phonon calculation
-#atoms = read(os.path.join(dir_id, f'relax/{formula}.xyz'))
-phonon = ph.load(os.path.join(dir_id, f'phonons/{formula}.yaml'))
+# Load phonon data from the specified directory and formula
+phonon = ph.load(os.path.join(dir, f'phonons/{formula}.yaml'))
 
 amplitudes = np.linspace(-2, 2, 21) # in Angstrom
 
 calculate_frozen_phonons(phonon, amplitudes, xcf='PBEsol', basis='DZP',
                          EnergyShift=0.001, SplitNorm=0.15,
                          MeshCutoff=1000, kgrid=(10, 10, 10),
-                         dir=dir_res)
+                         dir=os.path.join(dir,'frozen'))

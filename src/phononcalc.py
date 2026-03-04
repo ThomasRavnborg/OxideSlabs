@@ -22,6 +22,18 @@ from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
+def phonon_to_atoms(phonon, cell='unit'):
+    if cell == 'unit':
+        cell = phonon.unitcell
+    elif cell == 'super':
+        cell = phonon.supercell
+    atoms = Atoms(
+        symbols=cell.symbols,
+        scaled_positions=cell.scaled_positions,
+        cell=cell.cell,
+        pbc=True
+    )
+    return atoms
 
 def ase_to_phonopy(atoms_ase):
     """Function to convert ASE Atoms object to PhonopyAtoms object.
@@ -48,7 +60,7 @@ def phonopy_to_ase(atoms_phonopy):
 
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                       MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
-                      N_super=2, dir='results/bulk/phonons', par=False):
+                      N=2, dd=0.01, dir='results/bulk/phonons', par=False):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed structure.
@@ -60,6 +72,8 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
+    - N: Size of the supercell for phonon calculations (default is 2).
+    - dd: Displacement distance in Å for generating displaced supercells (default is 0.01 Å).
     - dir: Directory to save the results (default is 'results/bulk/phonons').
     - par: Whether the SIESTA calculator is parallel (default is False).
     Returns:
@@ -73,8 +87,8 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     bulk = perovskite.bulk
 
     # Parameters for phonon calculations
-    N = N_super  # Supercell size
-    dd = 0.01 # Displacement distance in Å
+    #N = N_super  # Supercell size
+    #dd = 0.01 # Displacement distance in Å
     if bulk:
         scell_matrix = np.diag([N, N, N])  # Supercell size for bulk
     else:
@@ -278,26 +292,25 @@ def get_phonon_pdos(phonon, bulk=True):
     return (pdos, freq, symbols)
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results', pDOS=True, bulk=True):
+def plot_dispersion(phonon, pDOS=True, bulk=True):
     """Function to plot the phonon dispersion and DOS together.
     Parameters:
-    - formula: Chemical formula of the material.
-    - ids: Numpy array of IDs to plot.
-    - vals: Numpy array of values corresponding to the IDs (e.g., different functionals or parameters).
-    - root: Root directory for results.
-    - mode: Calculation mode ('lcao' or 'pw').
+    - phonon: Phonopy object containing phonon data.
     - pDOS: Whether to plot the projected density of states (PDOS) (default is True).
     - bulk: Boolean indicating if the system is bulk (True) or slab (False).
     Returns:
     - None. The function creates a plot of the phonon dispersion and DOS.
     """
-    
+
+    atoms = phonon_to_atoms(phonon, cell='unit')
+    formula = atoms.symbols
+
     # Define tickmarks for the x- and y-axis
     ytickmarks = np.arange(-15, 26, 5)
     xtickmarks = np.arange(0, 7, 1)
 
     # Define colors and styles for plotting (if needed)
-    colors = ["black", "blue", "red", "purple", "orange", "green"]
+    #colors = ["black", "blue", "red", "purple", "orange", "green"]
     #styles = ['-', '--', '-.', ':', '-', '--', '-.']
 
     # Make a simple figure where graphs are plotted
@@ -334,11 +347,11 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
         ax.set_xlim(X[0], X[-1])
         ax.set_ylim(ytickmarks[0], ytickmarks[-1])
 
-    def _plot_dos(ax, phonon, val, col='k', style='-'):
+    def _plot_dos(ax, phonon, val, col='k'):
         # Extract total DOS data
         (dosx, dosy) = get_phonon_dos(phonon, bulk)
         # Plot total DOS
-        ax.plot(dosx, dosy, lw=1.5, color=col, label=f'{val}', linestyle=style)
+        ax.plot(dosx, dosy, lw=1.5, color=col, label=f'{val}')
         if pDOS:
             ax.fill_between(dosx, dosy, color='lightgray', alpha=0.5)
 
@@ -363,28 +376,18 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), root='results'
 
     
     dir = 'results/bulk/GPAW'
-    phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
-    # Plot phonon dispersion
-    _plot_disp(ax1, phonon, 'PW', col=colors[0])
-    # Plot total DOS
-    _plot_dos(ax2, phonon, 'PW', col=colors[0])
+    phonon_PW = ph.load(os.path.join(dir, f'{formula}.yaml'))
+    # Plot phonon dispersion for PW and LCAO calculations
+    _plot_disp(ax1, phonon_PW, 'PW', col='k')
+    _plot_disp(ax1, phonon, 'LCAO', col='tab:blue')
+    # Plot total DOS for PW and LCAO calculations
+    _plot_dos(ax2, phonon_PW, 'PW', col='k')
+    _plot_dos(ax2, phonon, 'LCAO', col='tab:blue')
     if pDOS:
         # Plot PDOS
+        _plot_pdos(ax2, phonon_PW)
         _plot_pdos(ax2, phonon)
     
-    for i in range(len(ids)):
-        # Load Phonopy object from YAML file
-        dir = os.path.join(root, 'bulk/',formula, ids[i], 'phonons')
-        phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
-        
-        # Plot phonon dispersion
-        _plot_disp(ax1, phonon, vals[i], col=colors[i+1])
-        # Plot total DOS
-        _plot_dos(ax2, phonon, vals[i], col=colors[i+1])
-        if pDOS:
-            # Plot PDOS
-            _plot_pdos(ax2, phonon)
-
     # Set x- and y-label
     ax1.set_xlabel('k-points')
     ax1.set_ylabel('Frequency, $\omega$ (THz)')
