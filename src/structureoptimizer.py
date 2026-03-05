@@ -123,7 +123,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         if not bulk:
             # For slab calculations, only optimize in-plane cell parameters and atomic positions,
             # while keeping out-of-plane cell parameter fixed
-            mask = [1, 1, 0, 0, 0, 0]
+            mask = [1, 1, 0, 0, 0, 1]
         # Set unit cell filter to the FrechetCellFilter
         opt_conf = FrechetCellFilter(atoms, mask=mask)
     elif filt == False:

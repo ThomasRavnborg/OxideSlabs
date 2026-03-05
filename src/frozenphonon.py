@@ -88,7 +88,7 @@ def get_displacement(unitcell, q, modevec):
     """
     
     # Determine number of atoms in the unitcell
-    #n_cells = len(unitcell)
+    n_cells = len(unitcell)
 
     # Determine supercell size required for the given q-point
     q_inv = np.array([int(1/q_i) if q_i != 0 else 1 for q_i in q])
@@ -113,26 +113,26 @@ def get_displacement(unitcell, q, modevec):
                 phased_disp = modevec*np.exp(2j*np.pi*np.dot(q, R))
                 modevec_sc.append(phased_disp)
     modevec_sc = np.vstack(modevec_sc)
-    # Take the real part of the mode vector and normalize by the square root of the atomic masses and ncells
-    modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * ncells)
+    # Take the real part of the super cell mode vectors and normalize by the square root of the atomic masses
+    modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * n_cells)
     #modevec_sc /= np.linalg.norm(modevec_sc)
     return modevec_sc, supercell, supercell_matrix
 
-def calculate_frozen_phonons(phonon, amplitudes, xcf='PBEsol', basis='DZP',
+def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
-                             MeshCutoff=200, kgrid=(5, 5, 5),
+                             MeshCutoff=1000, kgrid=(10, 10, 10),
                              pseudo='PBEsol', mode='lcao',
                              dir='resultsold/bulk/frozen'):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Parameters:
     - phonon: Phonopy object containing the phonon calculation results.
-    - amplitudes: List or array of displacement amplitudes to apply along the mode vector (in Å(a.u.)^1/2).
+    - dd: Displacement spacing in Å(a.u.)^1/2 (default: 0.1).
     - xcf: Exchange-correlation functional to use in the calculations (default: 'PBEsol').
     - basis: Basis set to use in the calculations (default: 'DZP').
     - EnergyShift: Energy shift parameter for the SIESTA calculations (in Ry, default: 0.01 Ry).
     - SplitNorm: Split norm parameter for the SIESTA calculations (default: 0.15).
-    - MeshCutoff: Mesh cutoff for the SIESTA calculations (in Ry, default: 200 Ry).
-    - kgrid: Tuple specifying the k-point grid size for the SIESTA calculations (default: (5, 5, 5)).
+    - MeshCutoff: Mesh cutoff for the SIESTA calculations (in Ry, default: 1000 Ry).
+    - kgrid: Tuple specifying the k-point grid size for the SIESTA calculations (default: (10, 10, 10)).
     - pseudo: Pseudopotential to use for the SIESTA calculations (default: 'PBEsol').
     - mode: String indicating whether to use localized atomic orbitals ('lcao') or plane waves ('pw') for the calculations (default: 'lcao').
     - dir: Directory where the results will be saved (default: 'resultsold/bulk/frozen').
@@ -200,25 +200,27 @@ def calculate_frozen_phonons(phonon, amplitudes, xcf='PBEsol', basis='DZP',
             
             # Generate the supercell and get the mode vector for the supercell
             modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
+            # Determine the supercell size in each direction from the diagonal of the supercell matrix
+            nx, ny, nz = supercell_matrix.diagonal().astype(int)
+            ncells = nx*ny*nz
+            # Determine the k-point grid size for the SIESTA calculation based on the supercell size
+            kx, ky, kz = max(1, kgrid[0]//nx), max(1, kgrid[1]//ny), max(1, kgrid[2]//nz)
 
-            # Loop over displacement amplitudes, run Siesta calculation, and save collumn to dataframe
-            displacements = []
+            amp = 0
+            amplitudes = []
             images = []
             energies = []
-            forces = []
             t0 = time.time() # Start timer
-            for amp in amplitudes:
+            while True:
+                amplitudes.append(amp)
                 # Make a copy of the supercell to displace
                 supercell_disp = supercell.copy()
                 # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
                 displacement = amp * modevec_sc
-                displacements.append(displacement)
+                #displacements.append(displacement)
                 supercell_disp.positions += displacement
                 images.append(supercell_disp)
-                # Determine the supercell size in each direction from the diagonal of the supercell matrix
-                nx, ny, nz = supercell_matrix.diagonal().astype(int)
-                # Determine the k-point grid size for the SIESTA calculation based on the supercell size
-                kx, ky, kz = max(1, kgrid[0]//nx), max(1, kgrid[1]//ny), max(1, kgrid[2]//nz)
+
                 if mode == 'lcao':
                     # Set k-points for SIESTA calculation based on the supercell size
                     calc_params['kpts'] = (kx, ky, kz)
@@ -235,8 +237,9 @@ def calculate_frozen_phonons(phonon, amplitudes, xcf='PBEsol', basis='DZP',
                 # Run the calculation
                 energy = supercell_disp.get_potential_energy()
                 # Scale energy by the number of unit cells in the supercell to get energy per unit cell
-                energy = energy / (nx*ny*nz)
+                energy = energy / ncells
                 energies.append(energy)
+                """
                 if mode == 'lcao':
                     # Read forces from the calculation output
                     sile = si.get_sile(os.path.join(dir_q, f'{formula}.FA'))
@@ -244,7 +247,13 @@ def calculate_frozen_phonons(phonon, amplitudes, xcf='PBEsol', basis='DZP',
                 elif mode == 'pw':
                     force = supercell_disp.get_forces()
                 forces.append(force)
-
+                """
+                # Update amplitude for the next iteration
+                amp += dd
+                tol = 50*1e-3 # Tolerance for stopping the loop based on energy increase (in eV)
+                # Stop the loop, if the energy has increased by more than the tolerance compared to the first point
+                if len(energies) > 1 and energies[-1] - energies[0] > tol:
+                    break
             t1 = time.time() # Stop timer
             # Save the supercell structures with displacements as an xyz file
             write(os.path.join(dir_q, 'structures.xyz'), images)
@@ -255,7 +264,7 @@ def calculate_frozen_phonons(phonon, amplitudes, xcf='PBEsol', basis='DZP',
             })
             df.to_csv(os.path.join(dir_q, 'energies.csv'), index=False)
             # Save the displacements and forces for each displacement as a numpy array
-            np.savez(os.path.join(dir_q, 'forces.npz'), displacements=displacements, forces=forces)
+            #np.savez(os.path.join(dir_q, 'forces.npz'), displacements=displacements, forces=forces)
             # Write the time taken for frozen phonon calculations to a file
             np.save(os.path.join(dir_q, f"time.npy"), t1-t0)
             # Clean directory of SIESTA calculations
