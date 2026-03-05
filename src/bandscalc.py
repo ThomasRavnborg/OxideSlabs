@@ -166,12 +166,12 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             # Save the DOS data to a file
             np.savez(os.path.join(dir, f"{formula}_DOS.npz"), E=E, DOS=DOS)
             # Write the time taken for optimization to a file
-            np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
+            np.save(os.path.join(dir, f"time.npy"), t1-t0)
     elif mode == 'lcao':
         # Stop timer
         t1 = time.time() # Stop timer
         # Write the time taken for band structure calculations to a file
-        np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
+        np.save(os.path.join(dir, f"time.npy"), t1-t0)
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
 

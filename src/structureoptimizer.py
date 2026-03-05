@@ -63,6 +63,8 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
     formula = perovskite.formula
     atoms = perovskite.atoms
     bulk = perovskite.bulk
+    # Convert kgrid to a list to allow for modification
+    kgrid = list(kgrid)
 
     if not bulk:
         # Center the slab in the cell and add vacuum in the z-direction
@@ -115,8 +117,15 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
     
     # Set filter to allow for unit cell and atoms to be simultaneously optimized
     if filt == True:
+        # Mask for cell optimization: 1 means optimize that parameter, 0 means keep it fixed
+        # Format: [εxx, εyy, εzz, εyz, εxz, εxy]
+        mask = [1, 1, 1, 1, 1, 1]
+        if not bulk:
+            # For slab calculations, only optimize in-plane cell parameters and atomic positions,
+            # while keeping out-of-plane cell parameter fixed
+            mask = [1, 1, 0, 0, 0, 0]
         # Set unit cell filter to the FrechetCellFilter
-        opt_conf = FrechetCellFilter(atoms)
+        opt_conf = FrechetCellFilter(atoms, mask=mask)
     elif filt == False:
         # Only optimize positions of the atoms
         opt_conf = atoms
@@ -133,7 +142,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         # Write atoms object to file (only on master process to avoid conflicts)
         atoms.write(os.path.join(dir, f"{formula}.xyz"))
         # Write the time taken for optimization to a file
-        np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
+        np.save(os.path.join(dir, f"time.npy"), t1-t0)
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
@@ -164,6 +173,9 @@ def relax_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
     atoms = perovskite.atoms
     bulk = perovskite.bulk
     symbols = atoms.symbols
+
+    # Convert kgrid to a list to allow for modification
+    kgrid = list(kgrid)
 
     # Species information for setting up ghost atoms
     spc = [
@@ -198,7 +210,6 @@ def relax_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
         'PAO.SplitNorm': SplitNorm,
         'WriteMDHistory': 'T',
         'MD.TypeOfRun': 'CG',
-        'Diag.Algorithm': 'ELPA',
         'MD.Steps': '100',
         'MD.VariableCell': 'T',
         'MD.MaxForceTol': f'{fmax} eV/Ang',
@@ -220,6 +231,6 @@ def relax_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
     atoms = geom.to.ase()
     atoms.write(os.path.join(dir, f"{formula}.xyz"))
     # Write the time taken for optimization to a file
-    np.savez(os.path.join(dir, f"time.npz"), dt=t1-t0)
+    np.save(os.path.join(dir, f"time.npy"), t1-t0)
     # Remove unnecessary files generated during the relaxation
     cleanFiles(directory=dir, confirm=False)

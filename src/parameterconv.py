@@ -42,8 +42,7 @@ def run_siesta(formula, atoms, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spli
     # FDF arguments in a dictionary
     fdf_args = {
         'PAO.BasisSize': basis,
-        'PAO.SplitNorm': SplitNorm,
-        'UseTreeTimer': True
+        'PAO.SplitNorm': SplitNorm
     }
     
     # Set up the Siesta calculator and attach it to the atoms object
@@ -67,26 +66,20 @@ def get_enthalpy(formula, dir):
     enthalpy = float(lines[0].split()[-1])
     return enthalpy
 
-def get_total_force(formula, dir):
-    """Function to read total force from Siesta output files.
+def get_max_force(formula, dir):
+    """Function to read maximum force on an atom from Siesta output files.
     Parameters:
-    - formula: Chemical formula of the material for which total force is to be read.
+    - formula: Chemical formula of the material for which maximum force is to be read.
     - dir: Directory where the Siesta output files are located.
     Returns:
-    - Total force (in eV/Å).
+    - Maximum force (in eV/Å).
     """
     sile = si.get_sile(os.path.join(dir, f'{formula}.FA'))
     forces = sile.read_force()
-    return np.linalg.norm(forces)
+    return np.max(np.linalg.norm(forces, axis=1))
 
 def get_bandgap(formula, dir):
-    """Function to read bandgap from Siesta output files.
-    Parameters:
-    - formula: Chemical formula of the material for which bandgap is to be read.
-    - dir: Directory where the Siesta output files are located.
-    Returns:
-    - Indirect bandgap (in eV).
-    """
+    """Legacy function. Does not work"""
     # Read eigenvalues and Fermi level from SIESTA output files
     sile = si.get_sile(os.path.join(dir, f'{formula}.EIG'))
     eig = sile.read_data()
@@ -104,16 +97,16 @@ def get_bandgap(formula, dir):
     Eg = CBM - VBM
     return Eg
 
-def basis_opt(atoms, shifts, splits):
+def basis_opt(perovskite, shifts, splits):
     """Function to optimize basis set parameters by running multiple Siesta calculations.
     Parameters:
-    - atoms: ASE Atoms object representing the structure to be calculated.
+    - perovskite: Custom object representing the structure to be relaxed.
     - shifts: List of energy shift values to be tested.
     - splits: List of split norm values to be tested.
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
-    
+    atoms = perovskite.atoms
     formula = atoms.symbols
     dir = f'results/bulk/{formula}/basis'
 
@@ -128,19 +121,17 @@ def basis_opt(atoms, shifts, splits):
             print(f"EnergyShift={shift} Ry and SplitNorm={split} is in the DataFrame. Skipping.")
         else:
             # Get energy and enthalpy from SIESTA
-            energy = run_siesta(atoms, EnergyShift=shift, SplitNorm=split, dir=dir,
+            energy = run_siesta(formula, atoms, EnergyShift=shift, SplitNorm=split, dir=dir,
                                 MeshCutoff=800, kgrid=(10, 10, 10))
             enthalpy = get_enthalpy(formula, dir)
-            force = get_total_force(formula, dir)
-            bandgap = get_bandgap(formula, dir)
+            force = get_max_force(formula, dir)
             # Append results
             row = {
                 "EnergyShift": shift,
                 "SplitNorm": split,
                 "Energy": energy,
                 "Enthalpy": enthalpy,
-                "TotalForce": force,
-                "Bandgap": bandgap
+                "MaxForce": force
             }
             # Create new dataframe
             df_new = pd.DataFrame([row])
@@ -151,16 +142,16 @@ def basis_opt(atoms, shifts, splits):
     # Clean directory of SIESTA calculations
     cleanFiles(directory=dir, confirm=False)
 
-def grid_conv(atoms, meshcuts, kpoints):
+def grid_conv(perovskite, meshcuts, kpoints):
     """Function to optimize grid parameters by running multiple Siesta calculations.
     Parameters:
-    - atoms: ASE Atoms object representing the structure to be calculated.
+    - perovskite: Custom object representing the structure to be relaxed.
     - meshcuts: List of mesh cutoff values to be tested.
     - kpoints: List of k-point mesh values to be tested.
     Returns:
     - None. The function runs multiple calculations and saves the results to a CSV file.
     """
-
+    atoms = perovskite.atoms
     formula = atoms.symbols
     dir = f'results/bulk/{formula}/grid'
 
@@ -175,19 +166,17 @@ def grid_conv(atoms, meshcuts, kpoints):
             print(f"MeshCutoff={mc} and kgrid=({kp}, {kp}, {kp}) is in the DataFrame. Skipping.")
         else:
             # Get energy and enthalpy from SIESTA
-            energy = run_siesta(atoms, EnergyShift=0.001, SplitNorm=0.1, dir=dir,
+            energy = run_siesta(formula, atoms, EnergyShift=0.001, SplitNorm=0.1, dir=dir,
                                 MeshCutoff=mc, kgrid=(kp, kp, kp))
             enthalpy = get_enthalpy(formula, dir)
-            force = get_total_force(formula, dir)
-            bandgap = get_bandgap(formula, dir)
+            force = get_max_force(formula, dir)
             # Append results
             row = {
                 "MeshCutoff": mc,
                 "kgrid": f"({kp}, {kp}, {kp})",
                 "Energy": energy,
                 "Enthalpy": enthalpy,
-                "TotalForce": force,
-                "Bandgap": bandgap
+                "MaxForce": force
             }
             # Create new dataframe
             df_new = pd.DataFrame([row])

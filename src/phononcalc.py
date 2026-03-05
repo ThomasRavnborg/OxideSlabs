@@ -87,7 +87,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     bulk = perovskite.bulk
 
     # Parameters for phonon calculations
-    #N = N_super  # Supercell size
+    #N = 2  # Supercell size
     #dd = 0.01 # Displacement distance in Å
     if bulk:
         scell_matrix = np.diag([N, N, N])  # Supercell size for bulk
@@ -180,9 +180,9 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     t1 = time.time() # Stop timer
     if world.rank == 0:
         # Save phonopy .yaml file
-        phonon.save(os.path.join(dir, f"{formula}_{N}.yaml"))
+        phonon.save(os.path.join(dir, f"{formula}.yaml"))
         # Write the time taken for phonon calculations to a file
-        np.savez(os.path.join(dir, f"time_{N}.npz"), dt=t1-t0)
+        np.save(os.path.join(dir, f"time.npy"), t1-t0)
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
