@@ -87,7 +87,6 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     bulk = perovskite.bulk
 
     # Parameters for phonon calculations
-    #N = 2  # Supercell size
     #dd = 0.01 # Displacement distance in Å
     if bulk:
         scell_matrix = np.diag([N, N, N])  # Supercell size for bulk

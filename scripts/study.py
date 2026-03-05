@@ -15,10 +15,10 @@ project = SiestaProject(material=formula)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['DZP', 'TZP']
+basis =   ['TZP']
 pseudos = ['PBEsol']
 shifts =  [0.001]
-splits =  [0.15]
+splits =  [0.1]
 cutoffs = [1000]
 grids =   [12]
 
@@ -78,15 +78,13 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             calc_id = project.prepare_calculation(params)
             next_step = project.what_to_run(calc_id)
 
-        next_step = "phonons"
-
         # If phonon calculation needs to be run, run it and update the calculation ID and next step
         if next_step == "phonons" or runall:
             parprint(f"Running phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'phonons')
-            calculate_phonons(perovskite, **params, dir=dir_step, N_super=2, par=True)
-            calculate_phonons(perovskite, **params, dir=dir_step, N_super=3, par=True)
-            calculate_phonons(perovskite, **params, dir=dir_step, N_super=4, par=True)
+            calculate_phonons(perovskite, **params, dir=dir_step, N=2, par=True)
+            calculate_phonons(perovskite, **params, dir=dir_step, N=3, par=True)
+            calculate_phonons(perovskite, **params, dir=dir_step, N=4, par=True)
             # Update to next step
             calc_id = project.prepare_calculation(params)
             next_step = project.what_to_run(calc_id)
