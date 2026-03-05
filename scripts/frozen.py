@@ -13,9 +13,7 @@ dir = os.path.join('results/bulk/',formula, id)
 # Load phonon data from the specified directory and formula
 phonon = ph.load(os.path.join(dir, f'phonons/{formula}.yaml'))
 
-amplitudes = np.linspace(0, 2, 11) # in Å(a.u.)^1/2
-
-calculate_frozen_phonons(phonon, amplitudes, xcf='PBEsol', basis='DZP',
-                         EnergyShift=0.001, SplitNorm=0.15,
+calculate_frozen_phonons(phonon, xcf='PBEsol', basis='DZP',
+                         EnergyShift=0.001, SplitNorm=0.1,
                          MeshCutoff=1000, kgrid=(10, 10, 10),
                          dir=os.path.join(dir,'frozen'))
