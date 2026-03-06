@@ -92,6 +92,9 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-6,
         }
+        if not bulk:
+            # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+            calc_params['Slab.DipoleCorrection'] = 'T'
         # Set up the Siesta calculator
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
     
@@ -109,6 +112,9 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
             'convergence': {'density': 1e-6, 'forces': 1e-5},
             'txt': os.path.join(dir, f"{formula}.txt")
         }
+        if not bulk:
+            # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+            calc_params["poissonsolver"] = {"dipolelayer": "xy"}
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
     

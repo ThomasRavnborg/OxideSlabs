@@ -123,10 +123,12 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             "MD.TypeOfRun": "CG",
             "MD.NumCGsteps": 0,  # forces only
         }
-
         if par:
             # Change diagonalization algorithm when running in parallel
             fdf_args['Diag.Algorithm'] = 'ELPA'
+        if not bulk:
+            # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+            fdf_args['Slab.DipoleCorrection'] = 'T'
     
     elif mode == 'pw':
         from gpaw import GPAW

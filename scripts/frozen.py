@@ -7,27 +7,29 @@ from src.structure import Perovskite
 from src.frozenphonon import calculate_frozen_phonons
 from src.structureoptimizer import relax_ase, relax_siesta
 
+# Define formula and ID
 formula = 'BaTiO3'
 id = '0064'
-
-dir = os.path.join('results/bulk/',formula, id)
+# Set up directory paths for ID and frozen phonon calculation results
+dir_id = os.path.join('results/bulk/',formula, id)
+dir_res = os.path.join(dir_id, 'frozen')
 
 # Load parameters.json file for this formula and ID from the directory
-params = pd.read_json(os.path.join(dir, 'parameters.json'), orient='index').to_dict()[0]
+params = pd.read_json(os.path.join(dir_id, 'parameters.json'), orient='index').to_dict()[0]
 
 """
 # Load phonon data from the specified directory and formula
-phonon = ph.load(os.path.join(dir, f'phonons/{formula}.yaml'))
+phonon = ph.load(os.path.join(dir_res, f'{formula}.yaml'))
 
 # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-calculate_frozen_phonons(phonon, **params, dir=os.path.join(dir,'frozen'))
+calculate_frozen_phonons(phonon, **params, dir=dir_res)
 """
 
 # Get the list of q-point folders in the frozen phonon directory and loop through them
-folders = os.listdir(dir)
+folders = os.listdir(dir_res)
 for q in folders:
     # Read the energies.csv file for this q-point and extract the energies and corresponding structures
-    dir_q = os.path.join(dir, q)
+    dir_q = os.path.join(dir_res, q)
     df = pd.read_csv(os.path.join(dir_q, 'energies.csv'))
     Energies = df['Energy'].to_numpy()
     # Read the structures from the structures.xyz file and find the one with the lowest energy
@@ -42,4 +44,3 @@ for q in folders:
         os.remove(os.path.join(dir_q, f'{formula}.DM'))
     # Relax the structure using ASE and save the results in the specified directory
     relax_ase(perovskite, **params, dir=dir_q)
-    
