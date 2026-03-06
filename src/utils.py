@@ -23,17 +23,26 @@ class SiestaProject:
     """
 
 
-    def __init__(self, material="BaTiO3", root = 'results', bulk=True):
+    def __init__(self, perovskite, root='results'):
+        """Initialize the project with a given perovskite structure and root directory for results.
+        Parameters:
+        - perovskite: Custom object representing the structure
+        - root: Root directory where results will be stored (default: 'results')
+        """
+
+        formula = perovskite.formula
+        bulk = perovskite.bulk
+        self.material = formula
+
         if bulk:
-            sym = "bulk"
+            self.path = os.path.join(root, "bulk", formula)
         else:
-            sym = "slab"
+            N = perovskite.ncells
+            self.path = os.path.join(root, "slab", formula, f"{N}uc")
 
-        self.material = material
-        self.material_path = os.path.join(root, sym, material)
-        self.summary_file = os.path.join(self.material_path, "summary.csv")
+        self.summary = os.path.join(self.path, "summary.csv")
 
-        os.makedirs(self.material_path, exist_ok=True)
+        os.makedirs(self.path, exist_ok=True)
 
 
     # -----------------------------
@@ -66,10 +75,10 @@ class SiestaProject:
         Find the first available ID in the sequence.
         IDs are 4-digit zero-padded strings (0001, 0002, ...)
         """
-        if not os.path.exists(self.summary_file):
+        if not os.path.exists(self.summary):
             return "0001"
 
-        df = pd.read_csv(self.summary_file, dtype=str)
+        df = pd.read_csv(self.summary, dtype=str)
 
         used_ids = sorted([int(x) for x in df["ID"].values])
 
@@ -85,10 +94,10 @@ class SiestaProject:
 
     def _find_existing_id(self, params):
 
-        if not os.path.exists(self.summary_file):
+        if not os.path.exists(self.summary):
             return None
 
-        df = pd.read_csv(self.summary_file, dtype=str)
+        df = pd.read_csv(self.summary, dtype=str)
 
         mask = True
         for key, value in params.items():
@@ -110,7 +119,7 @@ class SiestaProject:
 
     def _create_structure(self, calc_id, params):
 
-        calc_path = os.path.join(self.material_path, calc_id)
+        calc_path = os.path.join(self.path, calc_id)
 
         for sub in ["relax", "bands", "phonons"]:
             os.makedirs(os.path.join(calc_path, sub), exist_ok=True)
@@ -129,7 +138,7 @@ class SiestaProject:
         """
         
         # Remove folder
-        folder = os.path.join(self.material_path, calc_id)
+        folder = os.path.join(self.path, calc_id)
         if os.path.exists(folder):
             shutil.rmtree(folder)
             print(f"[{calc_id}] Folder removed.")
@@ -137,11 +146,11 @@ class SiestaProject:
             print(f"[{calc_id}] Folder does not exist.")
 
         # Remove row from CSV
-        if os.path.exists(self.summary_file):
-            df = pd.read_csv(self.summary_file, dtype=str)
+        if os.path.exists(self.summary):
+            df = pd.read_csv(self.summary, dtype=str)
             if calc_id in df["ID"].values:
                 df = df[df["ID"] != calc_id]
-                df.to_csv(self.summary_file, index=False)
+                df.to_csv(self.summary, index=False)
                 print(f"[{calc_id}] Row removed from summary CSV.")
             else:
                 print(f"[{calc_id}] Not found in summary CSV.")
@@ -154,19 +163,19 @@ class SiestaProject:
 
     def _relax_completed(self, calc_id):
         filepath = os.path.join(
-            self.material_path, calc_id, "relax", f"{self.material}.xyz"
+            self.path, calc_id, "relax", f"{self.material}.xyz"
         )
         return os.path.exists(filepath)
     
     def _band_completed(self, calc_id):
         filepath = os.path.join(
-            self.material_path, calc_id, "bands", f"{self.material}.bands"
+            self.path, calc_id, "bands", f"{self.material}.bands"
         )
         return os.path.exists(filepath)
 
     def _phonon_completed(self, calc_id):
         filepath = os.path.join(
-            self.material_path, calc_id, "phonons", f"{self.material}.yaml"
+            self.path, calc_id, "phonons", f"{self.material}.yaml"
         )
         return os.path.exists(filepath)
     
@@ -192,9 +201,9 @@ class SiestaProject:
 
         new_df = pd.DataFrame([row], dtype=str)
 
-        if os.path.exists(self.summary_file):
+        if os.path.exists(self.summary):
 
-            df = pd.read_csv(self.summary_file, dtype=str)
+            df = pd.read_csv(self.summary, dtype=str)
 
             if calc_id in df["ID"].values:
                 df.set_index("ID", inplace=True)
@@ -207,14 +216,14 @@ class SiestaProject:
         else:
             df = new_df
 
-        df.to_csv(self.summary_file, index=False)
+        df.to_csv(self.summary, index=False)
 
     def get_summary(self):
-        if not os.path.exists(self.summary_file):
+        if not os.path.exists(self.summary):
             print("No summary yet")
             return
         
-        df = pd.read_csv(self.summary_file, dtype=str)
+        df = pd.read_csv(self.summary, dtype=str)
         df_display = df.copy()
         
         # Add unit (Ry) to energy-related columns

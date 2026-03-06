@@ -9,16 +9,16 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 
 # Create atoms object for BaTiO3 and initialize project
-perovskite = Perovskite('SrTiO3', a=3.9)
-formula = perovskite.formula
-project = SiestaProject(material=formula)
+formula = 'BaTiO3'
+perovskite = Perovskite(formula, a=3.98, N=1, bulk=False)
+project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['TZP']
+basis =   ['DZP']
 pseudos = ['PBEsol']
-shifts =  [0.001]
-splits =  [0.1]
+shifts =  [0.01]
+splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
 
@@ -46,13 +46,13 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
 
         # Check what step needs to be run for this calculation and set directory
         next_step = project.what_to_run(calc_id)
-        dir = os.path.join(project.material_path, calc_id)
+        dir = os.path.join(project.path, calc_id)
 
         # If all steps are complete, skip to the next parameter set unless runall is True
-        #if next_step == "complete" and not runall:
-        #    parprint(f"All steps complete for calculation {calc_id}. Skipping.")
+        if next_step == "complete" and not runall:
+            parprint(f"All steps complete for calculation {calc_id}. Skipping.")
 
-        """
+        
         # If relaxation needs to be run, run it and update the calculation ID and next step
         if next_step == "relax" or runall:
             # Run relaxation
@@ -62,10 +62,10 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             # Update dataframe and move to next step
             calc_id = project.prepare_calculation(params)
             next_step = project.what_to_run(calc_id)
-        """
+        
         # Set the atoms object for the next steps based on the relaxed structure
-        #dir_relax = os.path.join(dir, 'relax')
-        dir_relax = 'results/bulk/GPAW'
+        dir_relax = os.path.join(dir, 'relax')
+        #dir_relax = 'results/bulk/GPAW'
         perovskite.set_atoms(read(os.path.join(dir_relax, f'{formula}.xyz')))
         
         # If band structure calculation needs to be run, run it and update the calculation ID and next step
@@ -83,8 +83,8 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             parprint(f"Running phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'phonons')
             calculate_phonons(perovskite, **params, dir=dir_step, N=2, par=True)
-            calculate_phonons(perovskite, **params, dir=dir_step, N=3, par=True)
-            calculate_phonons(perovskite, **params, dir=dir_step, N=4, par=True)
+            #calculate_phonons(perovskite, **params, dir=dir_step, N=3, par=True)
+            #calculate_phonons(perovskite, **params, dir=dir_step, N=4, par=True)
             # Update to next step
             calc_id = project.prepare_calculation(params)
             next_step = project.what_to_run(calc_id)
@@ -97,4 +97,4 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             run_frozen_phonon(perovskite, **params, dir=dir_step, par=True)
         """
 
-run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=True)
+run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids)

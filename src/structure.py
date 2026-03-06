@@ -15,6 +15,7 @@ class Perovskite:
     """
     def __init__(self, formula='ABX3', a=4.0, N=1, bulk=True):
         self.formula = formula
+        self.ncells = N
         self.bulk = bulk
         sca_pos = [[0, 0, 0],
                    [1/2, 1/2, 1/2],
