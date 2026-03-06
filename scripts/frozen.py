@@ -14,8 +14,18 @@ id = '0064'
 dir_id = os.path.join('results/bulk/',formula, id)
 dir_res = os.path.join(dir_id, 'frozen')
 
-# Load parameters.json file for this formula and ID from the directory
-params = pd.read_json(os.path.join(dir_id, 'parameters.json'), orient='index').to_dict()[0]
+# Define a function to load parameters from the parameters.json file in the specified directory and convert them to the appropriate types
+def unpack_params(dir):
+    # Load parameters.json file for this formula and ID from the directory
+    params = pd.read_json(os.path.join(dir, 'parameters.json'), orient='index').to_dict()[0]
+    # Convert EnergyShift, SplitNorm and MeshCutoff to float
+    params['EnergyShift'] = float(params['EnergyShift'])
+    params['SplitNorm'] = float(params['SplitNorm'])
+    params['MeshCutoff'] = float(params['MeshCutoff'])
+    # Convert kgrid to tuple
+    params['kgrid'] = tuple(map(int, params['kgrid'].strip('()').split(',')))
+    return params
+params = unpack_params(dir_id)
 
 """
 # Load phonon data from the specified directory and formula
