@@ -34,7 +34,7 @@ def run(formula, task):
         relax_ase(perovskite, xcf='PBEsol',
                   MeshCutoff=100, kgrid=(10, 10, 10),
                   mode='pw', dir=dir)
-    else:
+    elif task == 'bands' or task == 'phonons':
         # Read relaxed structure
         relaxed_atoms = read(os.path.join(dir, f'{formula}.xyz'), index=0)
         perovskite.set_atoms(relaxed_atoms)
@@ -53,7 +53,7 @@ def run(formula, task):
         # Load phonon data from the specified directory and formula
         phonon = ph.load(os.path.join(f'results/{struc}/{formula}/GPAW/phonons', f'{formula}.yaml'))
         # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-        calculate_frozen_phonons(phonon, xcf='PBEsol',
+        calculate_frozen_phonons(phonon, dd=0.4, xcf='PBEsol',
                                  MeshCutoff=100, kgrid=(10, 10, 10),
                                  mode='pw', dir=dir)
 
