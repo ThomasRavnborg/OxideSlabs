@@ -51,7 +51,7 @@ def run(formula, task):
     if task == 'frozen':
         # Calculate frozen phonons
         # Load phonon data from the specified directory and formula
-        phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+        phonon = ph.load(os.path.join(f'results/{struc}/{formula}/GPAW/phonons', f'{formula}.yaml'))
         # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
         calculate_frozen_phonons(phonon, xcf='PBEsol',
                                  MeshCutoff=100, kgrid=(10, 10, 10),
