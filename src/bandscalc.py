@@ -117,7 +117,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': os.path.join(dir, f"{formula}_BS.txt")
+            'txt': None
         }
         if not bulk:
             # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
@@ -142,7 +142,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             symmetry='off',
             kpts={'path': path, 'npoints': 300},
             convergence={'bands': 16},
-            txt=os.path.join(dir, f"{formula}_BS.txt"))
+            txt=os.path.join(dir, f"{formula}.txt"))
         
         path = bandpath(path, BScalc.atoms.cell, npoints=300)
         

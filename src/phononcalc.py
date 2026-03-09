@@ -144,7 +144,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
-            'txt': os.path.join(dir, f"{formula}_PH.txt")
+            'txt': os.path.join(dir, f"{formula}.txt")
         }
         if not bulk:
             # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
