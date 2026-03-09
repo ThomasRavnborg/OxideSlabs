@@ -27,14 +27,15 @@ def unpack_params(dir):
     return params
 params = unpack_params(dir_id)
 
-"""
+
 # Load phonon data from the specified directory and formula
 phonon = ph.load(os.path.join(dir_res, f'{formula}.yaml'))
 
 # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-calculate_frozen_phonons(phonon, **params, dir=dir_res)
-"""
+calculate_frozen_phonons(phonon, dd=0.2, **params, dir=dir_res)
 
+
+"""
 # Get the list of q-point folders in the frozen phonon directory and loop through them
 folders = os.listdir(dir_res)
 for q in folders:
@@ -54,3 +55,4 @@ for q in folders:
         os.remove(os.path.join(dir_q, f'{formula}.DM'))
     # Relax the structure using ASE and save the results in the specified directory
     relax_ase(perovskite, **params, dir=dir_q)
+"""

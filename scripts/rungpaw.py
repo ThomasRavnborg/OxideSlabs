@@ -57,4 +57,4 @@ def run(formula, task):
                                  MeshCutoff=100, kgrid=(10, 10, 10),
                                  mode='pw', dir=dir)
 
-run('BaTiO3', 'frozen')
+run('SrTiO3', 'frozen')

@@ -59,10 +59,12 @@ def get_modevector(phonon, q):
     # Extract frequencies and eigenvectors
     band_structure = phonon.get_band_structure_dict()
     frequencies = np.squeeze(band_structure['frequencies'])
+    #print(f"Frequencies at q={q}: {frequencies}")
     eigenvecs = np.squeeze(band_structure['eigenvectors'])
 
     # Determine the mode index of the unstable mode
     mode_index = np.argmin(frequencies)
+    print(frequencies[mode_index])
     # Determine if the mode is stable or unstable based on the frequency
     tol = 1e-5 # Tolerance for considering a mode as stable (in THz)
     if frequencies[mode_index] > tol:

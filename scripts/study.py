@@ -17,8 +17,8 @@ project = SiestaProject(perovskite)
 xcfs =    ['PBEsol']
 basis =   ['DZP']
 pseudos = ['PBEsol']
-shifts =  [0.01]
-splits =  [0.15]
+shifts =  [0.0001, 0.001, 0.01]
+splits =  [0.1, 0.15, 0.2]
 cutoffs = [1000]
 grids =   [12]
 
