@@ -41,6 +41,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
     formula = perovskite.formula
     atoms = perovskite.atoms
     bulk = perovskite.bulk
+    ncells = perovskite.ncells
     kgrid = list(kgrid)
     #symbols = atoms.symbols
 
@@ -136,9 +137,9 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
         if bulk:
             path = 'GXRMGR'
         else:
-            path = 'GXMG'  
+            path = 'GXMG'
         BScalc = atoms.calc.fixed_density(
-            nbands=32,
+            nbands=32*ncells,
             symmetry='off',
             kpts={'path': path, 'npoints': 300},
             convergence={'bands': 16},
@@ -336,13 +337,15 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     # Show figure
     plt.show()
 
-def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
+def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
     """Function to plot bandstructures seperately
     Requires that the bandstructure has already been calculated and saved to files.
     Parameters:
     - formula: Chemical formula of the material.
     - ids: Numpy array of IDs to plot.
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
+    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+    - Ncells: Number of unit cells 
     Returns:
     - None. The function reads the bandstructure data from files and plots the results.
     """
@@ -352,6 +355,11 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
     # Define a list of colors for the plots (if needed)
     colors = ["black", "blue", "red", "purple", "orange", "green"]
     N = len(ids) + 1
+
+    if bulk:
+        struc = f'bulk/{formula}'
+    else:
+        struc = f'slab/{formula}/{Ncells}uc'
 
     # Create N subplots for the band structure along x
     fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')
@@ -398,8 +406,8 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
         ax.axhline(y=0, color='k', linestyle='--', linewidth=1)
 
         # Set x-ticks to the symmetry points and label them
-        ax.xaxis.set_ticks(X[0:-2])
-        ax.set_xticklabels(labels[0:-2])
+        ax.xaxis.set_ticks(X[0:-1])
+        ax.set_xticklabels(labels[0:-1])
         # Plot vertical lines at symmetry points
         ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', linewidth=1)
         ax.set_xlim(X[0], X[-1])
@@ -410,14 +418,14 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
         # Set y-ticks to the defined tickmarks and label them
         ax.set_yticks(E_tickmarks, E_tickmarks.astype(str))
         # Set x- and y-limits
-        ax.set_xlim(X[0], X[-2])
+        ax.set_xlim(X[0], X[-1])
         ax.set_ylim(E_tickmarks[0], E_tickmarks[-1])
         # Add minor tickmarks to the y-axis
         ax.yaxis.set_minor_locator(AutoMinorLocator())
         # Apply custom plot settings to the axes
         PlotSettings().set_style_ax(ax, style='default', minor=False)
     
-    dir = 'results/bulk/GPAW'
+    dir = f'results/{struc}/GPAW/bands'
     _plot_bandstructure(axes[0], dir, 'PW', col=colors[0], mode='pw')
 
     #dir = 'results/bulk/test_bands'
@@ -426,7 +434,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([])):
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
-        dir = os.path.join('results/bulk/',formula, ids[i], 'bands')
+        dir = os.path.join('results', struc, ids[i], 'bands')
         # Plot band-structureure for this ID
         _plot_bandstructure(axes[i+1], dir, vals[i], col=colors[i+1])
         # Remove y-tick labels for all but the first and last subplot

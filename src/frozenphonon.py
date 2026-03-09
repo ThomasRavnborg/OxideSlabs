@@ -87,9 +87,6 @@ def get_displacement(unitcell, q, modevec):
     - supercell_matrix: 3x3 matrix defining the supercell transformation from the unit cell.
     """
     
-    # Determine number of atoms in the unitcell
-    n_cells = len(unitcell)
-
     # Determine supercell size required for the given q-point
     q_inv = np.array([int(1/q_i) if q_i != 0 else 1 for q_i in q])
     nx, ny, nz = q_inv[0], q_inv[1], q_inv[2]
@@ -101,6 +98,7 @@ def get_displacement(unitcell, q, modevec):
     # Make supercell and get masses for the supercell
     supercell_matrix = np.diag([nx, ny, nz])
     supercell = make_supercell(unitcell, supercell_matrix)
+    N_a = len(supercell)
     m_sc = np.tile(m, (ncells, 1))
     
     # Expand the modevector to the entire supercell (with phase)
@@ -114,7 +112,7 @@ def get_displacement(unitcell, q, modevec):
                 modevec_sc.append(phased_disp)
     modevec_sc = np.vstack(modevec_sc)
     # Take the real part of the super cell mode vectors and normalize by the square root of the atomic masses
-    modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * n_cells)
+    modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * N_a)
     #modevec_sc /= np.linalg.norm(modevec_sc)
     return modevec_sc, supercell, supercell_matrix
 
@@ -267,8 +265,9 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             #np.savez(os.path.join(dir_q, 'forces.npz'), displacements=displacements, forces=forces)
             # Write the time taken for frozen phonon calculations to a file
             np.save(os.path.join(dir_q, f"time.npy"), t1-t0)
-            # Clean directory of SIESTA calculations
-            cleanFiles(directory=dir_q, confirm=False)
+            if mode == 'lcao':
+                # Clean directory of SIESTA calculations
+                cleanFiles(directory=dir_q, confirm=False)
     
 
 
