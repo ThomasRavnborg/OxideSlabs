@@ -41,11 +41,10 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
     formula = perovskite.formula
     atoms = perovskite.atoms
     bulk = perovskite.bulk
+    kgrid = list(kgrid)
     #symbols = atoms.symbols
 
     if not bulk:
-        # Center the slab in the cell and add vacuum in the z-direction
-        atoms.center(axis=2, vacuum=10.0)
         # For slab calculations, set k-point sampling to 1 in the z-direction
         kgrid[2] = 1
 

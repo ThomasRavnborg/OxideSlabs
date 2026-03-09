@@ -85,13 +85,18 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     formula = perovskite.formula
     atoms = perovskite.atoms
     bulk = perovskite.bulk
+    kgrid = list(kgrid)
 
     # Parameters for phonon calculations
     #dd = 0.01 # Displacement distance in Å
     if bulk:
         scell_matrix = np.diag([N, N, N])  # Supercell size for bulk
+        kgrid = [x // N for x in kgrid]    # Reduce k-point grid for supercell calculations
     else:
         scell_matrix = np.diag([N, N, 1])  # Supercell size for slab
+        kgrid = [x // N for x in kgrid]    # Reduce k-point grid for supercell calculations
+        # For slab calculations, set k-point sampling to 1 in the z-direction
+        kgrid[2] = 1
 
     # Convert ASE Atoms to PhonopyAtoms
     unitcell = ase_to_phonopy(atoms)
@@ -111,7 +116,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
-            'kpts': tuple(x // N for x in kgrid),  # Reduce k-point grid for supercell calculations
+            'kpts': kgrid,
             'directory': dir,
             'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
         }
@@ -136,7 +141,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             'xc': xcf,
             'basis': basis.lower(),
             'mode': {'name': 'pw', 'ecut': MeshCutoff * Ry},
-            'kpts': {'size': tuple(x // N for x in kgrid), 'gamma': True},
+            'kpts': {'size': kgrid, 'gamma': True},
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6, 'forces': 1e-5},
             'txt': os.path.join(dir, f"{formula}_PH.txt")
