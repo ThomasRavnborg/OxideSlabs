@@ -29,7 +29,7 @@ params = unpack_params(dir_id)
 
 
 # Load phonon data from the specified directory and formula
-phonon = ph.load(os.path.join(dir_res, f'{formula}.yaml'))
+phonon = ph.load(os.path.join(dir_id, 'phonons', f'{formula}.yaml'))
 
 # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
 calculate_frozen_phonons(phonon, dd=0.2, **params, dir=dir_res)
