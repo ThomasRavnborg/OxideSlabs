@@ -103,7 +103,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             0   0  1  0.0
             %endblock PDOS.kgrid_Monkhorst_Pack'''
             # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
-            calc_params['Slab.DipoleCorrection'] = 'T'
+            fdf_args['Slab.DipoleCorrection'] = 'T'
         
         # Set up the Siesta calculator
         calc = Siesta(**calc_params, fdf_arguments=fdf_args)
