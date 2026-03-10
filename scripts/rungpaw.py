@@ -2,6 +2,7 @@
 import os
 from ase import Atoms
 from ase.io import read
+from ase.parallel import world
 import phonopy as ph
 #from ase.parallel import world
 from src.structure import Perovskite
@@ -57,5 +58,8 @@ def run(formula, task):
                                  MeshCutoff=100, kgrid=(10, 10, 10),
                                  mode='pw', dir=dir)
 
-run('BaTiO3', 'frozen')
-#run('SrTiO3', 'frozen')
+
+for task in ['phonons']:
+    run('BaTiO3', task)
+    # Wait for all parallel processes to finish
+    world.barrier()

@@ -192,6 +192,8 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
+    # Wait for all parallel processes to finish
+    world.barrier()
 
 def order_labels(symbols, handles, labels):
     # Define a custom order for the labels

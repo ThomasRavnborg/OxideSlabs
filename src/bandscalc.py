@@ -169,6 +169,9 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             np.savez(os.path.join(dir, f"{formula}_DOS.npz"), E=E, DOS=DOS)
             # Write the time taken for optimization to a file
             np.save(os.path.join(dir, f"time.npy"), t1-t0)
+        # Wait for all parallel processes to finish
+        world.barrier()
+        
     elif mode == 'lcao':
         # Stop timer
         t1 = time.time() # Stop timer

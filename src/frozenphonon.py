@@ -275,6 +275,8 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             if mode == 'lcao':
                 # Clean directory of SIESTA calculations
                 cleanFiles(directory=dir_q, confirm=False)
+            # Wait for all parallel processes to finish
+            world.barrier()
     
 
 

@@ -152,6 +152,8 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
+    # Wait for all parallel processes to finish
+    world.barrier()
     
 
 
