@@ -11,6 +11,7 @@ from ase import Atoms
 from ase.units import Ry
 from ase.build import make_supercell
 from ase.calculators.siesta import Siesta
+from ase.parallel import world
 from ase.parallel import parprint
 # Phonopy
 import phonopy as ph
@@ -64,7 +65,6 @@ def get_modevector(phonon, q):
 
     # Determine the mode index of the unstable mode
     mode_index = np.argmin(frequencies)
-    print(frequencies[mode_index])
     # Determine if the mode is stable or unstable based on the frequency
     tol = 1e-5 # Tolerance for considering a mode as stable (in THz)
     if frequencies[mode_index] > tol:
@@ -122,7 +122,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
                              pseudo='PBEsol', mode='lcao',
-                             dir='resultsold/bulk/frozen'):
+                             dir='resultsold/bulk/frozen', par=False):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Parameters:
     - phonon: Phonopy object containing the phonon calculation results.
@@ -136,6 +136,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
     - pseudo: Pseudopotential to use for the SIESTA calculations (default: 'PBEsol').
     - mode: String indicating whether to use localized atomic orbitals ('lcao') or plane waves ('pw') for the calculations (default: 'lcao').
     - dir: Directory where the results will be saved (default: 'resultsold/bulk/frozen').
+    - par: Boolean indicating whether to run calculations in parallel (default: False).
     Returns:
     - None (results are saved to files in the specified directory).
     """
@@ -171,7 +172,10 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-6,
         }
-
+        if par:
+            # Change diagonalization algorithm when running in parallel
+            fdf_args['Diag.Algorithm'] = 'ELPA'
+    
     # In GPAW, calculations are performed with plane waves (PW)
     elif mode == 'pw':
         from gpaw import GPAW
@@ -255,18 +259,19 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 if len(energies) > 1 and energies[-1] - energies[0] > tol:
                     break
             t1 = time.time() # Stop timer
-            # Save the supercell structures with displacements as an xyz file
-            write(os.path.join(dir_q, 'structures.xyz'), images)
-            # Save amplitudes and energies as a CSV file
-            df = pd.DataFrame({
-                'Amplitude': amplitudes,
-                'Energy': energies
-            })
-            df.to_csv(os.path.join(dir_q, 'energies.csv'), index=False)
-            # Save the displacements and forces for each displacement as a numpy array
-            #np.savez(os.path.join(dir_q, 'forces.npz'), displacements=displacements, forces=forces)
-            # Write the time taken for frozen phonon calculations to a file
-            np.save(os.path.join(dir_q, f"time.npy"), t1-t0)
+            if world.rank == 0:
+                # Save the supercell structures with displacements as an xyz file
+                write(os.path.join(dir_q, 'structures.xyz'), images)
+                # Save amplitudes and energies as a CSV file
+                df = pd.DataFrame({
+                    'Amplitude': amplitudes,
+                    'Energy': energies
+                })
+                df.to_csv(os.path.join(dir_q, 'energies.csv'), index=False)
+                # Save the displacements and forces for each displacement as a numpy array
+                #np.savez(os.path.join(dir_q, 'forces.npz'), displacements=displacements, forces=forces)
+                # Write the time taken for frozen phonon calculations to a file
+                np.save(os.path.join(dir_q, f"time.npy"), t1-t0)
             if mode == 'lcao':
                 # Clean directory of SIESTA calculations
                 cleanFiles(directory=dir_q, confirm=False)
