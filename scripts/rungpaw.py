@@ -58,8 +58,8 @@ def run(formula, task):
                                  MeshCutoff=100, kgrid=(10, 10, 10),
                                  mode='pw', dir=dir)
 
-
-for task in ['phonons']:
-    run('BaTiO3', task)
-    # Wait for all parallel processes to finish
-    world.barrier()
+for formula in ['BaTiO3', 'SrTiO3']:
+    for task in ['frozen']:
+        run(formula, task)
+        # Wait for all parallel processes to finish
+        world.barrier()
