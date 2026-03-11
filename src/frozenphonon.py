@@ -11,7 +11,6 @@ from ase import Atoms
 from ase.units import Ry
 from ase.build import make_supercell
 from ase.calculators.siesta import Siesta
-from ase.parallel import world
 from ase.parallel import parprint
 # Phonopy
 import phonopy as ph
@@ -20,6 +19,13 @@ from phonopy import Phonopy
 from src.parameterconv import run_siesta
 from src.cleanfiles import cleanFiles
 from src.phononcalc import ase_to_phonopy, phonopy_to_ase
+
+# Try to import world from gpaw.mpi for parallel processing
+# If not available, fall back to ase.parallel.world
+try:
+    from gpaw.mpi import world
+except ImportError:
+    from ase.parallel import world
 
 def phonon_to_atoms(phonon, cell='unit'):
     """Function to convert a Phonopy object to an ASE Atoms object.
@@ -193,17 +199,38 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
         dir_q = os.path.join(dir, qpoint)
         q = q_dict[qpoint]
         # Get mode vector and stability of the mode at the given q-point
-        modevec, stable = get_modevector(phonon, q)
+        if world.rank == 0:
+            modevec, stable = get_modevector(phonon, q)
+        else:
+            modevec = None
+            stable = None
+        # Wait for all parallel processes to finish
+        world.barrier()
+        # Broadcast modevec and stable to all processes
+        modevec = world.broadcast(modevec, 0)
+        stable = world.broadcast(stable, 0)
+
         # If the mode is stable, skip the frozen phonon calculations for this q-point
         if stable:
-            print(f"The mode at q-point {qpoint} is stable. Skipping frozen phonon calculations.")
+            parprint(f"The mode at q-point {qpoint} is stable. Skipping frozen phonon calculations.")
         else:
-            print(f"Calculating frozen phonons for q-point {qpoint}.")
-            # Make directory for the current q-point if it doesn't exist
-            os.makedirs(dir_q, exist_ok=True)
-            
-            # Generate the supercell and get the mode vector for the supercell
-            modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
+            parprint(f"Calculating frozen phonons for q-point {qpoint}.")
+            if world.rank == 0:
+                # Make directory for the current q-point if it doesn't exist
+                os.makedirs(dir_q, exist_ok=True)
+                # Generate the supercell and get the mode vector for the supercell
+                modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
+            else:
+                modevec_sc = None
+                supercell = None
+                supercell_matrix = None
+            # Wait for all parallel processes to finish
+            world.barrier()
+            # Broadcast modevec_sc, supercell and supercell_matrix to all processes
+            modevec_sc = world.broadcast(modevec_sc, 0)
+            supercell = world.broadcast(supercell, 0)
+            supercell_matrix = world.broadcast(supercell_matrix, 0)
+
             # Determine the supercell size in each direction from the diagonal of the supercell matrix
             nx, ny, nz = supercell_matrix.diagonal().astype(int)
             ncells = nx*ny*nz
@@ -214,27 +241,38 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             amplitudes = []
             images = []
             energies = []
-            t0 = time.time() # Start timer
+            if world.rank == 0:
+                t0 = time.time() # Start timer
             while True:
-                amplitudes.append(amp)
-                # Make a copy of the supercell to displace
-                supercell_disp = supercell.copy()
-                # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
-                displacement = amp * modevec_sc
-                #displacements.append(displacement)
-                supercell_disp.positions += displacement
-                images.append(supercell_disp)
+                if world.rank == 0:
+                    amplitudes.append(amp)
+                    # Make a copy of the supercell to displace
+                    supercell_disp = supercell.copy()
+                    # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
+                    displacement = amp * modevec_sc
+                    #displacements.append(displacement)
+                    supercell_disp.positions += displacement
+                    images.append(supercell_disp)
+                else:
+                    supercell_disp = None
+                # Wait for all parallel processes to finish
+                world.barrier()
+                # Broadcast the displaced supercell to all processes
+                supercell_disp = world.broadcast(supercell_disp, 0)
 
                 if mode == 'lcao':
                     # Set k-points for SIESTA calculation based on the supercell size
-                    calc_params['kpts'] = (kx, ky, kz)
+                    #calc_params['kpts'] = (kx, ky, kz)
                     # Set up the Siesta calculator
-                    calc = Siesta(directory=dir_q, **calc_params, fdf_arguments=fdf_args)
+                    calc = Siesta(directory=dir_q, **calc_params, kpts=(kx, ky, kz), fdf_arguments=fdf_args)
                 elif mode == 'pw':
                     # Set k-points for GPAW calculation based on the supercell size
-                    calc_params['kpts'] = {'size': (kx, ky, kz), 'gamma': True}
+                    #calc_params['kpts'] = {'size': (kx, ky, kz), 'gamma': True}
                     # Set up the GPAW calculator
-                    calc = GPAW(txt=os.path.join(dir_q, f"{formula}.txt"), **calc_params)
+                    txt = None
+                    if world.rank == 0:
+                        txt = os.path.join(dir_q, f"{formula}.txt")
+                    calc = GPAW(txt=txt, **calc_params, kpts={'size': (kx,ky,kz), 'gamma': True})
                 
                 # Attach the calculator to the supercell
                 supercell_disp.calc = calc
@@ -242,7 +280,8 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 energy = supercell_disp.get_potential_energy()
                 # Scale energy by the number of unit cells in the supercell to get energy per unit cell
                 energy = energy / ncells
-                energies.append(energy)
+                if world.rank == 0:
+                    energies.append(energy)
                 """
                 if mode == 'lcao':
                     # Read forces from the calculation output
@@ -256,10 +295,11 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 amp += dd
                 tol = 50*1e-3 # Tolerance for stopping the loop based on energy increase (in eV)
                 # Stop the loop, if the energy has increased by more than the tolerance compared to the first point
-                if len(energies) > 1 and energies[-1] - energies[0] > tol:
+                if world.rank == 0 and len(energies) > 1 and energies[-1] - energies[0] > tol:
                     break
-            t1 = time.time() # Stop timer
+            
             if world.rank == 0:
+                t1 = time.time() # Stop timer
                 # Save the supercell structures with displacements as an xyz file
                 write(os.path.join(dir_q, 'structures.xyz'), images)
                 # Save amplitudes and energies as a CSV file
@@ -277,91 +317,3 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 cleanFiles(directory=dir_q, confirm=False)
             # Wait for all parallel processes to finish
             world.barrier()
-    
-
-
-
-
-
-def run_frozen_phonons(formula, id, qpoint, displacements, skip=True):
-    """Legacy function, currently not in use."""
-    # Set the results directory
-    dir_id = os.path.join('results/bulk/',formula, id)
-    dir_res = os.path.join(dir_id, 'frozen', qpoint)
-
-    # Load .xyz and .yaml file from relaxation and phonon calculation
-    unitcell = read(os.path.join(dir_id, f'relax/{formula}.xyz'))
-    phonon = ph.load(os.path.join(dir_id, f'phonons/{formula}.yaml'))
-
-    # Dictionary for q-points
-    q_dict = {
-        'G': [0.0, 0.0, 0.0],
-        'X': [0.5, 0.0, 0.0],
-        'R': [0.5, 0.5, 0.5],
-        'M': [0.5, 0.5, 0.0],
-    }
-    # Get q-point in fractional coordinates
-    q = q_dict[qpoint]
-    # Get mode vector and stability of the mode at the given q-point
-    modevec, stable = get_modevector(phonon, q)
-    if stable and skip:
-        print(f"The mode at q-point {qpoint} is stable. Skipping frozen phonon calculations.")
-        return
-    else:
-        # Make directory for frozen phonon results if it doesn't exist
-        os.makedirs(dir_res, exist_ok=True)
-    # Check if results already exist for the given q-point and displacements, and load them if they do
-    if os.path.exists(os.path.join(dir_res, 'frozen.csv')):
-        df = pd.read_csv(os.path.join(dir_res, 'frozen.csv'))
-    else:
-        df = pd.DataFrame(columns=['displacement', 'Energy'])
-
-
-    modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
-
-
-    # Loop over displacements, generate supercell with displaced atomic positions, run Siesta calculation, and save results
-    images = []
-    t0 = time.time() # Start timer
-    for dis in displacements:
-        # make a copy of the supercell to displace
-        supercell_disp = supercell.copy()
-        # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
-        supercell_disp.positions += dis * modevec_sc
-        images.append(supercell_disp)
-        # Check if results have been obtained for a given displacement
-        if (df['displacement'] == dis).any():
-            print(f"qpoint={qpoint}, displacement={dis} is in the DataFrame. Skipping.")
-        else:
-            # Determine the supercell size in each direction from the diagonal of the supercell matrix
-            nx, ny, nz = supercell_matrix.diagonal().astype(int)
-            # Determine the k-point grid size for the SIESTA calculation based on the supercell size
-            kx, ky, kz = max(1, 6//nx), max(1, 6//ny), max(1, 6//nz)
-            
-            # Run a single-point SIESTA calculation to get the total energy
-            # Note that the k-point grid is scaled according to the supercell size
-            # This means fewer k-points will be used for larger supercells
-            energy = run_siesta(formula, supercell_disp, EnergyShift=0.01, SplitNorm=0.15,
-                                MeshCutoff=200, kgrid=(kx, ky, kz), dir=dir_res)
-            # Scale energy by the number of unit cells in the supercell to get energy per unit cell
-            energy = energy / (nx*ny*nz)
-
-            # Append results
-            row = {
-                "displacement": dis,
-                "Energy": energy
-            }
-            # Create new dataframe
-            df_new = pd.DataFrame([row])
-            # Update old dataframe with new results
-            df = pd.concat([df, df_new], ignore_index=True)
-            # Save new results
-            df.to_csv(os.path.join(dir_res, 'frozen.csv'), index=False)
-    
-    t1 = time.time() # Stop timer
-    # Save the supercell structures with displacements as an xyz file
-    write(os.path.join(dir_res, 'frozen.xyz'), images)
-    # Write the time taken for frozen phonon calculations to a file
-    np.savez(os.path.join(dir_res, f"time.npz"), dt=t1-t0)
-    # Clean directory of SIESTA calculations
-    cleanFiles(directory=dir_res, confirm=False)

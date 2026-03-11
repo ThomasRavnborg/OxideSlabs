@@ -10,10 +10,16 @@ from ase.calculators.siesta.parameters import Species, PAOBasisBlock
 from ase.units import Ry
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
-from ase.parallel import world
 from ase.parallel import parprint
 # Custom modules
 from src.cleanfiles import cleanFiles
+
+# Try to import world from gpaw.mpi for parallel processing
+# If not available, fall back to ase.parallel.world
+try:
+    from gpaw.mpi import world
+except ImportError:
+    from ase.parallel import world
 
 # Function to generate perovskite structure
 def perovskite(formula):
@@ -39,6 +45,25 @@ def perovskite(formula):
         return [[a, 0, 0], [0, a, 0], [0, 0, a]]
     return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
 
+def filter(atoms, bulk=True):
+    """Function to set up a filter for optimizing unit cell parameters and atomic positions.
+    Parameters:
+    - atoms: ASE Atoms object representing the structure to be optimized.
+    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False)
+    Returns:
+    - ASE Atoms object with the appropriate filter applied for optimization.
+    """
+    # Mask for cell optimization: 1 means optimize that parameter, 0 means keep it fixed
+    # Format: [εxx, εyy, εzz, εyz, εxz, εxy]
+    mask = [1, 1, 1, 1, 1, 1]
+    if not bulk:
+        # For slab calculations, only optimize in-plane cell parameters and atomic positions,
+        # while keeping out-of-plane cell parameter fixed
+        mask = [1, 1, 0, 0, 0, 1]
+    # Set unit cell filter to the FrechetCellFilter
+    atoms_filt = FrechetCellFilter(atoms, mask=mask)
+    return atoms_filt
+
 def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
               MeshCutoff=200, kgrid=(10, 10, 10), fmax=0.005, pseudo='PBEsol', mode='lcao',
               filt=True, dir='results/bulk/relax'):
@@ -59,6 +84,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
     Returns:
     - None. The function performs the relaxation and saves the relaxed structure to an xyz file.
     """
+    # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = perovskite.formula
     atoms = perovskite.atoms
@@ -120,31 +146,24 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
     
     # Attach the calculator to the atoms object
     atoms.calc = calc
-    
-    # Set filter to allow for unit cell and atoms to be simultaneously optimized
-    if filt == True:
-        # Mask for cell optimization: 1 means optimize that parameter, 0 means keep it fixed
-        # Format: [εxx, εyy, εzz, εyz, εxz, εxy]
-        mask = [1, 1, 1, 1, 1, 1]
-        if not bulk:
-            # For slab calculations, only optimize in-plane cell parameters and atomic positions,
-            # while keeping out-of-plane cell parameter fixed
-            mask = [1, 1, 0, 0, 0, 1]
-        # Set unit cell filter to the FrechetCellFilter
-        opt_conf = FrechetCellFilter(atoms, mask=mask)
-    elif filt == False:
-        # Only optimize positions of the atoms
-        opt_conf = atoms
 
-    # Use BFGS optimizer
-    opt = BFGS(opt_conf,
+    # Apply filter to optimize unit cell parameters and atomic positions if filt is True
+    # Otherwise only optimize atomic positions
+    if filt:
+        atoms = filter(atoms, bulk=True)
+    
+    if world.rank == 0:
+        t0 = time.time() # Start timer
+    
+    # Set up the BFGS optimizer on all processes
+    opt = BFGS(atoms,
                logfile=os.path.join(dir, f"{formula}.log"),
                trajectory=os.path.join(dir, f"{formula}.traj"))
     # Run the optimization until forces are smaller than fmax
-    t0 = time.time() # Start timer
     opt.run(fmax=fmax)
-    t1 = time.time() # Stop timer
+    
     if world.rank == 0:
+        t1 = time.time() # Stop timer
         # Write atoms object to file (only on master process to avoid conflicts)
         atoms.write(os.path.join(dir, f"{formula}.xyz"))
         # Write the time taken for optimization to a file

@@ -37,13 +37,14 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
     Returns:
     - None. The function performs band structure calculation and saves the data to a file.
     """
+    # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = perovskite.formula
     atoms = perovskite.atoms
     bulk = perovskite.bulk
     ncells = perovskite.ncells
+    # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
-    #symbols = atoms.symbols
 
     if not bulk:
         # For slab calculations, set k-point sampling to 1 in the z-direction
@@ -128,8 +129,9 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
 
     # Attach the calculator to the atoms object
     atoms.calc = calc
+    if world.rank == 0:
+        t0 = time.time() # Start timer
     # Run band structure and DOS calculation
-    t0 = time.time() # Start timer
     atoms.get_potential_energy()
 
     if mode == 'pw':
@@ -160,9 +162,9 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
         E, DOS = calc.get_dos(spin=0, npts=2000, width=0.2)
         # Shift energy values to fermi level
         E -= ef
-        t1 = time.time() # Stop timer
         # Save the bandstructure and DOS data to files on the master process
         if world.rank == 0:
+            t1 = time.time() # Stop timer
             # Save the bandstructure data to a file
             np.savez(os.path.join(dir, f"{formula}_BS.npz"), X=X, x=x, bands=e_nk)
             # Save the DOS data to a file

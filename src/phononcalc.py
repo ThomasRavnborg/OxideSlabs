@@ -60,7 +60,7 @@ def phonopy_to_ase(atoms_phonopy):
 
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                       MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
-                      N=2, dd=0.01, dir='results/bulk/phonons', par=False):
+                      Nsc=2, dd=0.01, dir='results/bulk/phonons', par=False):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed structure.
@@ -72,29 +72,30 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
-    - N: Size of the supercell for phonon calculations (default is 2).
+    - Nsc: Size of the supercell for phonon calculations (default is 2).
     - dd: Displacement distance in Å for generating displaced supercells (default is 0.01 Å).
     - dir: Directory to save the results (default is 'results/bulk/phonons').
     - par: Whether the SIESTA calculator is parallel (default is False).
     Returns:
     - None. The function performs phonon calculations and saves the phonon data to a .yaml file.
     """
-    # Get current working directory (cwd)
+    # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
-    # Get formula, atoms and bulk/slab information from the perovskite object
     formula = perovskite.formula
     atoms = perovskite.atoms
     bulk = perovskite.bulk
+    # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
 
     # Parameters for phonon calculations
     #dd = 0.01 # Displacement distance in Å
+    #Nsc = 2
     if bulk:
-        scell_matrix = np.diag([N, N, N])  # Supercell size for bulk
-        kgrid = [x // N for x in kgrid]    # Reduce k-point grid for supercell calculations
+        scell_matrix = np.diag([Nsc, Nsc, Nsc])  # Supercell size for bulk
+        kgrid = [x // Nsc for x in kgrid]    # Reduce k-point grid for supercell calculations
     else:
-        scell_matrix = np.diag([N, N, 1])  # Supercell size for slab
-        kgrid = [x // N for x in kgrid]    # Reduce k-point grid for supercell calculations
+        scell_matrix = np.diag([Nsc, Nsc, 1])  # Supercell size for slab
+        kgrid = [x // Nsc for x in kgrid]    # Reduce k-point grid for supercell calculations
         # For slab calculations, set k-point sampling to 1 in the z-direction
         kgrid[2] = 1
 
@@ -150,9 +151,9 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
             calc_params["poissonsolver"] = {"dipolelayer": "xy"}
 
-    # Calculate forces for displaced supercells
-    forces = []
-    t0 = time.time() # Start timer
+    if world.rank == 0:
+        forces = []
+        t0 = time.time() # Start timer
     # Loop over all supercells and calculate forces
     for i, sc in enumerate(supercells):
         # Print which supercell is being processed
@@ -179,12 +180,14 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         # Calculate forces on the displaced supercell
         force = atoms_ase.get_forces()
         
-        # Append forces to the list
-        forces.append(force)
-    # Set forces in Phonopy and calculate force constants
-    phonon.forces = forces
-    t1 = time.time() # Stop timer
+        if world.rank == 0:
+            # Append forces to the list
+            forces.append(force)
+    
     if world.rank == 0:
+        # Set forces in Phonopy and calculate force constants
+        phonon.forces = forces
+        t1 = time.time() # Stop timer
         # Save phonopy .yaml file
         phonon.save(os.path.join(dir, f"{formula}.yaml"))
         # Write the time taken for phonon calculations to a file
