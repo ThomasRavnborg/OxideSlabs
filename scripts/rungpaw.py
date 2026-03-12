@@ -54,11 +54,11 @@ def run(formula, task):
         # Load phonon data from the specified directory and formula
         phonon = ph.load(os.path.join(f'results/{struc}/{formula}/GPAW/phonons', f'{formula}.yaml'))
         # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-        calculate_frozen_phonons(phonon, dd=0.5, xcf='PBEsol',
-                                 MeshCutoff=100, kgrid=(10, 10, 10),
+        calculate_frozen_phonons(phonon, dd=1, xcf='PBEsol',
+                                 MeshCutoff=50, kgrid=(5, 5, 5),
                                  mode='pw', dir=dir)
 
-for formula in ['BaTiO3', 'SrTiO3']:
+for formula in ['BaTiO3']:
     for task in ['frozen']:
         run(formula, task)
         # Wait for all parallel processes to finish

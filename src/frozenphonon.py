@@ -200,13 +200,13 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
         dir_q = os.path.join(dir, qpoint)
         q = q_dict[qpoint]
         # Get mode vector and stability of the mode at the given q-point
-        if world.rank == 0:
-            modevec, stable = get_modevector(phonon, q)
-            modevec = np.real(modevec)  # ensure real
-        else:
-            modevec, stable = None, None
+        #if world.rank == 0:
+        modevec, stable = get_modevector(phonon, q)
+        #modevec = np.real(modevec)  # ensure real
+        #else:
+        #    modevec, stable = None, None
 
-        modevec, stable = broadcast((modevec, stable), 0)
+        #modevec, stable = broadcast((modevec, stable), 0)
 
         # If the mode is stable, skip the frozen phonon calculations for this q-point
         if stable:
@@ -216,14 +216,14 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             if world.rank == 0:
                 # Make directory for the current q-point if it doesn't exist
                 os.makedirs(dir_q, exist_ok=True)
-                # Generate the supercell and get the mode vector for the supercell
-                modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
-            else:
-                modevec_sc, supercell, supercell_matrix = None, None, None
+            # Generate the supercell and get the mode vector for the supercell
+            modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
+            #else:
+            #    modevec_sc, supercell, supercell_matrix = None, None, None
 
-            modevec_sc, supercell, supercell_matrix = broadcast(
-                (modevec_sc, supercell, supercell_matrix), 0
-            )
+            #modevec_sc, supercell, supercell_matrix = broadcast(
+            #    (modevec_sc, supercell, supercell_matrix), 0
+            #)
             # Determine the supercell size in each direction from the diagonal of the supercell matrix
             nx, ny, nz = supercell_matrix.diagonal().astype(int)
             ncells = nx*ny*nz
@@ -237,17 +237,14 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             if world.rank == 0:
                 t0 = time.time() # Start timer
             while True:
-                
+                # Create a copy of the supercell
+                supercell_disp = supercell.copy()
+                # Displace the atoms according to the mode vector and the current amplitude
+                supercell_disp.positions += amp * modevec_sc
+                # 
                 if world.rank == 0:
                     amplitudes.append(amp)
-                    # Make a copy of the supercell to displace
-                    supercell_disp = supercell.copy()
-                    # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
-                    supercell_disp.positions += amp * modevec_sc
-                else:
-                    supercell_disp = None
-
-                supercell_disp = broadcast(supercell_disp, 0)
+                    images.append(supercell_disp)
 
                 if mode == 'lcao':
                     # Set k-points for SIESTA calculation based on the supercell size
@@ -269,8 +266,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 energy = supercell_disp.get_potential_energy()
                 # Scale energy by the number of unit cells in the supercell to get energy per unit cell
                 energy = energy / ncells
-                if world.rank == 0:
-                    energies.append(energy)
+                energies.append(energy)
                 """
                 if mode == 'lcao':
                     # Read forces from the calculation output
@@ -284,7 +280,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 amp += dd
                 tol = 50*1e-3 # Tolerance for stopping the loop based on energy increase (in eV)
                 # Stop the loop, if the energy has increased by more than the tolerance compared to the first point
-                if world.rank == 0 and len(energies) > 1 and energies[-1] - energies[0] > tol:
+                if len(energies) > 1 and energies[-1] - energies[0] > tol:
                     break
             
             if world.rank == 0:
