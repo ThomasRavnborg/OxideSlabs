@@ -11,7 +11,7 @@ from ase import Atoms
 from ase.units import Ry
 from ase.build import make_supercell
 from ase.calculators.siesta import Siesta
-from ase.parallel import parprint
+from ase.parallel import parprint, broadcast
 # Phonopy
 import phonopy as ph
 from phonopy import Phonopy
@@ -80,6 +80,7 @@ def get_modevector(phonon, q):
     # Determine mode vector and reshape from (N_atoms*3,) to (N_atoms, 3)
     modevec = eigenvecs[:, mode_index]
     modevec = modevec.reshape(N_unit, 3)
+    modevec = np.real(modevec)
     return modevec, stable
 
 
@@ -201,14 +202,11 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
         # Get mode vector and stability of the mode at the given q-point
         if world.rank == 0:
             modevec, stable = get_modevector(phonon, q)
+            modevec = np.real(modevec)  # ensure real
         else:
-            modevec = None
-            stable = None
-        # Wait for all parallel processes to finish
-        world.barrier()
-        # Broadcast modevec and stable to all processes
-        modevec = world.broadcast(modevec, 0)
-        stable = world.broadcast(stable, 0)
+            modevec, stable = None, None
+
+        modevec, stable = broadcast((modevec, stable), 0)
 
         # If the mode is stable, skip the frozen phonon calculations for this q-point
         if stable:
@@ -221,16 +219,11 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 # Generate the supercell and get the mode vector for the supercell
                 modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
             else:
-                modevec_sc = None
-                supercell = None
-                supercell_matrix = None
-            # Wait for all parallel processes to finish
-            world.barrier()
-            # Broadcast modevec_sc, supercell and supercell_matrix to all processes
-            modevec_sc = world.broadcast(modevec_sc, 0)
-            supercell = world.broadcast(supercell, 0)
-            supercell_matrix = world.broadcast(supercell_matrix, 0)
+                modevec_sc, supercell, supercell_matrix = None, None, None
 
+            modevec_sc, supercell, supercell_matrix = broadcast(
+                (modevec_sc, supercell, supercell_matrix), 0
+            )
             # Determine the supercell size in each direction from the diagonal of the supercell matrix
             nx, ny, nz = supercell_matrix.diagonal().astype(int)
             ncells = nx*ny*nz
@@ -244,21 +237,17 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             if world.rank == 0:
                 t0 = time.time() # Start timer
             while True:
+                
                 if world.rank == 0:
                     amplitudes.append(amp)
                     # Make a copy of the supercell to displace
                     supercell_disp = supercell.copy()
                     # Displace atomic positions in the supercell according to the mode vector and displacement amplitude
-                    displacement = amp * modevec_sc
-                    #displacements.append(displacement)
-                    supercell_disp.positions += displacement
-                    images.append(supercell_disp)
+                    supercell_disp.positions += amp * modevec_sc
                 else:
                     supercell_disp = None
-                # Wait for all parallel processes to finish
-                world.barrier()
-                # Broadcast the displaced supercell to all processes
-                supercell_disp = world.broadcast(supercell_disp, 0)
+
+                supercell_disp = broadcast(supercell_disp, 0)
 
                 if mode == 'lcao':
                     # Set k-points for SIESTA calculation based on the supercell size
