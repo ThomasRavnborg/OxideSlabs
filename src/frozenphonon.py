@@ -210,7 +210,7 @@ def map_imaginary_phonon(phonon, qpoint='G', dd=0.1,
             # Set up the GPAW calculator
             world.barrier()
             calc = GPAW(txt=os.path.join(dir_q, f"{formula}.txt"), **calc_params,
-                        kpts={'size': (kx,ky,kz), 'gamma': True})
+                        kpts={'size': (kx,ky,kz), 'gamma': True}, symmetry='off')
         
         # Make a copy of the supercell
         atoms = supercell.copy()
