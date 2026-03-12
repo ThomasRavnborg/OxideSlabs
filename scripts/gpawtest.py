@@ -45,6 +45,9 @@ for qpoint in ['G', 'X', 'R', 'M']:
         atoms_disp.calc = calc
         # Run the calculation
         energy = atoms_disp.get_potential_energy()
+        # Close calculator instance
+        calc.close()
+        # Append results
         amplitudes.append(d)
         energies.append(energy)
 
