@@ -222,18 +222,18 @@ def map_imaginary_phonon(phonon, qpoint='G', dd=0.1,
             t0 = time.time() # Start timer
         while True:
             # Create a copy of the supercell
-            #supercell = supercell.copy()
+            supercell_disp = supercell.copy()
             # Displace the atoms in the supercell according to the mode vector and the current amplitude
-            supercell.positions += amp * modevec_sc
+            supercell_disp.positions = supercell.positions + amp * modevec_sc
 
             # Run the calculation
-            energy = supercell.get_potential_energy()
+            energy = supercell_disp.get_potential_energy()
             energy = energy / ncells
 
             # Append amplitude and the supercell structure to the lists for saving later
             if world.rank == 0:
                 amplitudes.append(amp)
-                images.append(supercell)
+                images.append(supercell_disp)
                 energies.append(energy)
 
             # Update amplitude for the next iteration
