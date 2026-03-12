@@ -11,6 +11,7 @@ from ase.units import Ry
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
 from ase.parallel import parprint
+from ase.io import write
 # Custom modules
 from src.cleanfiles import cleanFiles
 
@@ -150,24 +151,28 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
     # Apply filter to optimize unit cell parameters and atomic positions if filt is True
     # Otherwise only optimize atomic positions
     if filt:
-        atoms = filter(atoms, bulk=True)
+        atoms_filt = filter(atoms, bulk=True)
+    else:
+        atoms_filt = atoms
     
     if world.rank == 0:
         t0 = time.time() # Start timer
     
     # Set up the BFGS optimizer on all processes
-    opt = BFGS(atoms,
+    opt = BFGS(atoms_filt,
                logfile=os.path.join(dir, f"{formula}.log"),
                trajectory=os.path.join(dir, f"{formula}.traj"))
     # Run the optimization until forces are smaller than fmax
     opt.run(fmax=fmax)
-    
+
     if world.rank == 0:
         t1 = time.time() # Stop timer
-        # Write atoms object to file (only on master process to avoid conflicts)
-        atoms.write(os.path.join(dir, f"{formula}.xyz"))
         # Write the time taken for optimization to a file
         np.save(os.path.join(dir, f"time.npy"), t1-t0)
+    
+    # Write atoms object to a file
+    write(os.path.join(dir, f"{formula}.xyz"), atoms)
+
     if mode == 'lcao':
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)

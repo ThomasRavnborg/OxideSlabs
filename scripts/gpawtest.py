@@ -38,7 +38,6 @@ for qpoint in ['G', 'X', 'R', 'M']:
         atoms_disp = atoms.copy()
         # Displace atoms 1 in the z-direction by d Angstroms
         atoms_disp.positions[1][2] += d
-        images.append(atoms_disp)
         # Create calculator
         calc = GPAW(txt=os.path.join(dir_q, f"test.txt"), **calc_params)
         # Attach the calculator to the atoms
@@ -48,13 +47,15 @@ for qpoint in ['G', 'X', 'R', 'M']:
         # Remove calculator from atoms object and close instance
         atoms_disp.calc = None
         calc.close()
-        # Append results
+        # Append amplitude, energy and atoms object
         amplitudes.append(d)
         energies.append(energy)
+        images.append(atoms_disp)
+
+    # Save the supercell structures with displacements as an xyz file
+    write(os.path.join(dir_q, 'structures.xyz'), images)
 
     if world.rank == 0:
-        # Save the supercell structures with displacements as an xyz file
-        write(os.path.join(dir_q, 'structures.xyz'), images)
         # Save amplitudes and energies as a CSV file
         df = pd.DataFrame({
             'Amplitude': amplitudes,

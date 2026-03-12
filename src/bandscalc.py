@@ -11,12 +11,18 @@ from ase.calculators.siesta import Siesta
 from ase import Atoms
 from ase.units import Ry
 from ase.dft.kpoints import bandpath
-from ase.parallel import world
 from ase.parallel import parprint
 # Custom modules
 from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
+
+# Try to import world from gpaw.mpi for parallel processing
+# If not available, fall back to ase.parallel.world
+try:
+    from gpaw.mpi import world
+except ImportError:
+    from ase.parallel import world
 
 def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
                     MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
@@ -193,13 +199,15 @@ def convert_labels(labels):
     return converted
 
 # Define a function that plots the bandstructure and DOS together
-def plot_bands(formula, ids=np.array([]), vals=np.array([])):
+def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
     """Function to plot bandstructure and DOS for a given formula.
     Requires that the bandstructure and PDOS have already been calculated and saved to files.
     Parameters:
     - formula: Chemical formula of the material.
     - ids: Numpy array of IDs to plot.
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
+    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+    - Ncells: Number of unit cells 
     Returns:
     - None. The function reads the bandstructure and PDOS data from files and plots the results.
     """
@@ -211,6 +219,11 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     # Define a list of colors for the plots (if needed)
     colors = ["black", "blue", "red", "purple", "orange", "green"]
     
+    if bulk:
+        struc = f'bulk/{formula}'
+    else:
+        struc = f'slab/{formula}/{Ncells}uc'
+
     # Make a simple figure where graphs are plotted
     fig = plt.figure(figsize=[6.6, 5])
 
@@ -295,7 +308,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     ax1.axhline(y=0, color='k', linestyle=':')
     ax2.axhline(y=0, color='k', linestyle=':')
 
-    dir = 'results/bulk/GPAW'
+    dir = f'results/{struc}/GPAW/bands'
     CBM, VBM = _plot_bandstructure(ax1, dir, 'PW', mode='pw', col=colors[0])
     shift = VBM + (CBM - VBM)/2
     _plot_dos(ax2, dir, 'PW', mode='pw', shift=shift, col=colors[0])
@@ -307,7 +320,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([])):
     
     # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
     for i in range(len(ids)):
-        dir = os.path.join('results/bulk/',formula, ids[i], 'bands')
+        dir = os.path.join('results', struc, ids[i], 'bands')
 
         # Subplot 1 - Band structure
         CBM, VBM = _plot_bandstructure(ax1, dir, vals[i], col=colors[i+1])
@@ -350,7 +363,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
     - ids: Numpy array of IDs to plot.
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
-    - Ncells: Number of unit cells 
+    - Ncells: Number of unit cells
     Returns:
     - None. The function reads the bandstructure data from files and plots the results.
     """

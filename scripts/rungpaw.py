@@ -5,11 +5,13 @@ from ase.io import read
 from ase.parallel import world
 import phonopy as ph
 #from ase.parallel import world
+from gpaw.mpi import world
+
 from src.structure import Perovskite
 from src.structureoptimizer import relax_ase
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
-from src.frozenphonon import calculate_frozen_phonons, map_imaginary_phonon
+from src.frozenphonon import calculate_frozen_phonons
 
 def run(formula, task):
     """Function to run the entire workflow for a given perovskite formula.
@@ -53,15 +55,12 @@ def run(formula, task):
         # Calculate frozen phonons
         # Load phonon data from the specified directory and formula
         phonon = ph.load(os.path.join(f'results/{struc}/{formula}/GPAW/phonons', f'{formula}.yaml'))
-        
-        for qpoint in ['G', 'X', 'R', 'M']:
-            map_imaginary_phonon(phonon, qpoint, dd=1, xcf='PBEsol',
-                                 MeshCutoff=50, kgrid=(5, 5, 5),
+        # Run frozen phonon calculation
+        calculate_frozen_phonons(phonon, xcf='PBEsol',
+                                 MeshCutoff=100, kgrid=(10, 10, 10),
                                  mode='pw', dir=dir)
-            # Wait for all parallel processes to finish
-            world.barrier()
 
-for formula in ['BaTiO3']:
+for formula in ['BaTiO3', 'SrTiO3']:
     for task in ['frozen']:
         run(formula, task)
         # Wait for all parallel processes to finish

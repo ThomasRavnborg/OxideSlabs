@@ -303,7 +303,7 @@ def get_phonon_pdos(phonon, bulk=True):
     return (pdos, freq, symbols)
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion(phonon, pDOS=True, bulk=True):
+def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, pDOS=True):
     """Function to plot the phonon dispersion and DOS together.
     Parameters:
     - phonon: Phonopy object containing phonon data.
@@ -315,6 +315,12 @@ def plot_dispersion(phonon, pDOS=True, bulk=True):
 
     atoms = phonon_to_atoms(phonon, cell='unit')
     formula = atoms.symbols
+
+    if bulk:
+        struc = f'bulk/{formula}'
+    else:
+        struc = f'slab/{formula}/{Ncells}uc'
+
 
     # Define tickmarks for the x- and y-axis
     ytickmarks = np.arange(-15, 26, 5)
