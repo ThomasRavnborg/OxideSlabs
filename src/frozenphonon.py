@@ -230,12 +230,12 @@ def map_imaginary_phonon(phonon, qpoint='G', dd=0.1,
             # Run the calculation
             energy = atoms.get_potential_energy()
             energy = energy / ncells
+            energies.append(energy)
 
             # Append amplitude and the supercell structure to the lists for saving later
             if world.rank == 0:
                 amplitudes.append(amp)
                 images.append(atoms.copy())
-                energies.append(energy)
 
             # Update amplitude for the next iteration
             amp += dd
