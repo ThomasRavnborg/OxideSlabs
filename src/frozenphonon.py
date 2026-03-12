@@ -211,8 +211,11 @@ def map_imaginary_phonon(phonon, qpoint='G', dd=0.1,
             world.barrier()
             calc = GPAW(txt=os.path.join(dir_q, f"{formula}.txt"), **calc_params,
                         kpts={'size': (kx,ky,kz), 'gamma': True})
-        # Attach the calculator to the supercell
-        supercell.calc = calc
+        
+        # Make a copy of the supercell
+        atoms = supercell.copy()
+        # Attach the calculator to the atoms
+        atoms.calc = calc
 
         amp = 0
         amplitudes = []
@@ -221,19 +224,17 @@ def map_imaginary_phonon(phonon, qpoint='G', dd=0.1,
         if world.rank == 0:
             t0 = time.time() # Start timer
         while True:
-            # Create a copy of the supercell
-            supercell_disp = supercell.copy()
             # Displace the atoms in the supercell according to the mode vector and the current amplitude
-            supercell_disp.positions = supercell.positions + amp * modevec_sc
+            atoms.positions = supercell.positions + amp * modevec_sc
 
             # Run the calculation
-            energy = supercell_disp.get_potential_energy()
+            energy = atoms.get_potential_energy()
             energy = energy / ncells
 
             # Append amplitude and the supercell structure to the lists for saving later
             if world.rank == 0:
                 amplitudes.append(amp)
-                images.append(supercell_disp)
+                images.append(atoms.copy())
                 energies.append(energy)
 
             # Update amplitude for the next iteration
