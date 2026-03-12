@@ -40,12 +40,13 @@ for qpoint in ['G', 'X', 'R', 'M']:
         atoms_disp.positions[1][2] += d
         images.append(atoms_disp)
         # Create calculator
-        calc = GPAW(txt=os.path.join(dir_q, f"test.txt"), **calc_params,)
+        calc = GPAW(txt=os.path.join(dir_q, f"test.txt"), **calc_params)
         # Attach the calculator to the atoms
         atoms_disp.calc = calc
         # Run the calculation
         energy = atoms_disp.get_potential_energy()
-        # Close calculator instance
+        # Remove calculator from atoms object and close instance
+        atoms_disp.calc = None
         calc.close()
         # Append results
         amplitudes.append(d)
