@@ -9,8 +9,6 @@ from gpaw.mpi import world
 
 from src.structure import Perovskite
 
-
-
 calc_params = {
     'xc': 'PBEsol',
     'mode': {'name': 'pw', 'ecut': 50 * Ry},
@@ -42,7 +40,7 @@ for qpoint in ['G', 'X', 'R', 'M']:
         atoms_disp.positions[1][2] += d
         images.append(atoms_disp)
         # Create calculator
-        calc = GPAW(txt=os.path.join(dir, f"test.txt"), **calc_params,)
+        calc = GPAW(txt=os.path.join(dir_q, f"test.txt"), **calc_params,)
         # Attach the calculator to the atoms
         atoms_disp.calc = calc
         # Run the calculation
