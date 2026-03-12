@@ -9,7 +9,7 @@ from src.structure import Perovskite
 from src.structureoptimizer import relax_ase
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
-from src.frozenphonon import calculate_frozen_phonons
+from src.frozenphonon import calculate_frozen_phonons, map_imaginary_phonon
 
 def run(formula, task):
     """Function to run the entire workflow for a given perovskite formula.
@@ -53,10 +53,13 @@ def run(formula, task):
         # Calculate frozen phonons
         # Load phonon data from the specified directory and formula
         phonon = ph.load(os.path.join(f'results/{struc}/{formula}/GPAW/phonons', f'{formula}.yaml'))
-        # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-        calculate_frozen_phonons(phonon, dd=1, xcf='PBEsol',
+        
+        for qpoint in ['G', 'X', 'R', 'M']:
+            map_imaginary_phonon(phonon, qpoint, dd=1, xcf='PBEsol',
                                  MeshCutoff=50, kgrid=(5, 5, 5),
                                  mode='pw', dir=dir)
+            # Wait for all parallel processes to finish
+            world.barrier()
 
 for formula in ['BaTiO3']:
     for task in ['frozen']:
