@@ -123,7 +123,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         }
         # fdf arguments
         fdf_args = {
-            'PAO.BasisSize': basis,
+            #'PAO.BasisSize': basis,
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-8,
             "MD.TypeOfRun": "CG",
