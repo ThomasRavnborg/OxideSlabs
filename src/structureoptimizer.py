@@ -6,7 +6,7 @@ import sisl as si
 # ASE
 from ase import Atoms
 from ase.calculators.siesta import Siesta
-from ase.calculators.siesta.parameters import Specie, PAOBasisBlock
+from ase.calculators.siesta.parameters import Species, PAOBasisBlock
 from ase.units import Ry
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
@@ -104,65 +104,62 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
     if basis in ['test']:
         #basis = 'DZP'
 
-        sr_basis = PAOBasisBlock("""
-        # Sr basis (5 shells)
-        # n=4, l=0 (4s), Nzeta=1
-            0 1
+        sr_basis = PAOBasisBlock("""5   # number of l-shells
+        n=4   0   1                     # n, l, Nzeta
             3.511
-        # n=5, l=0 (5s), Nzeta=2
-            0 2
-            8.773 6.728
-        # n=4, l=1 (4p), Nzeta=1
-            1 1
+            1.000
+        n=5   0   2                     # n, l, Nzeta
+            8.773      6.728
+            1.000      1.000
+        n=4   1   1                     # n, l, Nzeta
             4.114
-        # n=5, l=1 (5p), Nzeta=1
-            1 1
+            1.000
+        n=5   1   1                     # n, l, Nzeta
             8.773
-        # n=4, l=2 (4d), Nzeta=1
-            2 1
+            1.000
+        n=4   2   1                     # n, l, Nzeta
             8.000
+            1.000
         """)
 
-        ti_basis = PAOBasisBlock("""
-        # Ti basis (5 shells)
-        # n=3, l=0 (3s), Nzeta=1
-            0 1
+        ti_basis = PAOBasisBlock("""5   # number of l-shells
+        n=3   0   1                     # n, l, Nzeta
             2.844
-        # n=4, l=0 (4s), Nzeta=2
-            0 2
-            7.565 5.669
-        # n=3, l=1 (3p), Nzeta=1
-            1 1
+            1.000
+        n=4   0   2                     # n, l, Nzeta
+            7.565      5.669
+            1.000      1.000
+        n=3   1   1                     # n, l, Nzeta
             3.189
-        # n=4, l=1 (4p), Nzeta=1
-            1 1
+            1.000
+        n=4   1   1                     # n, l, Nzeta
             7.565
-        # n=3, l=2 (3d), Nzeta=2
-            2 2
-            5.233 3.466
+            1.000
+        n=3   2   2                     # n, l, Nzeta
+            5.233      3.466
+            1.000      1.000
         """)
 
-        o_basis = PAOBasisBlock("""
-        # O basis (2 shells)
-        # n=2, l=0 (2s), Nzeta=2
-            0 2
-            3.540 2.304
-        # n=2, l=1 (2p), Nzeta=2 + P
-            1 2 P 1
-            4.291 2.777
+        o_basis = PAOBasisBlock("""2    # number of l-shells
+        n=2   0   2                     # n, l, Nzeta
+            3.540      2.304
+            1.000      1.000
+        n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
+            4.291      2.777
+            1.000      1.000
         """)
 
         species=[
-            Specie(symbol="Sr", basis_set=sr_basis),
-            Specie(symbol="Ti", basis_set=ti_basis),
-            Specie(symbol="O",  basis_set=o_basis),
+            Species(symbol="Sr", basis_set=sr_basis),
+            Species(symbol="Ti", basis_set=ti_basis),
+            Species(symbol="O",  basis_set=o_basis),
         ]
 
     else:
         species=[
-            Specie(symbol="Sr", basis_set=basis),
-            Specie(symbol="Ti", basis_set=basis),
-            Specie(symbol="O",  basis_set=basis),
+            Species(symbol="Sr", basis_set=basis),
+            Species(symbol="Ti", basis_set=basis),
+            Species(symbol="O",  basis_set=basis),
         ]
 
     # For SIESTA, calculations are performed with atomic orbitals (LCAO)
