@@ -40,7 +40,7 @@ def run(formula, task):
                   mode='pw', dir=dir)
     elif task == 'bands' or task == 'phonons':
         # Read relaxed structure
-        relaxed_atoms = read(os.path.join(dir, f'{formula}.xyz'), index=0)
+        relaxed_atoms = read(os.path.join(f'results/{struc}/GPAW/relax', f'{formula}.xyz'), index=0)
         perovskite.set_atoms(relaxed_atoms)
     if task == 'bands':
         # Calculate band structure and PDOS
@@ -62,7 +62,7 @@ def run(formula, task):
                                  mode='pw', dir=dir)
 
 for formula in ['BaTiO3']:
-    for task in ['relax', 'bands', 'phonons']:
+    for task in ['bands', 'phonons']:
         run(formula, task)
         # Wait for all parallel processes to finish
         world.barrier()
