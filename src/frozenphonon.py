@@ -275,7 +275,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
             for mode_id, modevec in enumerate(modes):
 
                 modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
-                dir_mode = os.path.join(dir_q, f"Q_{mode_id}")
+                dir_mode = os.path.join(dir_q, f"Q_{mode_id+1}")
 
                 if world.rank == 0:
                 # Make directory for the current mode if it doesn't exist
