@@ -82,7 +82,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         if next_step == "phonons" or runall:
             parprint(f"Running phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'phonons')
-            calculate_phonons(perovskite, **params, dir=dir_step, N=2, par=True)
+            calculate_phonons(perovskite, **params, dir=dir_step, par=True)
             #calculate_phonons(perovskite, **params, dir=dir_step, N=3, par=True)
             #calculate_phonons(perovskite, **params, dir=dir_step, N=4, par=True)
             # Update to next step

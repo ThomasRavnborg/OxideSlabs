@@ -77,8 +77,15 @@ def get_modevector(phonon, q):
         stable = True
     else:
         stable = False
-    # Determine mode vector and reshape from (N_atoms*3,) to (N_atoms, 3)
+    # Determine mode vector corresponding to the most unstable mode at the given q-point
     modevec = eigenvecs[:, mode_index]
+    
+    # Fix arbitrary complex phase so that the mode vector is real and has the largest component positive
+    imax = np.argmax(np.abs(modevec))
+    phase = np.angle(modevec[imax])
+    modevec = modevec * np.exp(-1j * phase)
+
+    # Reshape from (N_atoms*3,) to (N_atoms, 3)
     modevec = modevec.reshape(N_unit, 3)
     #modevec = np.real(modevec)
     return modevec, stable
@@ -121,7 +128,7 @@ def get_displacement(unitcell, q, modevec):
                 modevec_sc.append(phased_disp)
     modevec_sc = np.vstack(modevec_sc)
     # Take the real part of the super cell mode vectors and normalize by the square root of the atomic masses
-    #modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * N_a)
+    modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * N_a)
     #modevec_sc /= np.linalg.norm(modevec_sc)
     return modevec_sc, supercell, supercell_matrix
 
