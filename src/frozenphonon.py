@@ -121,7 +121,7 @@ def get_displacement(unitcell, q, modevec):
                 modevec_sc.append(phased_disp)
     modevec_sc = np.vstack(modevec_sc)
     # Take the real part of the super cell mode vectors and normalize by the square root of the atomic masses
-    modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * N_a)
+    #modevec_sc = np.real(modevec_sc) / np.sqrt(m_sc * N_a)
     #modevec_sc /= np.linalg.norm(modevec_sc)
     return modevec_sc, supercell, supercell_matrix
 

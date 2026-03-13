@@ -8,6 +8,7 @@ from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 # ASE
 from ase.io import read
 from ase.calculators.siesta import Siesta
+from ase.calculators.siesta.parameters import Species, PAOBasisBlock
 from ase import Atoms
 from ase.units import Ry
 from ase.dft.kpoints import bandpath
@@ -56,13 +57,75 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
         # For slab calculations, set k-point sampling to 1 in the z-direction
         kgrid[2] = 1
 
+    # Defining custom basis sets
+    if basis in ['test']:
+        #basis = 'DZP'
+
+        sr_basis = PAOBasisBlock("""5   # number of l-shells
+        n=4   0   1                     # n, l, Nzeta
+            3.511
+            1.000
+        n=5   0   2                     # n, l, Nzeta
+            8.773      6.728
+            1.000      1.000
+        n=4   1   1                     # n, l, Nzeta
+            4.114
+            1.000
+        n=5   1   1                     # n, l, Nzeta
+            8.773
+            1.000
+        n=4   2   1                     # n, l, Nzeta
+            8.000
+            1.000
+        """)
+
+        ti_basis = PAOBasisBlock("""5   # number of l-shells
+        n=3   0   1                     # n, l, Nzeta
+            2.844
+            1.000
+        n=4   0   2                     # n, l, Nzeta
+            7.565      5.669
+            1.000      1.000
+        n=3   1   1                     # n, l, Nzeta
+            3.189
+            1.000
+        n=4   1   1                     # n, l, Nzeta
+            7.565
+            1.000
+        n=3   2   2                     # n, l, Nzeta
+            5.233      3.466
+            1.000      1.000
+        """)
+
+        o_basis = PAOBasisBlock("""2    # number of l-shells
+        n=2   0   2                     # n, l, Nzeta
+            3.540      2.304
+            1.000      1.000
+        n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
+            4.291      2.777
+            1.000      1.000
+        """)
+
+        species=[
+            Species(symbol="Sr", basis_set=sr_basis),
+            Species(symbol="Ti", basis_set=ti_basis),
+            Species(symbol="O",  basis_set=o_basis),
+        ]
+
+    else:
+        species=[
+            Species(symbol="Sr", basis_set=basis),
+            Species(symbol="Ti", basis_set=basis),
+            Species(symbol="O",  basis_set=basis),
+        ]
+
     if mode == 'lcao':
         parprint(f"Calculating band structure and PDOS for {formula} using SIESTA.")
         # Calculation parameters in a dictionary
         calc_params = {
             'label': f'{formula}',
             'xc': xcf,
-            'basis_set': basis,
+            #'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
@@ -71,7 +134,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
         }
         # fdf arguments in a dictionary
         fdf_args = {
-            'PAO.BasisSize': basis,
+            #'PAO.BasisSize': basis,
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-6,
             'BandLinesScale': 'ReciprocalLatticeVectors',
@@ -114,7 +177,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             fdf_args['Slab.DipoleCorrection'] = 'T'
         
         # Set up the Siesta calculator
-        calc = Siesta(**calc_params, fdf_arguments=fdf_args)
+        calc = Siesta(species=species, **calc_params, fdf_arguments=fdf_args)
 
     elif mode == 'pw':
         from gpaw import GPAW
@@ -132,7 +195,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             calc_params["poissonsolver"] = {"dipolelayer": "xy"}
         # Set up the GPAW calculator
         calc = GPAW(**calc_params)
-
+    
     # Attach the calculator to the atoms object
     atoms.calc = calc
     if world.rank == 0:

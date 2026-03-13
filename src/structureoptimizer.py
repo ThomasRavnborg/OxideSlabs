@@ -100,7 +100,6 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         kgrid[2] = 1
 
     # Defining custom basis sets
-    
     if basis in ['test']:
         #basis = 'DZP'
 
