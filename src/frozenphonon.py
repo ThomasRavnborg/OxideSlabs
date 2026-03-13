@@ -80,7 +80,7 @@ def get_modevector(phonon, q):
     # Determine mode vector and reshape from (N_atoms*3,) to (N_atoms, 3)
     modevec = eigenvecs[:, mode_index]
     modevec = modevec.reshape(N_unit, 3)
-    modevec = np.real(modevec)
+    #modevec = np.real(modevec)
     return modevec, stable
 
 

@@ -6,7 +6,7 @@ import sisl as si
 # ASE
 from ase import Atoms
 from ase.calculators.siesta import Siesta
-from ase.calculators.siesta.parameters import Species, PAOBasisBlock
+from ase.calculators.siesta.parameters import Specie, PAOBasisBlock
 from ase.units import Ry
 from ase.optimize import BFGS
 from ase.filters import FrechetCellFilter
@@ -99,6 +99,72 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         # For slab calculations, set k-point sampling to 1 in the z-direction
         kgrid[2] = 1
 
+    # Defining custom basis sets
+    
+    if basis in ['test']:
+        #basis = 'DZP'
+
+        sr_basis = PAOBasisBlock("""
+        # Sr basis (5 shells)
+        # n=4, l=0 (4s), Nzeta=1
+            0 1
+            3.511
+        # n=5, l=0 (5s), Nzeta=2
+            0 2
+            8.773 6.728
+        # n=4, l=1 (4p), Nzeta=1
+            1 1
+            4.114
+        # n=5, l=1 (5p), Nzeta=1
+            1 1
+            8.773
+        # n=4, l=2 (4d), Nzeta=1
+            2 1
+            8.000
+        """)
+
+        ti_basis = PAOBasisBlock("""
+        # Ti basis (5 shells)
+        # n=3, l=0 (3s), Nzeta=1
+            0 1
+            2.844
+        # n=4, l=0 (4s), Nzeta=2
+            0 2
+            7.565 5.669
+        # n=3, l=1 (3p), Nzeta=1
+            1 1
+            3.189
+        # n=4, l=1 (4p), Nzeta=1
+            1 1
+            7.565
+        # n=3, l=2 (3d), Nzeta=2
+            2 2
+            5.233 3.466
+        """)
+
+        o_basis = PAOBasisBlock("""
+        # O basis (2 shells)
+        # n=2, l=0 (2s), Nzeta=2
+            0 2
+            3.540 2.304
+        # n=2, l=1 (2p), Nzeta=2 + P
+            1 2 P 1
+            4.291 2.777
+        """)
+
+        species=[
+            Specie(symbol="Sr", basis_set=sr_basis),
+            Specie(symbol="Ti", basis_set=ti_basis),
+            Specie(symbol="O",  basis_set=o_basis),
+        ]
+
+    else:
+        species=[
+            Specie(symbol="Sr", basis_set=basis),
+            Specie(symbol="Ti", basis_set=basis),
+            Specie(symbol="O",  basis_set=basis),
+        ]
+
     # For SIESTA, calculations are performed with atomic orbitals (LCAO)
     if mode == 'lcao':
         parprint(f"Relaxing structure for {formula} using SIESTA.")
@@ -106,7 +172,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         calc_params = {
             'label': f'{formula}',
             'xc': xcf,
-            'basis_set': basis,
+            #'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
@@ -115,7 +181,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         }
         # fdf arguments in a dictionary
         fdf_args = {
-            'PAO.BasisSize': basis,
+            #'PAO.BasisSize': basis,
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-6,
         }
@@ -123,7 +189,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
             # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
             fdf_args['Slab.DipoleCorrection'] = 'T'
         # Set up the Siesta calculator
-        calc = Siesta(**calc_params, fdf_arguments=fdf_args)
+        calc = Siesta(species=species, **calc_params, fdf_arguments=fdf_args)
     
     # In GPAW, calculations are performed with plane waves (PW)
     elif mode == 'pw':

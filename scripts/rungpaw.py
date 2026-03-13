@@ -22,13 +22,14 @@ def run(formula, task):
     """
 
     perovskite = Perovskite(formula, a=3.98, N=1.5, bulk=False)
+    N = perovskite.ncells
     bulk = perovskite.bulk
     if bulk:
-        struc = 'bulk'
+        struc = f"bulk/{formula}"
     else:
-        struc = 'slab'
+        struc = f"slab/{formula}/{N}uc"
 
-    dir = f'results/{struc}/{formula}/GPAW/{task}'
+    dir = f'results/{struc}/GPAW/{task}'
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
 
@@ -54,7 +55,7 @@ def run(formula, task):
     if task == 'frozen':
         # Calculate frozen phonons
         # Load phonon data from the specified directory and formula
-        phonon = ph.load(os.path.join(f'results/{struc}/{formula}/GPAW/phonons', f'{formula}.yaml'))
+        phonon = ph.load(os.path.join(f'results/{struc}/GPAW/phonons', f'{formula}.yaml'))
         # Run frozen phonon calculation
         calculate_frozen_phonons(phonon, dd=0.4, xcf='PBEsol',
                                  MeshCutoff=100, kgrid=(10, 10, 10),

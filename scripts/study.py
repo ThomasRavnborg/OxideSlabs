@@ -15,7 +15,7 @@ project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['DZDP']
+basis =   ['test']
 pseudos = ['PBEsol']
 shifts =  [0.01]
 splits =  [0.15]
