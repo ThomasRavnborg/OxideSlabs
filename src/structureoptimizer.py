@@ -99,74 +99,139 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         kgrid[2] = 1
 
     # Defining custom basis sets
-    if basis in ['DZPp']:
+    if basis in ['DZPp', 'test2']:
         #basis = 'DZP'
+        if basis == 'DZPp':
+            ba_basis = PAOBasisBlock("""5   # number of l-shells
+            n=5   0   1                     # n, l, Nzeta 
+                3.968   
+                1.000   
+            n=6   0   2                     # n, l, Nzeta 
+                9.316      7.217   
+                1.000      1.000   
+            n=5   1   1                     # n, l, Nzeta 
+                4.677   
+                1.000   
+            n=6   1   1                     # n, l, Nzeta 
+                9.316   
+                1.000
+            n=5   2   1                     # n, l, Nzeta 
+                6.000   
+                1.000   
+            """)
 
-        ba_basis = PAOBasisBlock("""5   # number of l-shells
-        n=5   0   1                     # n, l, Nzeta 
-            3.968   
-            1.000   
-        n=6   0   2                     # n, l, Nzeta 
-            9.316      7.217   
-            1.000      1.000   
-        n=5   1   1                     # n, l, Nzeta 
-            4.677   
-            1.000   
-        n=6   1   1                     # n, l, Nzeta 
-            9.316   
-            1.000
-        n=5   2   1                     # n, l, Nzeta 
-            6.000   
-            1.000   
-        """)
+            sr_basis = PAOBasisBlock("""5   # number of l-shells
+            n=4   0   1                     # n, l, Nzeta
+                3.511
+                1.000
+            n=5   0   2                     # n, l, Nzeta
+                8.773      6.728
+                1.000      1.000
+            n=4   1   1                     # n, l, Nzeta
+                4.114
+                1.000
+            n=5   1   1                     # n, l, Nzeta
+                8.773
+                1.000
+            n=4   2   1                     # n, l, Nzeta
+                6.000
+                1.000
+            """)
 
-        sr_basis = PAOBasisBlock("""5   # number of l-shells
-        n=4   0   1                     # n, l, Nzeta
-            3.511
-            1.000
-        n=5   0   2                     # n, l, Nzeta
-            8.773      6.728
-            1.000      1.000
-        n=4   1   1                     # n, l, Nzeta
-            4.114
-            1.000
-        n=5   1   1                     # n, l, Nzeta
-            8.773
-            1.000
-        n=4   2   1                     # n, l, Nzeta
-            6.000
-            1.000
-        """)
+            ti_basis = PAOBasisBlock("""6   # number of l-shells
+            n=3   0   1                     # n, l, Nzeta
+                2.844
+                1.000
+            n=4   0   2                     # n, l, Nzeta
+                7.565      5.669
+                1.000      1.000
+            n=3   1   1                     # n, l, Nzeta
+                3.189
+                1.000
+            n=4   1   1                     # n, l, Nzeta
+                7.565
+                1.000
+            n=3   2   2                     # n, l, Nzeta
+                5.233      3.466
+                1.000      1.000
+            n=4   2   1                     # n, l, Nzeta
+                6.000
+                1.000
+            """)
 
-        ti_basis = PAOBasisBlock("""6   # number of l-shells
-        n=3   0   1                     # n, l, Nzeta
-            2.844
-            1.000
-        n=4   0   2                     # n, l, Nzeta
-            7.565      5.669
-            1.000      1.000
-        n=3   1   1                     # n, l, Nzeta
-            3.189
-            1.000
-        n=4   1   1                     # n, l, Nzeta
-            7.565
-            1.000
-        n=3   2   2                     # n, l, Nzeta
-            5.233      3.466
-            1.000      1.000
-        n=4   2   1                     # n, l, Nzeta
-            6.000
-            1.000
-        """)
+            o_basis = PAOBasisBlock("""2    # number of l-shells
+            n=2   0   2                     # n, l, Nzeta
+                3.540      2.304
+                1.000      1.000
+            n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
+                4.291      2.777
+                1.000      1.000
+            """)
 
-        o_basis = PAOBasisBlock("""2    # number of l-shells
-        n=2   0   2                     # n, l, Nzeta
-            3.540      2.304
-            1.000      1.000
-        n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
-            4.291      2.777
-            1.000      1.000
-        """)
+        elif basis == 'test2':
+
+            ba_basis = PAOBasisBlock("""5   # number of l-shells
+            n=5   0   1                     # n, l, Nzeta 
+                4.781   
+                1.000   
+            n=6   0   2                     # n, l, Nzeta 
+                11.917      8.204   
+                1.000      1.000   
+            n=5   1   1                     # n, l, Nzeta 
+                5.761   
+                1.000   
+            n=6   1   1                     # n, l, Nzeta 
+                11.917   
+                1.000
+            n=5   2   1                     # n, l, Nzeta 
+                8.000   
+                1.000   
+            """)
+
+            sr_basis = PAOBasisBlock("""5   # number of l-shells
+            n=4   0   1                     # n, l, Nzeta
+                3.511
+                1.000
+            n=5   0   2                     # n, l, Nzeta
+                8.773      6.728
+                1.000      1.000
+            n=4   1   1                     # n, l, Nzeta
+                4.114
+                1.000
+            n=5   1   1                     # n, l, Nzeta
+                8.773
+                1.000
+            n=4   2   1                     # n, l, Nzeta
+                6.000
+                1.000
+            """)
+
+            ti_basis = PAOBasisBlock("""6   # number of l-shells
+            n=3   0   1                     # n, l, Nzeta
+                3.428
+                1.000
+            n=4   0   2                     # n, l, Nzeta
+                9.736      6.381
+                1.000      1.000
+            n=3   1   1                     # n, l, Nzeta
+                3.921
+                1.000
+            n=4   1   1                     # n, l, Nzeta
+                9.736
+                1.000
+            n=3   2   2                     # n, l, Nzeta
+                7.210      4.020
+                1.000      1.000
+            """)
+
+            o_basis = PAOBasisBlock("""2    # number of l-shells
+            n=2   0   2                     # n, l, Nzeta
+                4.449      2.432
+                1.000      1.000
+            n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
+                5.715      3.073
+                1.000      1.000
+            """)
 
         # Create dictionary of species with custom basis sets for SIESTA calculations
         basis_sets = {
