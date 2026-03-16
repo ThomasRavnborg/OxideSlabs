@@ -62,7 +62,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             # Update dataframe and move to next step
             calc_id = project.prepare_calculation(params)
             next_step = project.what_to_run(calc_id)
-        
+        """
         # Set the atoms object for the next steps based on the relaxed structure
         dir_relax = os.path.join(dir, 'relax')
         #dir_relax = 'results/bulk/GPAW'
@@ -89,6 +89,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             calc_id = project.prepare_calculation(params)
             next_step = project.what_to_run(calc_id)
         """
+        """
         # If all calculations are complete, run a frozen phonon calculation
         if next_step == "complete":
             parprint(f"Running frozen phonon calculation for calculation {calc_id}")
@@ -97,4 +98,4 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             run_frozen_phonon(perovskite, **params, dir=dir_step, par=True)
         """
 
-run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids)
+run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=True)

@@ -116,7 +116,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
             9.316   
             1.000
         n=5   2   1                     # n, l, Nzeta 
-            10.000   
+            8.000   
             1.000   
         """)
 
@@ -134,7 +134,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
             8.773
             1.000
         n=4   2   1                     # n, l, Nzeta
-            10.000
+            8.000
             1.000
         """)
 
@@ -160,7 +160,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         n=2   0   2                     # n, l, Nzeta
             3.540      2.304
             1.000      1.000
-        n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
+        n=2   1   2 P   2               # n, l, Nzeta, Polarization, NzetaPol
             4.291      2.777
             1.000      1.000
         """)
