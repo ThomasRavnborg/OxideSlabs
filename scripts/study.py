@@ -8,9 +8,9 @@ from src.structureoptimizer import relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 
-# Create atoms object for SrTiO3 and initialize project
-formula = 'SrTiO3'
-perovskite = Perovskite(formula, a=3.9, N=1, bulk=True)
+# Create atoms object for BaTiO3 and initialize project
+formula = 'BaTiO3'
+perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
 project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over

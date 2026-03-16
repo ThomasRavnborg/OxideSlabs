@@ -21,7 +21,7 @@ def run(formula, task):
     - None. The function performs the relaxation, band structure calculation, and phonon calculation, and saves the results to files.
     """
 
-    perovskite = Perovskite(formula, a=3.98, N=1.5, bulk=False)
+    perovskite = Perovskite(formula, a=4.01, N=1, bulk=True)
     N = perovskite.ncells
     bulk = perovskite.bulk
     if bulk:
@@ -57,12 +57,12 @@ def run(formula, task):
         # Load phonon data from the specified directory and formula
         phonon = ph.load(os.path.join(f'results/{struc}/GPAW/phonons', f'{formula}.yaml'))
         # Run frozen phonon calculation
-        calculate_frozen_phonons(phonon, dd=0.4, xcf='PBEsol',
+        calculate_frozen_phonons(phonon, dd=0.6, xcf='PBEsol',
                                  MeshCutoff=100, kgrid=(10, 10, 10),
                                  mode='pw', dir=dir)
 
 for formula in ['BaTiO3']:
-    for task in ['bands', 'phonons']:
+    for task in ['frozen']:
         run(formula, task)
         # Wait for all parallel processes to finish
         world.barrier()

@@ -83,6 +83,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = perovskite.formula
+    symbols = perovskite.symbols
     atoms = perovskite.atoms
     bulk = perovskite.bulk
     # Convert kgrid to a list to allow for modification
@@ -113,6 +114,24 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     # Defining custom basis sets
     if basis in ['test']:
         #basis = 'DZP'
+
+        ba_basis = PAOBasisBlock("""5   # number of l-shells
+        n=5   0   1                     # n, l, Nzeta 
+            3.968   
+            1.000   
+        n=6   0   2                     # n, l, Nzeta 
+            9.316      7.217   
+            1.000      1.000   
+        n=5   1   1                     # n, l, Nzeta 
+            4.677   
+            1.000   
+        n=6   1   1                     # n, l, Nzeta 
+            9.316   
+            1.000
+        n=5   2   1                     # n, l, Nzeta 
+            8.000   
+            1.000   
+        """)
 
         sr_basis = PAOBasisBlock("""5   # number of l-shells
         n=4   0   1                     # n, l, Nzeta
@@ -159,17 +178,25 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             1.000      1.000
         """)
 
+        # Create dictionary of species with custom basis sets for SIESTA calculations
+        basis_sets = {
+            'Ba': ba_basis,
+            'Sr': sr_basis,
+            'Ti': ti_basis,
+            'O': o_basis
+        }
+
         species=[
-            Species(symbol="Sr", basis_set=sr_basis),
-            Species(symbol="Ti", basis_set=ti_basis),
-            Species(symbol="O",  basis_set=o_basis),
+            Species(symbol=symbols[0], basis_set=basis_sets[symbols[0]]),
+            Species(symbol=symbols[1], basis_set=basis_sets[symbols[1]]),
+            Species(symbol=symbols[2], basis_set=basis_sets[symbols[2]]),
         ]
 
     else:
         species=[
-            Species(symbol="Sr", basis_set=basis),
-            Species(symbol="Ti", basis_set=basis),
-            Species(symbol="O",  basis_set=basis),
+            Species(symbol=symbols[0], basis_set=basis),
+            Species(symbol=symbols[1], basis_set=basis),
+            Species(symbol=symbols[2], basis_set=basis),
         ]
 
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
