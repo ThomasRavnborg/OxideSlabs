@@ -8,8 +8,8 @@ from src.frozenphonon import calculate_frozen_phonons
 from src.structureoptimizer import relax_ase, relax_siesta
 
 # Define formula and ID
-formula = 'BaTiO3'
-id = '0053'
+formula = 'SrTiO3'
+id = '0038'
 # Set up directory paths for ID and frozen phonon calculation results
 dir_id = os.path.join('results/bulk/',formula, id)
 dir_res = os.path.join(dir_id, 'frozen')
