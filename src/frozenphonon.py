@@ -213,7 +213,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
     # Unitcell and formula from phonon object
     unitcell = phonon_to_atoms(phonon, cell='unit')
     formula = unitcell.symbols
-    symbols = [formula[0:2], formula[2:4], formula[4]]
+    symbols = phonon.unitcell.symbols
 
     # Dictionary for q-points
     q_dict = {
