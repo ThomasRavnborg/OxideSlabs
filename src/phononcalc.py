@@ -112,7 +112,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     #return supercells
 
     # Defining custom basis sets
-    if basis in ['test']:
+    if basis in ['DZPp']:
         #basis = 'DZP'
 
         ba_basis = PAOBasisBlock("""5   # number of l-shells
@@ -129,7 +129,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             9.316   
             1.000
         n=5   2   1                     # n, l, Nzeta 
-            8.000   
+            10.000   
             1.000   
         """)
 
@@ -147,7 +147,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
             8.773
             1.000
         n=4   2   1                     # n, l, Nzeta
-            8.000
+            10.000
             1.000
         """)
 
@@ -319,8 +319,8 @@ def get_phonon_dispersion(phonon, bulk=True):
     # Specify band path and labels depending on bulk or slab
     if bulk == True:
         path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
-                [0.5, 0.5, 0.0],[0.0, 0.0, 0.0],[0.5, 0.5, 0.5]]]
-        labels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$", "R"]
+                [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
+        labels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$"]
     else:
         path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
                  [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
@@ -394,7 +394,7 @@ def get_phonon_pdos(phonon, bulk=True):
     return (pdos, freq, symbols)
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, pDOS=True):
+def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, pDOS=False):
     """Function to plot the phonon dispersion and DOS together.
     Parameters:
     - phonon: Phonopy object containing phonon data.
@@ -404,8 +404,8 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     - None. The function creates a plot of the phonon dispersion and DOS.
     """
 
-    atoms = phonon_to_atoms(phonon, cell='unit')
-    formula = atoms.symbols
+    #atoms = phonon_to_atoms(phonon, cell='unit')
+    #formula = atoms.symbols
 
     if bulk:
         struc = f'bulk/{formula}'
@@ -418,7 +418,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     xtickmarks = np.arange(0, 7, 1)
 
     # Define colors and styles for plotting (if needed)
-    #colors = ["black", "blue", "red", "purple", "orange", "green"]
+    colors = ["black", "blue", "red", "purple", "orange", "green"]
     #styles = ['-', '--', '-.', ':', '-', '--', '-.']
 
     # Make a simple figure where graphs are plotted
@@ -483,18 +483,22 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     ax2.axhline(y=0, color='k', linestyle=':')
 
     
-    dir = 'results/bulk/GPAW'
-    phonon_PW = ph.load(os.path.join(dir, f'{formula}.yaml'))
-    # Plot phonon dispersion for PW and LCAO calculations
-    _plot_disp(ax1, phonon_PW, 'PW', col='k')
-    _plot_disp(ax1, phonon, 'LCAO', col='tab:blue')
-    # Plot total DOS for PW and LCAO calculations
-    _plot_dos(ax2, phonon_PW, 'PW', col='k')
-    _plot_dos(ax2, phonon, 'LCAO', col='tab:blue')
+    dir = f'results/{struc}/GPAW/phonons'
+    phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+    # Plot phonon dispersion and total DOS for PW
+    _plot_disp(ax1, phonon, 'PW', col='k')
+    _plot_dos(ax2, phonon, 'PW', col='k')
     if pDOS:
-        # Plot PDOS
-        _plot_pdos(ax2, phonon_PW)
+        # Plot PDOS for PW
         _plot_pdos(ax2, phonon)
+
+    for i in range(len(ids)):
+        # Load Phonopy object from YAML file
+        dir = os.path.join('results', struc, ids[i], 'phonons')
+        phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
+        # Plot phonon dispersion and total DOS for PW
+        _plot_disp(ax1, phonon, vals[i], col=colors[i+1])
+        _plot_dos(ax2, phonon, vals[i], col=colors[i+1])
     
     # Set x- and y-label
     ax1.set_xlabel('k-points')

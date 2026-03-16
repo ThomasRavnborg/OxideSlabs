@@ -99,7 +99,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
         kgrid[2] = 1
 
     # Defining custom basis sets
-    if basis in ['test']:
+    if basis in ['DZPp']:
         #basis = 'DZP'
 
         ba_basis = PAOBasisBlock("""5   # number of l-shells
@@ -116,7 +116,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
             9.316   
             1.000
         n=5   2   1                     # n, l, Nzeta 
-            8.000   
+            10.000   
             1.000   
         """)
 
@@ -134,7 +134,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
             8.773
             1.000
         n=4   2   1                     # n, l, Nzeta
-            8.000
+            10.000
             1.000
         """)
 
