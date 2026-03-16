@@ -206,7 +206,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm
                 1.000
             """)
 
-            ti_basis = PAOBasisBlock("""6   # number of l-shells
+            ti_basis = PAOBasisBlock("""5   # number of l-shells
             n=3   0   1                     # n, l, Nzeta
                 3.428
                 1.000
