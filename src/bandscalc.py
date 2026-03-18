@@ -35,7 +35,8 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
     - perovskite: Custom object representing the relaxed bulk structure.
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
-    - basis: Basis set to be used (default is 'DZP').
+    - basis: Basis set to use for the calculation (default: 'DZP').
+             If basis ends with (lower-case) p, a polarization orbital will be added to the A-site (Ba)
     - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).

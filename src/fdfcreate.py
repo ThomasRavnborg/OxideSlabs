@@ -94,7 +94,10 @@ def modify_basis(block_in, auto_radii=True):
 
     return block_out
 
-def generate_basis(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15, dir=''):
+def generate_basis(perovskite, xcf='PBEsol', basis='DZP',
+                   EnergyShift=0.01, SplitNorm=0.15,
+                   MeshCutoff=1000, kgrid=(10, 10, 10),
+                   pseudo='PBEsol', dir=''):
     """Function to generate a basis.fdf file for a given perovskite structure using SIESTA.
     Parameters:
     - perovskite: Perovskite object containing the structure and properties of the material
@@ -103,6 +106,9 @@ def generate_basis(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spli
              If basis ends with (lower-case) p, a polarization orbital will be added to the A-site (Ba)
     - EnergyShift: Energy shift for the basis functions in Ry (default: 0.01)
     - SplitNorm: Split norm for the basis functions (default: 0.15)
+    - MeshCutoff: Mesh cutoff for the basis functions in Ry (default: 1000)
+    - kgrid: k-point grid for the calculation (default: (10, 10, 10))
+    - pseudo: Pseudopotential to use (default: 'PBEsol')
     - dir: Directory to save the input file (default: current working directory)
     """
     # Define current working directory and extract information from the perovskite object

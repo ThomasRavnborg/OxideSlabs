@@ -20,10 +20,10 @@ project.remove_calculation('0074')
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
 pseudos = ['PBEsol']
-shifts =  [0.01]
+shifts =  [0.001, 0.005, 0.01, 0.02, 0.05, 0.1]
 splits =  [0.15]
 cutoffs = [1000]
-grids =   [12]
+grids =   [10]
 
 def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
     """Run the full workflow for all combinations of parameters."""
@@ -69,7 +69,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             # Run relaxation
             print(f"Running relaxation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'relax')
-            relax_ase(perovskite, **params, dir=dir_step)
+            relax_ase(perovskite, **params, dir=dir_step, par=False)
             # Update dataframe and move to next step
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
