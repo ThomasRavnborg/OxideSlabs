@@ -127,9 +127,9 @@ def generate_basis(perovskite, xcf='PBEsol', basis='DZPp',
         'label': f'basis',
         'xc': xcf,
         'basis_set': basis,
-        #'mesh_cutoff': MeshCutoff * Ry,
+        'mesh_cutoff': MeshCutoff * Ry,
         'energy_shift': EnergyShift * Ry,
-        #'kpts': kgrid,
+        'kpts': kgrid,
         'directory': dir,
         'pseudo_path': os.path.join(cwd, 'pseudos', f'{xcf}')
     }

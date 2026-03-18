@@ -36,7 +36,7 @@ def run(formula, task):
     if task == 'relax':
         # Run relaxation using GPAW for atomic positions and cell optimization
         relax_ase(perovskite, xcf='PBEsol',
-                  MeshCutoff=100, kgrid=(10, 10, 10),
+                  MeshCutoff=80, kgrid=(10, 10, 10),
                   mode='pw', dir=dir)
     elif task == 'bands' or task == 'phonons':
         # Read relaxed structure
@@ -45,12 +45,12 @@ def run(formula, task):
     if task == 'bands':
         # Calculate band structure and PDOS
         calculate_bands(perovskite, xcf='PBEsol',
-                        MeshCutoff=100, kgrid=(10, 10, 10),
+                        MeshCutoff=80, kgrid=(10, 10, 10),
                         mode='pw', dir=dir)
     if task == 'phonons':
         # Calculate phonon dispersion
         calculate_phonons(perovskite, xcf='PBEsol',
-                          MeshCutoff=100, kgrid=(10, 10, 10),
+                          MeshCutoff=80, kgrid=(10, 10, 10),
                           mode='pw', dir=dir)
     if task == 'frozen':
         # Calculate frozen phonons
@@ -58,8 +58,8 @@ def run(formula, task):
         phonon = ph.load(os.path.join(f'results/{struc}/GPAW/phonons', f'{formula}.yaml'))
         # Run frozen phonon calculation
         calculate_frozen_phonons(phonon, dd=0.4, xcf='PBEsol',
-                                 MeshCutoff=100, kgrid=(10, 10, 10),
-                                 mode='pw', dir=dir)
+                                 MeshCutoff=80, kgrid=(10, 10, 10),
+                                 mode='pw', dir=dir, deg=False)
 
 for formula in ['SrTiO3']:
     for task in ['frozen']:
