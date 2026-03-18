@@ -52,9 +52,10 @@ def run_siesta(perovskite, xcf='PBEsol', basis='DZPp',
         'directory': dir,
         'pseudo_path': os.path.join(cwd, f'pseudos/{xcf}')
     }
+    dir_fdf = os.path.join(cwd, dir)
     # fdf arguments in a dictionary
     fdf_args = {
-        '%include': os.path.join(dir, 'basis.fdf'),
+        '%include': os.path.join(dir_fdf, 'basis.fdf'),
         'PAO.SplitNorm': SplitNorm
     }
     
