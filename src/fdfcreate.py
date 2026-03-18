@@ -124,7 +124,7 @@ def generate_basis(perovskite, xcf='PBEsol', basis='DZPp',
 
     # Calculation parameters in a dictionary
     calc_params = {
-        'label': f'basis_init',
+        'label': f'basis',
         'xc': xcf,
         'basis_set': basis,
         'mesh_cutoff': 100 * Ry,
@@ -137,7 +137,8 @@ def generate_basis(perovskite, xcf='PBEsol', basis='DZPp',
     fdf_args = {
         #'PAO.BasisSize': basis,
         'PAO.SplitNorm': SplitNorm,
-        'SCF.MustConverge' : 'F',
+        #'SCF.MustConverge' : 'F',
+        'SCFMustConverge': False,
         'MaxSCFIterations': 0,
         'WriteForces': 'F',
         'WriteCoorXmol': 'F'

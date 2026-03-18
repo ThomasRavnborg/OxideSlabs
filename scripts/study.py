@@ -14,8 +14,6 @@ formula = 'BaTiO3'
 perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
 project = SiestaProject(perovskite)
 
-project.remove_calculation('0076')
-
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
@@ -108,4 +106,4 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             run_frozen_phonon(perovskite, **params, dir=dir_step, par=True)
         """
 
-run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids)
+run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=True)

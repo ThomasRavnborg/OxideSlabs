@@ -120,7 +120,7 @@ def basis_opt(perovskite, shifts, splits):
     """
     # Set up directory
     formula = perovskite.formula
-    dir = f'results/bulk/{formula}/grid'
+    dir = f'results/bulk/{formula}/basis'
     # Load existing results if they exist, otherwise create an empty DataFrame
     if os.path.exists(os.path.join(dir, 'basisopt.csv')):
         df = pd.read_csv(os.path.join(dir, 'basisopt.csv'))
