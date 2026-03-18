@@ -94,7 +94,7 @@ def modify_basis(block_in, auto_radii=True):
 
     return block_out
 
-def generate_basis(perovskite, xcf='PBEsol', basis='DZP',
+def generate_basis(perovskite, xcf='PBEsol', basis='DZPp',
                    EnergyShift=0.01, SplitNorm=0.15,
                    MeshCutoff=1000, kgrid=(10, 10, 10),
                    pseudo='PBEsol', dir=''):
