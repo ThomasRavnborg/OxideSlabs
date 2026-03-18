@@ -170,8 +170,10 @@ def grid_conv(perovskite, meshcuts, kpoints):
     formula = perovskite.formula
     dir = f'results/bulk/{formula}/grid'
 
-    # Create basis.fdf file for the current parameters
-    generate_basis(perovskite, EnergyShift=0.001, SplitNorm=0.1, dir=dir)
+    # Check if a basis optimization has been performed and if the corresponding basis.fdf file exists
+    if not os.path.exists(os.path.join(dir, 'basis.fdf')):
+        # Create basis.fdf file for the current parameters
+        generate_basis(perovskite, EnergyShift=0.001, SplitNorm=0.1, dir=dir)
 
     def _run_single_calculation(perovskite, mc, kp):
 
