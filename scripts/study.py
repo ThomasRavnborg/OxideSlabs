@@ -1,6 +1,6 @@
 import os
 from ase.io import read
-#from ase.parallel import parprint
+from ase.parallel import parprint
 from itertools import product
 from src.utils import SiestaProject
 from src.structure import Perovskite
@@ -14,7 +14,7 @@ formula = 'BaTiO3'
 perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
 project = SiestaProject(perovskite)
 
-project.remove_calculation('0074')
+#project.remove_calculation('0074')
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
@@ -29,7 +29,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
     """Run the full workflow for all combinations of parameters."""
     # Find all combinations of parameters and store in a list of dictionaries
     combinations = list(product(xcfs, basis, pseudos, shifts, splits, cutoffs, grids))
-    print(f"Total combinations: {len(combinations)}")
+    parprint(f"Total combinations: {len(combinations)}")
     param_dicts = []
     for combo in combinations:
         param_dicts.append({
@@ -53,13 +53,13 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
 
         # If all steps are complete, skip to the next parameter set unless runall is True
         if next_step == "complete" and not runall:
-            print(f"All steps complete for calculation {calc_id}. Skipping.")
+            parprint(f"All steps complete for calculation {calc_id}. Skipping.")
             continue
 
         # If basis generation needs to be run, run it and update the calculation ID and next step
         if next_step == "basis" or runall:
             # Generate basis.fdf file
-            print(f"Generating basis.fdf for calculation {calc_id}")
+            parprint(f"Generating basis.fdf for calculation {calc_id}")
             generate_basis(perovskite, **params, dir=dir)
             # Update to next step
             next_step = project.what_to_run(calc_id)
@@ -67,13 +67,13 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         # If relaxation needs to be run, run it and update the calculation ID and next step
         if next_step == "relax" or runall:
             # Run relaxation
-            print(f"Running relaxation for calculation {calc_id}")
+            parprint(f"Running relaxation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'relax')
             relax_ase(perovskite, **params, dir=dir_step, par=False)
             # Update dataframe and move to next step
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
-        """
+        
         # Set the atoms object for the next steps based on the relaxed structure
         dir_relax = os.path.join(dir, 'relax')
         #dir_relax = 'results/bulk/GPAW'
@@ -82,28 +82,26 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         # If band structure calculation needs to be run, run it and update the calculation ID and next step
         if next_step == "bands" or runall:
             # Run band structure calculation
-            print(f"Running band structure calculation for calculation {calc_id}")
+            parprint(f"Running band structure calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'bands')
-            calculate_bands(perovskite, **params, dir=dir_step, par=True)
-            # Update to next step
+            calculate_bands(perovskite, **params, dir=dir_step)
+            # Update dataframe and move to next step
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
 
         # If phonon calculation needs to be run, run it and update the calculation ID and next step
         if next_step == "phonons" or runall:
-            print(f"Running phonon calculation for calculation {calc_id}")
+            parprint(f"Running phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'phonons')
-            calculate_phonons(perovskite, **params, dir=dir_step, par=True)
-            #calculate_phonons(perovskite, **params, dir=dir_step, N=3, par=True)
-            #calculate_phonons(perovskite, **params, dir=dir_step, N=4, par=True)
-            # Update to next step
+            calculate_phonons(perovskite, **params, dir=dir_step)
+            # Update dataframe
             project.update_summary(calc_id, params)
-            next_step = project.what_to_run(calc_id)
-        """
+            #next_step = project.what_to_run(calc_id)
+        
         """
         # If all calculations are complete, run a frozen phonon calculation
         if next_step == "complete":
-            print(f"Running frozen phonon calculation for calculation {calc_id}")
+            parprint(f"Running frozen phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'frozen')
             # Run frozen phonon calculation
             run_frozen_phonon(perovskite, **params, dir=dir_step, par=True)
