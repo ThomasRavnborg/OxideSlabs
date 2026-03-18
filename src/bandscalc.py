@@ -25,9 +25,11 @@ try:
 except ImportError:
     from ase.parallel import world
 
-def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-                    MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
-                    dir='results/bulk/bandstructure', par=False):
+def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
+                    EnergyShift=0.01, SplitNorm=0.15,
+                    MeshCutoff=1000, kgrid=(10, 10, 10),
+                    pseudo='PBEsol', mode='lcao',
+                    dir='results/bulk/bandstructure', par=True):
     """Function to calculate band structure and PDOS of a bulk structure using SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed bulk structure.
@@ -40,112 +42,28 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
-    - par: Whether the SIESTA calculator is parallel (default is False).
+    - par: Whether the SIESTA calculator is parallel (default is True).
     Returns:
     - None. The function performs band structure calculation and saves the data to a file.
     """
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = perovskite.formula
-    symbols = perovskite.symbols
+    #symbols = perovskite.symbols
     atoms = perovskite.atoms
     bulk = perovskite.bulk
     ncells = perovskite.ncells
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
 
+    # Custom basis sets ending with 'p' are generated with the same parameters as the standard basis sets
+    # However, an extra polarization (d) orbital is added to the A-site during LCAO basis generation
+    if basis.endswith('p'):
+        basis = basis[:-1]
+
     if not bulk:
         # For slab calculations, set k-point sampling to 1 in the z-direction
         kgrid[2] = 1
-
-    # Defining custom basis sets
-    if basis in ['DZPp']:
-        #basis = 'DZP'
-
-        ba_basis = PAOBasisBlock("""5   # number of l-shells
-        n=5   0   1                     # n, l, Nzeta 
-            3.968   
-            1.000   
-        n=6   0   2                     # n, l, Nzeta 
-            9.316      7.217   
-            1.000      1.000   
-        n=5   1   1                     # n, l, Nzeta 
-            4.677   
-            1.000   
-        n=6   1   1                     # n, l, Nzeta 
-            9.316   
-            1.000
-        n=5   2   1                     # n, l, Nzeta 
-            10.000   
-            1.000   
-        """)
-
-        sr_basis = PAOBasisBlock("""5   # number of l-shells
-        n=4   0   1                     # n, l, Nzeta
-            3.511
-            1.000
-        n=5   0   2                     # n, l, Nzeta
-            8.773      6.728
-            1.000      1.000
-        n=4   1   1                     # n, l, Nzeta
-            4.114
-            1.000
-        n=5   1   1                     # n, l, Nzeta
-            8.773
-            1.000
-        n=4   2   1                     # n, l, Nzeta
-            10.000
-            1.000
-        """)
-
-        ti_basis = PAOBasisBlock("""5   # number of l-shells
-        n=3   0   1                     # n, l, Nzeta
-            2.844
-            1.000
-        n=4   0   2                     # n, l, Nzeta
-            7.565      5.669
-            1.000      1.000
-        n=3   1   1                     # n, l, Nzeta
-            3.189
-            1.000
-        n=4   1   1                     # n, l, Nzeta
-            7.565
-            1.000
-        n=3   2   2                     # n, l, Nzeta
-            5.233      3.466
-            1.000      1.000
-        """)
-
-        o_basis = PAOBasisBlock("""2    # number of l-shells
-        n=2   0   2                     # n, l, Nzeta
-            3.540      2.304
-            1.000      1.000
-        n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
-            4.291      2.777
-            1.000      1.000
-        """)
-
-        # Create dictionary of species with custom basis sets for SIESTA calculations
-        basis_sets = {
-            'Ba': ba_basis,
-            'Sr': sr_basis,
-            'Ti': ti_basis,
-            'O': o_basis
-        }
-
-        species=[
-            Species(symbol=symbols[0], basis_set=basis_sets[symbols[0]]),
-            Species(symbol=symbols[1], basis_set=basis_sets[symbols[1]]),
-            Species(symbol=symbols[2], basis_set=basis_sets[symbols[2]]),
-        ]
-
-    else:
-        species=[
-            Species(symbol=symbols[0], basis_set=basis),
-            Species(symbol=symbols[1], basis_set=basis),
-            Species(symbol=symbols[2], basis_set=basis),
-        ]
-
 
     if mode == 'lcao':
         parprint(f"Calculating band structure and PDOS for {formula} using SIESTA.")
@@ -153,16 +71,17 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
         calc_params = {
             'label': f'{formula}',
             'xc': xcf,
-            #'basis_set': basis,
+            'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{xcf}')
         }
+        dir_fdf = os.path.join(cwd, os.path.dirname(dir))
         # fdf arguments in a dictionary
         fdf_args = {
-            #'PAO.BasisSize': basis,
+            '%include': os.path.join(dir_fdf, 'basis.fdf'),
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-6,
             'BandLinesScale': 'ReciprocalLatticeVectors',
@@ -204,7 +123,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, Spl
             fdf_args['Slab.DipoleCorrection'] = 'T'
         
         # Set up the Siesta calculator
-        calc = Siesta(species=species, **calc_params, fdf_arguments=fdf_args)
+        calc = Siesta(**calc_params, fdf_arguments=fdf_args)
 
     elif mode == 'pw':
         from gpaw import GPAW

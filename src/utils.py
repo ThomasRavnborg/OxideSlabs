@@ -161,6 +161,12 @@ class SiestaProject:
     # Completion checks
     # -----------------------------
 
+    def _basis_completed(self, calc_id):
+        filepath = os.path.join(
+            self.path, calc_id, "basis.fdf"
+        )
+        return os.path.exists(filepath)
+
     def _relax_completed(self, calc_id):
         filepath = os.path.join(
             self.path, calc_id, "relax", f"{self.material}.xyz"
@@ -183,7 +189,7 @@ class SiestaProject:
     # CSV handling
     # -----------------------------
 
-    def _update_summary(self, calc_id, params):
+    def update_summary(self, calc_id, params):
 
         params = self.normalize_params(params)
 
@@ -250,9 +256,7 @@ class SiestaProject:
             calc_id = existing_id
         else:
             calc_id = self._get_next_id()
-            self._create_structure(calc_id, params)
-
-        self._update_summary(calc_id, params)
+            self._create_structure(calc_id, raw_params)
 
         return calc_id
 
@@ -262,10 +266,14 @@ class SiestaProject:
     # -----------------------------
 
     def what_to_run(self, calc_id):
-
+        
+        basis_done = self._basis_completed(calc_id)
         relax_done = self._relax_completed(calc_id)
         band_done = self._band_completed(calc_id)
         phonon_done = self._phonon_completed(calc_id)
+
+        if not basis_done:
+            return "basis"
 
         if not relax_done:
             return "relax"

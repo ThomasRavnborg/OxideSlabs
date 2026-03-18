@@ -59,9 +59,11 @@ def phonopy_to_ase(atoms_phonopy):
                  positions=atoms_phonopy.positions,
                  cell=atoms_phonopy.cell)
 
-def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitNorm=0.15,
-                      MeshCutoff=200, kgrid=(10, 10, 10), pseudo='PBEsol', mode='lcao',
-                      Nsc=2, dd=0.01, dir='results/bulk/phonons', par=False):
+def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
+                      EnergyShift=0.01, SplitNorm=0.15,
+                      MeshCutoff=1000, kgrid=(10, 10, 10),
+                      pseudo='PBEsol', mode='lcao',
+                      dir='results/bulk/phonons', par=True):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed structure.
@@ -69,29 +71,33 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     - basis: Basis set to be used (default is 'DZP').
     - EnergyShift: Energy shift in Ry (default is 0.01 Ry).
     - SplitNorm: Split norm for basis functions (default is 0.15).
-    - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
+    - MeshCutoff: Mesh cutoff in Ry (default is 1000 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
     - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
-    - Nsc: Size of the supercell for phonon calculations (default is 2).
-    - dd: Displacement distance in Å for generating displaced supercells (default is 0.01 Å).
     - dir: Directory to save the results (default is 'results/bulk/phonons').
-    - par: Whether the SIESTA calculator is parallel (default is False).
+    - par: Whether the SIESTA calculator is parallel (default is True).
     Returns:
     - None. The function performs phonon calculations and saves the phonon data to a .yaml file.
     """
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = perovskite.formula
-    symbols = perovskite.symbols
+    #symbols = perovskite.symbols
     atoms = perovskite.atoms
     bulk = perovskite.bulk
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
 
+    # Custom basis sets ending with 'p' are generated with the same parameters as the standard basis sets
+    # However, an extra polarization (d) orbital is added to the A-site during LCAO basis generation
+    if basis.endswith('p'):
+        basis = basis[:-1]
+
+
     # Parameters for phonon calculations
-    #dd = 0.01 # Displacement distance in Å
-    #Nsc = 2
+    dd = 0.01 # Displacement distance in Å
+    Nsc = 2
     if bulk:
         scell_matrix = np.diag([Nsc, Nsc, Nsc])  # Supercell size for bulk
         kgrid = [x // Nsc for x in kgrid]    # Reduce k-point grid for supercell calculations
@@ -109,112 +115,24 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
     phonon.generate_displacements(distance=dd)
     supercells = phonon.supercells_with_displacements
     parprint(f"Generated {len(supercells)} supercells with displacements.")
-    #return supercells
-
-    # Defining custom basis sets
-    if basis in ['DZPp']:
-        #basis = 'DZP'
-
-        ba_basis = PAOBasisBlock("""5   # number of l-shells
-        n=5   0   1                     # n, l, Nzeta 
-            3.968   
-            1.000   
-        n=6   0   2                     # n, l, Nzeta 
-            9.316      7.217   
-            1.000      1.000   
-        n=5   1   1                     # n, l, Nzeta 
-            4.677   
-            1.000   
-        n=6   1   1                     # n, l, Nzeta 
-            9.316   
-            1.000
-        n=5   2   1                     # n, l, Nzeta 
-            10.000   
-            1.000   
-        """)
-
-        sr_basis = PAOBasisBlock("""5   # number of l-shells
-        n=4   0   1                     # n, l, Nzeta
-            3.511
-            1.000
-        n=5   0   2                     # n, l, Nzeta
-            8.773      6.728
-            1.000      1.000
-        n=4   1   1                     # n, l, Nzeta
-            4.114
-            1.000
-        n=5   1   1                     # n, l, Nzeta
-            8.773
-            1.000
-        n=4   2   1                     # n, l, Nzeta
-            10.000
-            1.000
-        """)
-
-        ti_basis = PAOBasisBlock("""5   # number of l-shells
-        n=3   0   1                     # n, l, Nzeta
-            2.844
-            1.000
-        n=4   0   2                     # n, l, Nzeta
-            7.565      5.669
-            1.000      1.000
-        n=3   1   1                     # n, l, Nzeta
-            3.189
-            1.000
-        n=4   1   1                     # n, l, Nzeta
-            7.565
-            1.000
-        n=3   2   2                     # n, l, Nzeta
-            5.233      3.466
-            1.000      1.000
-        """)
-
-        o_basis = PAOBasisBlock("""2    # number of l-shells
-        n=2   0   2                     # n, l, Nzeta
-            3.540      2.304
-            1.000      1.000
-        n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
-            4.291      2.777
-            1.000      1.000
-        """)
-
-        # Create dictionary of species with custom basis sets for SIESTA calculations
-        basis_sets = {
-            'Ba': ba_basis,
-            'Sr': sr_basis,
-            'Ti': ti_basis,
-            'O': o_basis
-        }
-
-        species=[
-            Species(symbol=symbols[0], basis_set=basis_sets[symbols[0]]),
-            Species(symbol=symbols[1], basis_set=basis_sets[symbols[1]]),
-            Species(symbol=symbols[2], basis_set=basis_sets[symbols[2]]),
-        ]
-
-    else:
-        species=[
-            Species(symbol=symbols[0], basis_set=basis),
-            Species(symbol=symbols[1], basis_set=basis),
-            Species(symbol=symbols[2], basis_set=basis),
-        ]
-
+    
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
     if mode == 'lcao':
         # Calculation parameters
         calc_params = {
             'label': f'{formula}',
             'xc': xcf,
-            #'basis_set': basis,
+            'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{xcf}')
         }
-        # fdf arguments
+        dir_fdf = os.path.join(cwd, os.path.dirname(dir))
+        # fdf arguments in a dictionary
         fdf_args = {
-            #'PAO.BasisSize': basis,
+            '%include': os.path.join(dir_fdf, 'basis.fdf'),
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-8,
             "MD.TypeOfRun": "CG",
@@ -260,7 +178,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, S
         # Set up the calculator based on the selected mode
         if mode == 'lcao':
             # Set up the Siesta calculator
-            calc = Siesta(species=species, **calc_params, fdf_arguments=fdf_args)
+            calc = Siesta(**calc_params, fdf_arguments=fdf_args)
         elif mode == 'pw':
             # Set up the GPAW calculator
             calc = GPAW(**calc_params)

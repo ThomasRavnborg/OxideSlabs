@@ -189,7 +189,7 @@ def get_displacement(unitcell, q, modevec):
 def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
-                             pseudo='PBEsol', mode='lcao',
+                             pseudo='PBEsol', mode='lcao', deg=True,
                              dir='resultsold/bulk/frozen', par=False):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Parameters:
@@ -203,6 +203,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
     - kgrid: Tuple specifying the k-point grid size for the SIESTA calculations (default: (10, 10, 10)).
     - pseudo: Pseudopotential to use for the SIESTA calculations (default: 'PBEsol').
     - mode: String indicating whether to use localized atomic orbitals ('lcao') or plane waves ('pw') for the calculations (default: 'lcao').
+    - deg: Boolean indicating whether to consider degenerate modes at the q-points (default: True).
     - dir: Directory where the results will be saved (default: 'resultsold/bulk/frozen').
     - par: Boolean indicating whether to run calculations in parallel (default: False).
     Returns:
@@ -213,7 +214,12 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
     # Unitcell and formula from phonon object
     unitcell = phonon_to_atoms(phonon, cell='unit')
     formula = unitcell.symbols
-    symbols = phonon.unitcell.symbols
+    #symbols = phonon.unitcell.symbols
+
+    # Custom basis sets ending with 'p' are generated with the same parameters as the standard basis sets
+    # However, an extra polarization (d) orbital is added to the A-site during LCAO basis generation
+    if basis.endswith('p'):
+        basis = basis[:-1]
 
     # Dictionary for q-points
     q_dict = {
@@ -223,109 +229,22 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
         'M': [0.5, 0.5, 0.0],
     }
 
-    # Defining custom basis sets
-    if basis in ['test']:
-        #basis = 'DZP'
-
-        ba_basis = PAOBasisBlock("""5   # number of l-shells
-        n=5   0   1                     # n, l, Nzeta 
-            3.968   
-            1.000   
-        n=6   0   2                     # n, l, Nzeta 
-            9.316      7.217   
-            1.000      1.000   
-        n=5   1   1                     # n, l, Nzeta 
-            4.677   
-            1.000   
-        n=6   1   1                     # n, l, Nzeta 
-            9.316   
-            1.000
-        n=5   2   1                     # n, l, Nzeta 
-            8.000   
-            1.000   
-        """)
-
-        sr_basis = PAOBasisBlock("""5   # number of l-shells
-        n=4   0   1                     # n, l, Nzeta
-            3.511
-            1.000
-        n=5   0   2                     # n, l, Nzeta
-            8.773      6.728
-            1.000      1.000
-        n=4   1   1                     # n, l, Nzeta
-            4.114
-            1.000
-        n=5   1   1                     # n, l, Nzeta
-            8.773
-            1.000
-        n=4   2   1                     # n, l, Nzeta
-            8.000
-            1.000
-        """)
-
-        ti_basis = PAOBasisBlock("""5   # number of l-shells
-        n=3   0   1                     # n, l, Nzeta
-            2.844
-            1.000
-        n=4   0   2                     # n, l, Nzeta
-            7.565      5.669
-            1.000      1.000
-        n=3   1   1                     # n, l, Nzeta
-            3.189
-            1.000
-        n=4   1   1                     # n, l, Nzeta
-            7.565
-            1.000
-        n=3   2   2                     # n, l, Nzeta
-            5.233      3.466
-            1.000      1.000
-        """)
-
-        o_basis = PAOBasisBlock("""2    # number of l-shells
-        n=2   0   2                     # n, l, Nzeta
-            3.540      2.304
-            1.000      1.000
-        n=2   1   2 P   1               # n, l, Nzeta, Polarization, NzetaPol
-            4.291      2.777
-            1.000      1.000
-        """)
-
-        # Create dictionary of species with custom basis sets for SIESTA calculations
-        basis_sets = {
-            'Ba': ba_basis,
-            'Sr': sr_basis,
-            'Ti': ti_basis,
-            'O': o_basis
-        }
-
-        species=[
-            Species(symbol=symbols[0], basis_set=basis_sets[symbols[0]]),
-            Species(symbol=symbols[1], basis_set=basis_sets[symbols[1]]),
-            Species(symbol=symbols[2], basis_set=basis_sets[symbols[2]]),
-        ]
-
-    else:
-        species=[
-            Species(symbol=symbols[0], basis_set=basis),
-            Species(symbol=symbols[1], basis_set=basis),
-            Species(symbol=symbols[2], basis_set=basis),
-        ]
-
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
     if mode == 'lcao':
         # Calculation parameters in a dictionary
         calc_params = {
             'label': f'{formula}',
             'xc': xcf,
-            #'basis_set': basis,
+            'basis_set': basis,
             'mesh_cutoff': MeshCutoff * Ry,
             'energy_shift': EnergyShift * Ry,
             'pseudo_path': os.path.join(cwd, f'pseudos/{xcf}')
         }
 
-        # FDF arguments in a dictionary
+        dir_fdf = os.path.join(cwd, os.path.dirname(dir))
+        # fdf arguments in a dictionary
         fdf_args = {
-            #'PAO.BasisSize': basis,
+            '%include': os.path.join(dir_fdf, 'basis.fdf'),
             'PAO.SplitNorm': SplitNorm,
             'SCF.DM.Tolerance': 1e-6,
         }
@@ -362,6 +281,9 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 # Make directory for the current q-point if it doesn't exist
                 os.makedirs(dir_q, exist_ok=True)
             
+            if not deg:
+                modes = [modes[0]] # Only consider the first mode if degenerate modes are not considered
+
             for mode_id, modevec in enumerate(modes):
 
                 modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
@@ -395,7 +317,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
 
                     if mode == 'lcao':
                         # Set up the Siesta calculator
-                        calc = Siesta(species=species, **calc_params, fdf_arguments=fdf_args,
+                        calc = Siesta(**calc_params, fdf_arguments=fdf_args,
                                       kpts=(kx, ky, kz), directory=dir_mode)
                     elif mode == 'pw':
                         # Set up the GPAW calculator
