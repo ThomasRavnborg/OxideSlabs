@@ -116,6 +116,11 @@ def generate_basis(perovskite, xcf='PBEsol', basis='DZPp',
     #formula = perovskite.formula
     atoms = perovskite.atoms
 
+    # Save original ASE_SIESTA_COMMAND
+    orig_command = os.environ.get("ASE_SIESTA_COMMAND")
+    # Force serial execution just for this run
+    os.environ["ASE_SIESTA_COMMAND"] = "siesta < PREFIX.fdf > PREFIX.out"
+
     if basis.endswith('p'):
         basis = basis[:-1]
         add_p = True
@@ -149,6 +154,10 @@ def generate_basis(perovskite, xcf='PBEsol', basis='DZPp',
     atoms.calc = calc
     # Perform a single-point calculation to generate the .out file containing the basis block
     atoms.get_potential_energy()
+
+    # Restore original command
+    if orig_command is not None:
+        os.environ["ASE_SIESTA_COMMAND"] = orig_command
 
     # Extract the basis block from the generated .out file
     block = get_PAO_block(dir)
