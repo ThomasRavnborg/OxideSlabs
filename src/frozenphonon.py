@@ -324,7 +324,8 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                         if os.path.exists(os.path.join(dir_mode, "calc.gpw")):
                             # If it exists, read the previous calculation to restart
                             calc = GPAW(os.path.join(dir_mode, "calc.gpw"),
-                                        txt=os.path.join(dir_mode, f"{formula}.txt"))
+                                        txt=os.path.join(dir_mode, f"{formula}.txt"),
+                                        symmetry={'point_group': False})
                         else:
                             # If not, start a new calculation
                             calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
