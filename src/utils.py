@@ -184,6 +184,12 @@ class SiestaProject:
             self.path, calc_id, "phonons", f"{self.material}.yaml"
         )
         return os.path.exists(filepath)
+
+    def _frozen_completed(self, calc_id):
+        dir_frozen = os.path.join(
+            self.path, calc_id, "frozen"
+        )
+        return os.path.exists(dir_frozen) and len(os.listdir(dir_frozen)) > 0
     
     # -----------------------------
     # CSV handling
@@ -196,13 +202,14 @@ class SiestaProject:
         relax = str(self._relax_completed(calc_id))
         band = str(self._band_completed(calc_id))
         phonon = str(self._phonon_completed(calc_id))
-
+        frozen = str(self._frozen_completed(calc_id))
         row = {
             "ID": calc_id,
             **params,
             "relax": relax,
             "bands": band,
             "phonons": phonon,
+            "frozen": frozen
         }
 
         new_df = pd.DataFrame([row], dtype=str)
@@ -236,7 +243,7 @@ class SiestaProject:
         for col in ['EnergyShift', 'MeshCutoff']:
             df_display[col] = df_display[col].astype(str) + " Ry"
 
-        for col in ["relax", "bands", "phonons"]:
+        for col in ["relax", "bands", "phonons", "frozen"]:
             df_display[col] = df_display[col].map({"True": "✓", "False": "✗"})
         # Sort by ID
         return df_display.sort_values(by="ID")
@@ -273,7 +280,7 @@ class SiestaProject:
         relax_done = self._relax_completed(calc_id)
         band_done = self._band_completed(calc_id)
         phonon_done = self._phonon_completed(calc_id)
-
+        frozen_done = self._frozen_completed(calc_id)
         if not basis_done:
             return "basis"
 
@@ -285,5 +292,8 @@ class SiestaProject:
 
         if not phonon_done:
             return "phonons"
+
+        if not frozen_done:
+            return "frozen"
 
         return "complete"

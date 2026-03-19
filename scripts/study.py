@@ -1,13 +1,16 @@
 import os
 from ase.io import read
 from ase.parallel import parprint
+import phonopy as ph
 from itertools import product
+from src.frozenphonon import calculate_frozen_phonons
 from src.utils import SiestaProject
 from src.structure import Perovskite
 from src.fdfcreate import generate_basis
 from src.structureoptimizer import relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
+from src.frozenphonon import calculate_frozen_phonons
 
 # Create atoms object for BaTiO3 and initialize project
 formula = 'BaTiO3'
@@ -18,7 +21,7 @@ project = SiestaProject(perovskite)
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
 pseudos = ['PBEsol']
-shifts =  [0.005]
+shifts =  [0.008]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
@@ -78,7 +81,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         #dir_relax = 'results/bulk/GPAW'
         perovskite.set_atoms(read(os.path.join(dir_relax, f'{formula}.xyz')))
         
-        # If band structure calculation needs to be run, run it and update the calculation ID and next step
+        # If band structure calculation needs to be run, run it and update to the next step
         if next_step == "bands" or runall:
             # Run band structure calculation
             parprint(f"Running band structure calculation for calculation {calc_id}")
@@ -88,22 +91,23 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
 
-        # If phonon calculation needs to be run, run it and update the calculation ID and next step
+        # If phonon calculation needs to be run, run it and update to the next step
         if next_step == "phonons" or runall:
             parprint(f"Running phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'phonons')
             calculate_phonons(perovskite, **params, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
-            #next_step = project.what_to_run(calc_id)
+            next_step = project.what_to_run(calc_id)
         
-        """
-        # If all calculations are complete, run a frozen phonon calculation
-        if next_step == "complete":
+        # If frozen phonon calculation needs to be run, run it
+        if next_step == "frozen":
             parprint(f"Running frozen phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'frozen')
-            # Run frozen phonon calculation
-            run_frozen_phonon(perovskite, **params, dir=dir_step, par=True)
-        """
+            # Load phonon data from the specified directory and formula
+            phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))
 
+            # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
+            calculate_frozen_phonons(phonon, dd=0.2, **params, dir=dir_step)
+        
 run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids)
