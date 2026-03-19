@@ -320,18 +320,33 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                         calc = Siesta(**calc_params, fdf_arguments=fdf_args,
                                       kpts=(kx, ky, kz), directory=dir_mode)
                     elif mode == 'pw':
+                        # Check if a previous calculation exists in the directory
+                        if os.path.exists(os.path.join(dir_mode, "calc.gpw")):
+                            # If not, start a new calculation
+                            calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
+                                kpts={'size': (kx,ky,kz), 'gamma': True})
+                        else:
+                            # If it exists, read the previous calculation to restart
+                            calc = GPAW(os.path.join(dir_mode, "calc.gpw"),
+                                        txt=os.path.join(dir_mode, f"{formula}.txt"))
                         # Set up the GPAW calculator
-                        calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
-                                    kpts={'size': (kx,ky,kz), 'gamma': True})
+                        #calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
+                        #            kpts={'size': (kx,ky,kz), 'gamma': True})
                     
                     # Attach the calculator to the supercell
                     supercell_disp.calc = calc
                     # Run the calculation
                     energy = supercell_disp.get_potential_energy()
+
                     # Scale energy by the number of unit cells in the supercell to get energy per unit cell
                     energy = energy / ncells
                     energies.append(energy)
+                    # Append the supercell structure with displacements, forces and stresses to the list of images
                     images.append(supercell_disp)
+                    
+                    if mode == 'pw':
+                        # Save the GPAW calculation to a file for restarting
+                        calc.write(os.path.join(dir_mode, "calc.gpw"), mode='all')
                     
                     # Update amplitude for the next iteration
                     amp += dd

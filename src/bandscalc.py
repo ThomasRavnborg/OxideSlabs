@@ -275,12 +275,8 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
         bands -= VBM
         bands -= Eg/2
 
-        # Set x-ticks to the symmetry points and label them
-        ax.xaxis.set_ticks(X)
-        ax.set_xticklabels(labels)
         # Plot vertical lines at symmetry points
         ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', linewidth=1)
-        ax.set_xlim(X[0], X[-1])
 
         # Plot band-structures
         for j, e_k in enumerate(bands):
@@ -288,6 +284,16 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
                 ax.plot(x, e_k, color=col, label=f"{val}")
             else:
                 ax.plot(x, e_k, color=col)
+
+        if mode == 'pw':
+            # Remove last X point and label
+            X = X[:-1]
+            labels = labels[:-1]
+        # Set x-ticks to the symmetry points and label them
+        ax.xaxis.set_ticks(X)
+        ax.set_xticklabels(labels)
+        ax.set_xlim(0, 1)
+
         return CBM, VBM
     
     def _plot_dos(ax, dir, val, col='k', mode='lcao', shift=0, pDOS=False):
@@ -435,20 +441,24 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
         # Plot horizontal line at Fermi level
         ax.axhline(y=0, color='k', linestyle='--', linewidth=1)
 
-        # Set x-ticks to the symmetry points and label them
-        ax.xaxis.set_ticks(X[0:-1])
-        ax.set_xticklabels(labels[0:-1])
         # Plot vertical lines at symmetry points
         ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', linewidth=1)
-        ax.set_xlim(X[0], X[-1])
 
         # Plot band-structures
-        for j, e_k in enumerate(bands):
+        for e_k in bands:
             ax.plot(x, e_k, color=col)
+        if mode == 'pw':
+            # Remove last X point and label
+            X = X[:-1]
+            labels = labels[:-1]
         # Set y-ticks to the defined tickmarks and label them
         ax.set_yticks(E_tickmarks, E_tickmarks.astype(str))
-        # Set x- and y-limits
+        # Set x-ticks to the symmetry points and label them
+        ax.xaxis.set_ticks(X)
+        ax.set_xticklabels(labels)
+        # Set limits to match
         ax.set_xlim(X[0], X[-1])
+        #ax.set_xlim(0, 1)
         ax.set_ylim(E_tickmarks[0], E_tickmarks[-1])
         # Add minor tickmarks to the y-axis
         ax.yaxis.set_minor_locator(AutoMinorLocator())
