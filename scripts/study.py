@@ -9,23 +9,19 @@ from src.structureoptimizer import relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 
-# Create atoms object for BaTiO3 and initialize project
-formula = 'BaTiO3'
-perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
+# Create atoms object for SrTiO3 and initialize project
+formula = 'SrTiO3'
+perovskite = Perovskite(formula, a=3.9, N=1, bulk=True)
 project = SiestaProject(perovskite)
-
-project.remove_calculation('0074')
-project.remove_calculation('0075')
-project.remove_calculation('0076')
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
 pseudos = ['PBEsol']
-shifts =  [0.001, 0.005, 0.01, 0.02, 0.05, 0.1]
+shifts =  [0.001, 0.003, 0.005, 0.007, 0.01]
 splits =  [0.15]
 cutoffs = [1000]
-grids =   [10]
+grids =   [12]
 
 def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
     """Run the full workflow for all combinations of parameters."""
