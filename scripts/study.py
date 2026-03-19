@@ -14,13 +14,11 @@ formula = 'BaTiO3'
 perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
 project = SiestaProject(perovskite)
 
-project.remove_calculation('0082')
-
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
 pseudos = ['PBEsol']
-shifts =  [0.003, 0.01]
+shifts =  [0.005]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]

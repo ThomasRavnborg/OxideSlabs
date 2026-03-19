@@ -322,16 +322,13 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                     elif mode == 'pw':
                         # Check if a previous calculation exists in the directory
                         if os.path.exists(os.path.join(dir_mode, "calc.gpw")):
-                            # If not, start a new calculation
-                            calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
-                                kpts={'size': (kx,ky,kz), 'gamma': True})
-                        else:
                             # If it exists, read the previous calculation to restart
                             calc = GPAW(os.path.join(dir_mode, "calc.gpw"),
                                         txt=os.path.join(dir_mode, f"{formula}.txt"))
-                        # Set up the GPAW calculator
-                        #calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
-                        #            kpts={'size': (kx,ky,kz), 'gamma': True})
+                        else:
+                            # If not, start a new calculation
+                            calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
+                                        kpts={'size': (kx,ky,kz), 'gamma': True})
                     
                     # Attach the calculator to the supercell
                     supercell_disp.calc = calc

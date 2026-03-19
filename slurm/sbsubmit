@@ -1,17 +1,36 @@
 #!/usr/bin/env bash
 set -e
 
-# Make sure a script is provided
+# Ensure the python script is provided
 if [[ -z "$1" ]]; then
-    echo "Usage: $0 <script.py>"
+    echo "Usage: $0 <script.py> [mode]"
     exit 1
 fi
 
+# Determine the mode (default to SIESTA if not provided)
 SCRIPT="$1"
-JOB_NAME="$(basename "$SCRIPT" .py)"
+MODE="${2:-SIESTA}"
+MODE="$(echo "$MODE" | tr '[:lower:]' '[:upper:]')"
 
-# Resolve the path of this wrapper (slurm folder)
+# Extract the job name from the script filename (without extension)
+JOB_NAME="$(basename "$SCRIPT" .py)"
+# Determine the directory of the current script
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-# Submit the job
-sbatch --job-name="$JOB_NAME" "$SCRIPT_DIR/run.sh" "$SCRIPT"
+# Select the appropriate run script based on the mode
+case "$MODE" in
+    SIESTA)
+        RUN_SCRIPT="$SCRIPT_DIR/SIESTA.sh"
+        ;;
+    GPAW)
+        RUN_SCRIPT="$SCRIPT_DIR/GPAW.sh"
+        ;;
+    *)
+        echo "Unknown mode: $MODE"
+        echo "Allowed modes: SIESTA, GPAW"
+        exit 1
+        ;;
+esac
+
+# Submit the job using sbatch
+sbatch --job-name="$JOB_NAME" "$RUN_SCRIPT" "$SCRIPT"
