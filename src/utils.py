@@ -258,6 +258,8 @@ class SiestaProject:
             calc_id = self._get_next_id()
             self._create_structure(calc_id, raw_params)
 
+        self.update_summary(calc_id, params)
+
         return calc_id
 
 

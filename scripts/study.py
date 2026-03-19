@@ -14,6 +14,8 @@ formula = 'BaTiO3'
 perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
 project = SiestaProject(perovskite)
 
+project.remove_calculation('0082')
+
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
