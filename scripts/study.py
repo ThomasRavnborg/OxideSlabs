@@ -9,16 +9,16 @@ from src.structureoptimizer import relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 
-# Create atoms object for SrTiO3 and initialize project
-formula = 'SrTiO3'
-perovskite = Perovskite(formula, a=3.9, N=1, bulk=True)
+# Create atoms object for BaTiO3 and initialize project
+formula = 'BaTiO3'
+perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
 project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
 pseudos = ['PBEsol']
-shifts =  [0.001, 0.003, 0.005, 0.007, 0.01]
+shifts =  [0.001, 0.003, 0.005]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
@@ -72,7 +72,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
         
-        """
+        
         # Set the atoms object for the next steps based on the relaxed structure
         dir_relax = os.path.join(dir, 'relax')
         #dir_relax = 'results/bulk/GPAW'
@@ -96,7 +96,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             # Update dataframe
             project.update_summary(calc_id, params)
             #next_step = project.what_to_run(calc_id)
-        """
+        
         """
         # If all calculations are complete, run a frozen phonon calculation
         if next_step == "complete":
