@@ -311,6 +311,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                                 kpts={'size': (kx, ky, kz), 'gamma': True}, symmetry='off')
 
                 supercell_disp = supercell.copy()
+                ref_positions = supercell.positions.copy()
                 supercell_disp.calc = calc
 
                 amp = 0
@@ -323,7 +324,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                     # Create a copy of the supercell
                     #supercell_disp = supercell.copy()
                     # Displace the atoms according to the mode vector by dd
-                    supercell_disp.positions += dd * modevec_sc
+                    supercell_disp.positions = ref_positions + amp * modevec_sc
                     """
                     if mode == 'lcao':
                         # Set up the Siesta calculator
