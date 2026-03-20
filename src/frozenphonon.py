@@ -301,6 +301,18 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 # Determine the k-point grid size for the SIESTA calculation based on the supercell size
                 kx, ky, kz = max(1, kgrid[0]//nx), max(1, kgrid[1]//ny), max(1, kgrid[2]//nz)
 
+                # Set up the calculator for the supercell with displacements based on the specified mode (LCAO or PW)
+                if mode == 'lcao':
+                    # Set up the Siesta calculator
+                    calc = Siesta(**calc_params, fdf_arguments=fdf_args,
+                                  kpts=(kx, ky, kz), directory=dir_mode)
+                elif mode == 'pw':
+                    calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
+                                kpts={'size': (kx, ky, kz), 'gamma': True}, symmetry='off')
+
+                supercell_disp = supercell.copy()
+                supercell_disp.calc = calc
+
                 amp = 0
                 amplitudes = []
                 energies = []
@@ -309,12 +321,10 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                     t0 = time.time() # Start timer
                 while True:
                     # Create a copy of the supercell
-                    supercell_disp = supercell.copy()
-                    # Displace the atoms according to the mode vector and the current amplitude
-                    supercell_disp.positions += amp * modevec_sc
-                    # Append amplitudes
-                    amplitudes.append(amp)
-
+                    #supercell_disp = supercell.copy()
+                    # Displace the atoms according to the mode vector by dd
+                    supercell_disp.positions += dd * modevec_sc
+                    """
                     if mode == 'lcao':
                         # Set up the Siesta calculator
                         calc = Siesta(**calc_params, fdf_arguments=fdf_args,
@@ -333,6 +343,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                     
                     # Attach the calculator to the supercell
                     supercell_disp.calc = calc
+                    """
                     # Run the calculation
                     energy = supercell_disp.get_potential_energy()
 
@@ -340,13 +351,16 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                     energy = energy / ncells
                     energies.append(energy)
                     # Append the supercell structure with displacements, forces and stresses to the list of images
-                    images.append(supercell_disp)
-                    
+                    img = supercell_disp.copy()
+                    img.calc = None
+                    images.append(img)
+                    """
                     if mode == 'pw':
                         # Save the GPAW calculation to a file for restarting
                         calc.write(os.path.join(dir_mode, "calc.gpw"), mode='all')
-                    
-                    # Update amplitude for the next iteration
+                    """
+                    # Append amplitude and update for the next iteration
+                    amplitudes.append(amp)
                     amp += dd
                     tol = 50*1e-3 # Tolerance for stopping the loop based on energy increase (in eV)
                     # Stop the loop, if the energy has increased by more than the tolerance compared to the first point

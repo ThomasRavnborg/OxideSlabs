@@ -21,7 +21,7 @@ project = SiestaProject(perovskite)
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
 pseudos = ['PBEsol']
-shifts =  [0.008]
+shifts =  [0.008, 0.01]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
@@ -47,6 +47,8 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
     for params in param_dicts:
         # Find calculation ID for this parameter set, or create a new one if it doesn't exist
         calc_id = project.prepare_calculation(params)
+        # Update dataframe
+        project.update_summary(calc_id, params)
 
         # Check what step needs to be run for this calculation and set directory
         next_step = project.what_to_run(calc_id)
@@ -109,5 +111,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
 
             # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
             calculate_frozen_phonons(phonon, dd=0.2, **params, dir=dir_step)
+            # Update dataframe
+            project.update_summary(calc_id, params)
         
 run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids)
