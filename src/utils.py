@@ -231,12 +231,15 @@ class SiestaProject:
 
         df.to_csv(self.summary, index=False)
 
-    def get_summary(self):
+    def get_summary(self, raw=False):
         if not os.path.exists(self.summary):
             print("No summary yet")
             return
         
         df = pd.read_csv(self.summary, dtype=str)
+        if raw:
+            return df.sort_values(by="ID")
+        
         df_display = df.copy()
         
         # Add unit (Ry) to energy-related columns

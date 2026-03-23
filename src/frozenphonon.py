@@ -189,7 +189,7 @@ def get_displacement(unitcell, q, modevec):
 def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
-                             pseudo='PBEsol', mode='lcao', deg=True,
+                             mode='lcao', deg=True,
                              dir='resultsold/bulk/frozen', par=False):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Parameters:
@@ -201,7 +201,6 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
     - SplitNorm: Split norm parameter for the SIESTA calculations (default: 0.15).
     - MeshCutoff: Mesh cutoff for the SIESTA calculations (in Ry, default: 1000 Ry).
     - kgrid: Tuple specifying the k-point grid size for the SIESTA calculations (default: (10, 10, 10)).
-    - pseudo: Pseudopotential to use for the SIESTA calculations (default: 'PBEsol').
     - mode: String indicating whether to use localized atomic orbitals ('lcao') or plane waves ('pw') for the calculations (default: 'lcao').
     - deg: Boolean indicating whether to consider degenerate modes at the q-points (default: True).
     - dir: Directory where the results will be saved (default: 'resultsold/bulk/frozen').

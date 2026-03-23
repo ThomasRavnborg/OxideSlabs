@@ -14,33 +14,33 @@ from src.frozenphonon import calculate_frozen_phonons
 
 # Create atoms object for BaTiO3 and initialize project
 formula = 'BaTiO3'
-perovskite = Perovskite(formula, a=3.98, N=1, bulk=True)
+perovskite = Perovskite(formula)
 project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
-pseudos = ['PBEsol']
-shifts =  [0.008, 0.01]
+shifts =  [0.01]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
+strains = [0.01, 0.0, -0.01]
 
-def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
+def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
     # Find all combinations of parameters and store in a list of dictionaries
-    combinations = list(product(xcfs, basis, pseudos, shifts, splits, cutoffs, grids))
+    combinations = list(product(xcfs, basis, shifts, splits, cutoffs, grids, strains))
     parprint(f"Total combinations: {len(combinations)}")
     param_dicts = []
     for combo in combinations:
         param_dicts.append({
             'xcf': combo[0],
             'basis': combo[1],
-            'pseudo': combo[2],
-            'EnergyShift': combo[3],
-            'SplitNorm': combo[4],
-            'MeshCutoff': combo[5],
-            'kgrid': (combo[6], combo[6], combo[6])
+            'EnergyShift': combo[2],
+            'SplitNorm': combo[3],
+            'MeshCutoff': combo[4],
+            'kgrid': (combo[5], combo[5], combo[5]),
+            'strain': combo[6]
         })
 
     # Loop over parameter combinations and prepare calculations
@@ -48,11 +48,13 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         # Find calculation ID for this parameter set, or create a new one if it doesn't exist
         calc_id = project.prepare_calculation(params)
         # Update dataframe
-        project.update_summary(calc_id, params)
-
+        #project.update_summary(calc_id, params)
         # Check what step needs to be run for this calculation and set directory
         next_step = project.what_to_run(calc_id)
         dir = os.path.join(project.path, calc_id)
+        # Create a copy of the parameters dictionary without the 'strain' key for use in the calculation functions
+        params_calc = params.copy()
+        params_calc.pop('strain')
 
         # If all steps are complete, skip to the next parameter set unless runall is True
         if next_step == "complete" and not runall:
@@ -63,20 +65,33 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         if next_step == "basis" or runall:
             # Generate basis.fdf file
             parprint(f"Generating basis.fdf for calculation {calc_id}")
-            generate_basis(perovskite, **params, dir=dir)
+            generate_basis(perovskite, **params_calc, dir=dir)
             # Update to next step
             next_step = project.what_to_run(calc_id)
 
-        # If relaxation needs to be run, run it and update the calculation ID and next step
+        # If relaxation needs to be run, run it and update to the next step
         if next_step == "relax" or runall:
+            # If strain is not 0, then load the unstrained structure, apply the specified strain
+            if params['strain'] != 0.0:
+                # Get reference calculation ID for the unstrained structure (strain = 0.0) with the same other parameters
+                params_ref = params.copy()
+                params_ref['strain'] = 0.0
+                ref_id = project.prepare_calculation(params_ref)
+                dir_ref = os.path.join(project.path, ref_id)
+                # Load the unstrained structure
+                perovskite.set_atoms(read(os.path.join(dir_ref, 'relax', f'{formula}.xyz')))
+                # Apply the specified strain
+                perovskite.apply_strain(params['strain'])
+                strained = True
+            else:
+                strained = False
             # Run relaxation
             parprint(f"Running relaxation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'relax')
-            relax_ase(perovskite, **params, dir=dir_step, par=False)
+            relax_ase(perovskite, **params_calc, strained=strained, dir=dir_step)
             # Update dataframe and move to next step
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
-        
         
         # Set the atoms object for the next steps based on the relaxed structure
         dir_relax = os.path.join(dir, 'relax')
@@ -88,7 +103,7 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
             # Run band structure calculation
             parprint(f"Running band structure calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'bands')
-            calculate_bands(perovskite, **params, dir=dir_step)
+            calculate_bands(perovskite, **params_calc, dir=dir_step)
             # Update dataframe and move to next step
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
@@ -97,21 +112,20 @@ def run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids, runall=False):
         if next_step == "phonons" or runall:
             parprint(f"Running phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'phonons')
-            calculate_phonons(perovskite, **params, dir=dir_step)
+            calculate_phonons(perovskite, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
         
-        # If frozen phonon calculation needs to be run, run it
-        if next_step == "frozen":
+        # If frozen phonon calculation needs to be run, run it and update the dataframe
+        if next_step == "frozen" or runall:
             parprint(f"Running frozen phonon calculation for calculation {calc_id}")
             dir_step = os.path.join(dir, 'frozen')
             # Load phonon data from the specified directory and formula
             phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))
-
             # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-            calculate_frozen_phonons(phonon, dd=0.2, **params, dir=dir_step)
+            calculate_frozen_phonons(phonon, dd=0.2, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
         
-run(xcfs, basis, pseudos, shifts, splits, cutoffs, grids)
+run(xcfs, basis, shifts, splits, cutoffs, grids, strains)

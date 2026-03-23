@@ -46,11 +46,12 @@ def perovskite(formula):
         return [[a, 0, 0], [0, a, 0], [0, 0, a]]
     return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
 
-def filter(atoms, bulk=True):
+def filter(atoms, bulk=True, strained=False):
     """Function to set up a filter for optimizing unit cell parameters and atomic positions.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be optimized.
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False)
+    - strained: Boolean indicating whether the structure is strained (True) or not (False)
     Returns:
     - ASE Atoms object with the appropriate filter applied for optimization.
     """
@@ -58,9 +59,17 @@ def filter(atoms, bulk=True):
     # Format: [εxx, εyy, εzz, εyz, εxz, εxy]
     mask = [1, 1, 1, 1, 1, 1]
     if not bulk:
-        # For slab calculations, only optimize in-plane cell parameters and atomic positions,
-        # while keeping out-of-plane cell parameter fixed
-        mask = [1, 1, 0, 0, 0, 1]
+        # For slab calculations, keep the out-of-plane cell parameter fixed
+        mask[2] = 0
+        mask[3] = 0
+        mask[4] = 0
+    if strained:
+        # For strained calculations, keep the in-plane cell parameters fixed
+        mask[0] = 0
+        mask[1] = 0
+        mask[5] = 0
+    # Note that if slab and strained, none of the cell parameters will be optimized
+
     # Set unit cell filter to the FrechetCellFilter
     atoms_filt = FrechetCellFilter(atoms, mask=mask)
     return atoms_filt
@@ -68,8 +77,8 @@ def filter(atoms, bulk=True):
 def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
               EnergyShift=0.01, SplitNorm=0.15,
               MeshCutoff=1000, kgrid=(10, 10, 10),
-              pseudo='PBEsol', mode='lcao',
-              dir='results/bulk/relax', par=True):
+              mode='lcao', strained=False,
+              dir='results/bulk/relax', par=False):
     """Function to relax a bulk structure using ASE BFGS optimizer with SIESTA or GPAW calculator.
     Parameters:
     - perovskite: Custom object representing the structure to be relaxed.
@@ -81,8 +90,8 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 1000 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
+    - strained: Boolean indicating whether strain has been applied to the structure (default is False, meaning no strain).
     - dir: Directory to save the results (default is 'results/bulk/phonons').
     - par: Whether the SIESTA calculator is parallel (default is True).
     Returns:
@@ -95,6 +104,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
     #symbols = perovskite.symbols
     atoms = perovskite.atoms
     bulk = perovskite.bulk
+
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
 
@@ -123,7 +133,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
             'energy_shift': EnergyShift * Ry,
             'kpts': kgrid,
             'directory': dir,
-            'pseudo_path': os.path.join(cwd, 'pseudos', f'{pseudo}')
+            'pseudo_path': os.path.join(cwd, 'pseudos', f'{xcf}')
         }
         dir_fdf = os.path.join(cwd, os.path.dirname(dir))
         # fdf arguments in a dictionary
@@ -168,7 +178,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
     # Apply filter to optimize unit cell parameters and atomic positions if filt is True
     # Otherwise only optimize atomic positions
     if filt:
-        atoms_filt = filter(atoms, bulk=True)
+        atoms_filt = filter(atoms, bulk, strained)
     else:
         atoms_filt = atoms
     

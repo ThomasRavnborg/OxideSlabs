@@ -14,11 +14,16 @@ class Perovskite:
     Attributes:
     - atoms: ASE Atoms object representing the perovskite structure.
     """
-    def __init__(self, formula='ABX3', a=4.0, N=1, bulk=True, dvac=10.0):
+    def __init__(self, formula='ABX3', N=1, bulk=True, dvac=10.0):
         self.formula = formula
         self.symbols = [formula[0:2], formula[2:4], formula[4]]
         self.ncells = N
         self.bulk = bulk
+
+        lats = {'BaTiO3': 3.98,
+                'SrTiO3': 3.90}
+        a = lats.get(formula, 3.9)  # Default to 3.9 if formula not in dictionary
+
         sca_pos = [[0, 0, 0],
                    [1/2, 1/2, 1/2],
                    [1/2, 0, 1/2],
@@ -58,3 +63,16 @@ class Perovskite:
     def set_atoms(self, atoms):
         """Set the atoms object for the perovskite structure."""
         self.atoms = atoms
+
+    def apply_strain(self, strain):
+        """Apply a specified strain to the perovskite structure.
+        Parameters:
+        - strain: Strain value to be applied (e.g., 0.01 for 1% tensile strain, -0.01 for 1% compressive strain).
+        """
+        # Get the current cell parameters
+        cell = self.atoms.cell.copy()
+        # Apply the specified strain to the in-plane lattice parameters (a and b)
+        cell[0, 0] *= (1 + strain)  # Strain applied to a
+        cell[1, 1] *= (1 + strain)  # Strain applied to b
+        # Update the cell parameters of the atoms object
+        self.atoms.set_cell(cell, scale_atoms=True)

@@ -62,8 +62,7 @@ def phonopy_to_ase(atoms_phonopy):
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
                       EnergyShift=0.01, SplitNorm=0.15,
                       MeshCutoff=1000, kgrid=(10, 10, 10),
-                      pseudo='PBEsol', mode='lcao',
-                      dir='results/bulk/phonons', par=True):
+                      mode='lcao', dir='results/bulk/phonons', par=True):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed structure.
@@ -74,7 +73,6 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 1000 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - dir: Directory to save the results (default is 'results/bulk/phonons').
     - par: Whether the SIESTA calculator is parallel (default is True).

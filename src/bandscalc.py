@@ -28,8 +28,7 @@ except ImportError:
 def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
                     EnergyShift=0.01, SplitNorm=0.15,
                     MeshCutoff=1000, kgrid=(10, 10, 10),
-                    pseudo='PBEsol', mode='lcao',
-                    dir='results/bulk/bandstructure', par=True):
+                    mode='lcao', dir='results/bulk/bandstructure', par=True):
     """Function to calculate band structure and PDOS of a bulk structure using SIESTA.
     Parameters:
     - perovskite: Custom object representing the relaxed bulk structure.
@@ -41,7 +40,6 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 200 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - mode: Calculator mode to be used ('lcao' for SIESTA or 'pw' for GPAW, default is 'lcao').
     - par: Whether the SIESTA calculator is parallel (default is True).
     Returns:
@@ -202,13 +200,18 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
 
 # Make a function that converts the texts 'Gamma' and 'G' into the actual symbols in the x-tick labels of the band structure plot
 def convert_labels(labels):
+    """Convert labels such as 'Gamma' and 'G' into LaTeX symbols for the x-tick labels of the band structure plot.
+    Parameters:
+    - labels: Numpy array of labels to be converted.
+    Returns:
+    - converted: Numpy array of converted labels with 'Gamma' and 'G' replaced by LaTeX symbols."""
     converted = []
     for label in labels:
         if label == 'Gamma' or label == 'G':
             converted.append(r'$\Gamma$')
         else:
             converted.append(label)
-    return converted
+    return np.array(converted)
 
 # Define a function that plots the bandstructure and DOS together
 def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
@@ -261,11 +264,16 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
         labels = convert_labels(labels)
         # Convert X, x and bands to numpy arrays of type float (if they are not already)
         X = np.array(X, dtype=float)
+        labels = np.array(labels)
         x = np.array(x, dtype=float)
         bands = np.array(bands, dtype=float)
-        # Normalize X and x to the total length of the path (the last value in X and x respectively)
+        # Shorten path to end with G
+        indx = np.where(labels == r'$\Gamma$')[0][-1]
+        labels = labels[:indx+1]
+        X = X[:indx+1]
+        # Normalize x and X to the total length of the path
+        x /= X[-1]
         X /= X[-1]
-        x /= x[-1]
         # Find lowest energy (VBM) and highest energy (CBM)
         VBM = bands[bands <= 0].max()
         CBM = bands[bands > 0].min()
@@ -285,10 +293,10 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
             else:
                 ax.plot(x, e_k, color=col)
 
-        if mode == 'pw':
+        #if mode == 'pw':
             # Remove last X point and label
-            X = X[:-1]
-            labels = labels[:-1]
+            #X = X[:-1]
+            #labels = labels[:-1]
         # Set x-ticks to the symmetry points and label them
         ax.xaxis.set_ticks(X)
         ax.set_xticklabels(labels)
@@ -344,7 +352,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
         CBM, VBM = _plot_bandstructure(ax1, dir, vals[i], col=colors[i+1])
         shift = VBM + (CBM - VBM)/2
         # Subplot 2 - Density of states (DOS)
-        _plot_dos(ax2, dir, vals[i], col=colors[i+1], shift=shift, pDOS=True)
+        _plot_dos(ax2, dir, vals[i], col=colors[i+1], shift=shift)
     
     # Set x- and y-label
     #ax1.set_xlabel('k-points')
@@ -419,14 +427,18 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
         
         # Convert labels to use LaTeX symbols for Gamma point
         labels = convert_labels(labels)
-
         # Convert X, x and bands to numpy arrays of type float (if they are not already)
         X = np.array(X, dtype=float)
+        labels = np.array(labels)
         x = np.array(x, dtype=float)
         bands = np.array(bands, dtype=float)
-        # Normalize X and x to the total length of the path (the last value in X and x respectively)
+        # Shorten path to end with G
+        indx = np.where(labels == r'$\Gamma$')[0][-1]
+        labels = labels[:indx+1]
+        X = X[:indx+1]
+        # Normalize x and X to the total length of the path
+        x /= X[-1]
         X /= X[-1]
-        x /= x[-1]
         # Find lowest energy (VBM) and highest energy (CBM)
         VBM = bands[bands <= 0].max()
         CBM = bands[bands > 0].min()
@@ -447,15 +459,12 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
         # Plot band-structures
         for e_k in bands:
             ax.plot(x, e_k, color=col)
-        if mode == 'pw':
-            # Remove last X point and label
-            X = X[:-1]
-            labels = labels[:-1]
+        
         # Set y-ticks to the defined tickmarks and label them
         ax.set_yticks(E_tickmarks, E_tickmarks.astype(str))
         # Set x-ticks to the symmetry points and label them
-        ax.xaxis.set_ticks(X)
-        ax.set_xticklabels(labels)
+        ax.set_xticks(X[:-1], labels[:-1])
+        #ax.set_xticklabels(labels[:-1])
         # Set limits to match
         ax.set_xlim(X[0], X[-1])
         #ax.set_xlim(0, 1)
