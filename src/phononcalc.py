@@ -324,15 +324,23 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     #atoms = phonon_to_atoms(phonon, cell='unit')
     #formula = atoms.symbols
 
+    # Define tickmarks for the x- and y-axis
+    E_tickmarks = np.arange(-10, 26, 5)
+    # Convert tickmarks to strings with i for negative numbers
+    E_ticklabels = []
+    for tick in E_tickmarks:
+        if tick < 0:
+            E_ticklabels.append(f'{abs(tick)}i')
+        else:
+            E_ticklabels.append(f'{tick}')
+
     if bulk:
         struc = f'bulk/{formula}'
     else:
         struc = f'slab/{formula}/{Ncells}uc'
 
-
     # Define tickmarks for the x- and y-axis
-    ytickmarks = np.arange(-15, 26, 5)
-    xtickmarks = np.arange(0, 7, 1)
+    dos_tickmarks = np.arange(0, 7, 1)
 
     # Define colors and styles for plotting (if needed)
     colors = ["black", "blue", "red", "purple", "orange", "green"]
@@ -352,7 +360,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
         dist /= dist[-1][-1]  # Normalize distances to the total length of the path
         X /= X[-1]  # Normalize high symmetry point locations to the total length of the path
         # Plot vertical lines at symmetry points
-        ax.vlines(X, ytickmarks[0], ytickmarks[-1], color='0.5', lw=1)
+        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=1)
         # Plot dashed line at 0
         ax.axhline(y=0, color='k', linestyle=':')
         # Determine the number of segments between symmetry points and the number of modes
@@ -367,10 +375,10 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
                     ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5)
         # Set x- and y-ticks
         ax.set_xticks(X, labels)
-        ax.set_yticks(ytickmarks, ytickmarks)
+        ax.set_yticks(E_tickmarks, E_ticklabels)
         # Set x- and y-limits
         ax.set_xlim(X[0], X[-1])
-        ax.set_ylim(ytickmarks[0], ytickmarks[-1])
+        ax.set_ylim(E_tickmarks[0], E_tickmarks[-1])
 
     def _plot_dos(ax, phonon, val, col='k'):
         # Extract total DOS data
@@ -419,7 +427,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     
     # Set x- and y-label
     ax1.set_xlabel('k-points')
-    ax1.set_ylabel('Frequency, $\omega$ (THz)')
+    ax1.set_ylabel('Frequency (THz)')
     # Add minor tickmarks to the y-axis
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
     
@@ -427,11 +435,11 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     ax2.set_xlabel('DOS (states/THz)')
     ax2.legend(loc='upper right')
     # Force x- and y-ticks
-    ax2.set_xticks(xtickmarks, xtickmarks)
-    ax2.set_yticks(ytickmarks, ytickmarks)
+    ax2.set_xticks(dos_tickmarks, dos_tickmarks)
+    ax2.set_yticks(E_tickmarks, E_ticklabels)
     # Set limits to match
-    ax2.set_xlim(xtickmarks[0], xtickmarks[-1])
-    ax2.set_ylim(ytickmarks[0], ytickmarks[-1])
+    ax2.set_xlim(dos_tickmarks[0], dos_tickmarks[-1])
+    ax2.set_ylim(E_tickmarks[0], E_tickmarks[-1])
     # Hide y-tick labels
     ax2.set_yticklabels([])
     
@@ -511,7 +519,7 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
     _plot_disp(axes[0], phonon, 'PW', col=colors[0])
-    axes[0].set_ylabel('Frequency, $\omega$ (THz)')
+    axes[0].set_ylabel('Frequency (THz)')
     
     # Cycle through the list of IDs and plot the dispersion
     for i in range(len(ids)):

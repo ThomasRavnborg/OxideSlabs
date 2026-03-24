@@ -173,7 +173,7 @@ def grid_conv(perovskite, meshcuts, kpoints):
     # Check if a basis optimization has been performed and if the corresponding basis.fdf file exists
     if not os.path.exists(os.path.join(dir, 'basis.fdf')):
         # Create basis.fdf file for the current parameters
-        generate_basis(perovskite, EnergyShift=0.001, SplitNorm=0.1, dir=dir)
+        generate_basis(perovskite, EnergyShift=0.01, SplitNorm=0.15, dir=dir)
 
     def _run_single_calculation(perovskite, mc, kp):
 
@@ -191,7 +191,7 @@ def grid_conv(perovskite, meshcuts, kpoints):
             print(f"MeshCutoff={mc} and kgrid=({kp}, {kp}, {kp}) is in the DataFrame. Skipping.")
         else:
             # Get energy and enthalpy from SIESTA
-            energy = run_siesta(perovskite, EnergyShift=0.001, SplitNorm=0.1,
+            energy = run_siesta(perovskite, EnergyShift=0.01, SplitNorm=0.15,
                                 MeshCutoff=mc, kgrid=(kp, kp, kp), dir=dir)
             enthalpy = get_enthalpy(formula, dir)
             force = get_max_force(formula, dir)

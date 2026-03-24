@@ -20,12 +20,8 @@ def run(formula, task):
     Returns:
     - None. The function performs the relaxation, band structure calculation, and phonon calculation, and saves the results to files.
     """
-    if formula == 'BaTiO3':
-        a0 = 3.98
-    elif formula == 'SrTiO3':
-        a0 = 3.9
 
-    perovskite = Perovskite(formula, a=a0, N=1, bulk=True)
+    perovskite = Perovskite(formula, N=1, bulk=True)
     N = perovskite.ncells
     bulk = perovskite.bulk
     if bulk:

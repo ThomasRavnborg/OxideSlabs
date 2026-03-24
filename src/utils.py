@@ -238,7 +238,8 @@ class SiestaProject:
         
         df = pd.read_csv(self.summary, dtype=str)
         if raw:
-            return df.sort_values(by="ID")
+            #return df.sort_values(by="ID")
+            return df
         
         df_display = df.copy()
         
@@ -249,7 +250,8 @@ class SiestaProject:
         for col in ["relax", "bands", "phonons", "frozen"]:
             df_display[col] = df_display[col].map({"True": "✓", "False": "✗"})
         # Sort by ID
-        return df_display.sort_values(by="ID")
+        #return df_display.sort_values(by="ID")
+        return df_display
 
 
     # -----------------------------
