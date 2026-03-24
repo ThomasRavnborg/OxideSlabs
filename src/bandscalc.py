@@ -239,12 +239,13 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     else:
         struc = f'slab/{formula}/{Ncells}uc'
 
-    # Make a simple figure where graphs are plotted
-    fig = plt.figure(figsize=[6.6, 5])
-
-    # Create axes objects for the band structure and DOS subplots
-    ax1 = fig.add_axes([0, 0, 1, 1])
-    ax2 = fig.add_axes([1.05, 0, 0.4, 1])
+    # Create 2 subplots for the band structure and DOS, with shared y-axis
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 5),
+                             sharey='col', gridspec_kw={'width_ratios': [1, 0.4]})
+    ax1, ax2 = axes
+    # Adjust spacing between subplots and set figure size using the custom PlotSettings class
+    plt.subplots_adjust(wspace=0.08)
+    PlotSettings().set_size(fig)
 
     def _plot_bandstructure(ax, dir, val, col='k', mode='lcao'):
         if mode == 'lcao':
@@ -284,14 +285,14 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
         bands -= Eg/2
 
         # Plot vertical lines at symmetry points
-        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', linewidth=1)
+        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
 
         # Plot band-structures
         for j, e_k in enumerate(bands):
             if j == 0:
-                ax.plot(x, e_k, color=col, label=f"{val}")
+                ax.plot(x, e_k, color=col, label=f"{val}", lw=1)
             else:
-                ax.plot(x, e_k, color=col)
+                ax.plot(x, e_k, color=col, lw=1)
 
         #if mode == 'pw':
             # Remove last X point and label
@@ -328,11 +329,11 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
             # Plot PDOS for each atom
             for i in range(PDOS_atom.shape[0]):
                 symbol = geom.atoms[i].symbol
-                ax.plot(PDOS_atom[i], E - shift, color=atom_colors[symbol], alpha=0.5)
+                ax.plot(PDOS_atom[i], E - shift, color=atom_colors[symbol], alpha=0.5, lw=1)
 
     # Plot dashed line at Fermi level for both subplots
-    ax1.axhline(y=0, color='k', linestyle=':')
-    ax2.axhline(y=0, color='k', linestyle=':')
+    ax1.axhline(y=0, color='k', linestyle=':', lw=0.8)
+    ax2.axhline(y=0, color='k', linestyle=':', lw=0.8)
 
     dir = f'results/{struc}/GPAW/bands'
     CBM, VBM = _plot_bandstructure(ax1, dir, 'PW', mode='pw', col=colors[0])
@@ -408,7 +409,9 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
     # Create N subplots for the band structure along x
     fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')
 
+    # Adjust spacing between subplots and set figure size using the custom PlotSettings class
     plt.subplots_adjust(wspace=0.05)
+    PlotSettings().set_size(fig)
 
     def _plot_bandstructure(ax, dir, val, col='k', mode='lcao'):
 
@@ -451,14 +454,14 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
         # Set title
         ax.set_title(f"{val}")
         # Plot horizontal line at Fermi level
-        ax.axhline(y=0, color='k', linestyle='--', linewidth=1)
+        ax.axhline(y=0, color='k', linestyle='--', lw=0.8)
 
         # Plot vertical lines at symmetry points
-        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', linewidth=1)
+        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
 
         # Plot band-structures
         for e_k in bands:
-            ax.plot(x, e_k, color=col)
+            ax.plot(x, e_k, color=col, lw=1)
         
         # Set y-ticks to the defined tickmarks and label them
         ax.set_yticks(E_tickmarks, E_tickmarks.astype(str))

@@ -347,22 +347,29 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     #styles = ['-', '--', '-.', ':', '-', '--', '-.']
 
     # Make a simple figure where graphs are plotted
-    fig = plt.figure(figsize=[6.6, 5])
+    #fig = plt.figure(figsize=[6.6, 5])
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 5),
+                             sharey='col', gridspec_kw={'width_ratios': [1, 0.4]})
     
     # Define two axes, one for the band structure and one for the DOS
-    ax1 = fig.add_axes([0, 0, 1, 1])
-    ax2 = fig.add_axes([1.05, 0, 0.4, 1])
+    #ax1 = fig.add_axes([0, 0, 1, 1])
+    #ax2 = fig.add_axes([1.05, 0, 0.4, 1])
+    ax1, ax2 = axes
+
+    plt.subplots_adjust(wspace=0.08)
+    PlotSettings().set_size(fig)
     
-    def _plot_disp(ax, phonon, val, col='k'):
+    def _plot_disp(ax, phonon, val, col='k', vlines=True):
         # Extract phonon dispersion data
         (dist, X, freq, labels) = get_phonon_dispersion(phonon, bulk)
         dist = np.array(dist)
         dist /= dist[-1][-1]  # Normalize distances to the total length of the path
         X /= X[-1]  # Normalize high symmetry point locations to the total length of the path
-        # Plot vertical lines at symmetry points
-        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=1)
+        if vlines:
+            # Plot vertical lines at symmetry points
+            ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
         # Plot dashed line at 0
-        ax.axhline(y=0, color='k', linestyle=':')
+        #ax.axhline(y=0, color='k', linestyle=':')
         # Determine the number of segments between symmetry points and the number of modes
         n_segments = len(freq)
         n_modes = freq[0].shape[1]
@@ -370,9 +377,9 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
         for i in range(n_segments):
             for j in range(n_modes):
                 if i == 0 and j == 0:
-                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5, label=f'{val}')
+                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1, label=f'{val}')
                 else:
-                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5)
+                    ax.plot(dist[i], freq[i][:, j], color=col, lw=1)
         # Set x- and y-ticks
         ax.set_xticks(X, labels)
         ax.set_yticks(E_tickmarks, E_ticklabels)
@@ -384,7 +391,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
         # Extract total DOS data
         (dosx, dosy) = get_phonon_dos(phonon, bulk)
         # Plot total DOS
-        ax.plot(dosx, dosy, lw=1.5, color=col, label=f'{val}')
+        ax.plot(dosx, dosy, lw=1, color=col, label=f'{val}')
         if pDOS:
             ax.fill_between(dosx, dosy, color='lightgray', alpha=0.5)
 
@@ -395,7 +402,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
         (pdosx, pdosy, symbols) = get_phonon_pdos(phonon, bulk)
         # Plot PDOS
         for i in range(pdosx.shape[0]):
-            ax.plot(pdosx[i], pdosy, lw=1.5, color=atom_colors[symbols[i]], label=f'{symbols[i]}')
+            ax.plot(pdosx[i], pdosy, lw=1, color=atom_colors[symbols[i]], label=f'{symbols[i]}')
         # Get all handles and labels
         handles, labels = ax.get_legend_handles_labels()
         # Remove duplicates and sort for the legend
@@ -404,10 +411,9 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
         ax.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
 
     # Plot dashed line at Fermi level for both subplots
-    ax1.axhline(y=0, color='k', linestyle=':')
-    ax2.axhline(y=0, color='k', linestyle=':')
+    ax1.axhline(y=0, color='k', linestyle=':', lw=0.8)
+    ax2.axhline(y=0, color='k', linestyle=':', lw=0.8)
 
-    
     dir = f'results/{struc}/GPAW/phonons'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion and total DOS for PW
@@ -422,7 +428,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
         dir = os.path.join('results', struc, ids[i], 'phonons')
         phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
         # Plot phonon dispersion and total DOS for PW
-        _plot_disp(ax1, phonon, vals[i], col=colors[i+1])
+        _plot_disp(ax1, phonon, vals[i], col=colors[i+1], vlines=False)
         _plot_dos(ax2, phonon, vals[i], col=colors[i+1])
     
     # Set x- and y-label
@@ -432,7 +438,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
     
 
-    ax2.set_xlabel('DOS (states/THz)')
+    ax2.set_xlabel('DOS')
     ax2.legend(loc='upper right')
     # Force x- and y-ticks
     ax2.set_xticks(dos_tickmarks, dos_tickmarks)
@@ -481,6 +487,7 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
     fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')
 
     plt.subplots_adjust(wspace=0.05)
+    PlotSettings().set_size(fig)
     
     def _plot_disp(ax, phonon, val, col='k'):
         # Extract phonon dispersion data
@@ -492,16 +499,16 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
         # Set title
         ax.set_title(f"{val}")
         # Plot vertical lines at symmetry points
-        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=1)
+        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
         # Plot dashed line at 0
-        ax.axhline(y=0, color='k', linestyle=':')
+        ax.axhline(y=0, color='k', linestyle=':', lw=0.8)
         # Determine the number of segments between symmetry points and the number of modes
         n_segments = len(freq)
         n_modes = freq[0].shape[1]
         # Loop over all segments and modes and plot everything
         for i in range(n_segments):
             for j in range(n_modes):
-                ax.plot(dist[i], freq[i][:, j], color=col, lw=1.5)
+                ax.plot(dist[i], freq[i][:, j], color=col, lw=1)
         # Set x- and y-ticks
         ax.xaxis.set_ticks(X[0:-1])
         ax.set_xticklabels(labels[0:-1])

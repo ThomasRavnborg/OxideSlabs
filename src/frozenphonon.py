@@ -140,6 +140,65 @@ def get_modevectors(phonon, q, tol_deg=1e-4):
 
     return modes, stable
 
+def get_unstable_mode_groups(phonon, q, tol_neg=1e-5, tol_deg=1e-4):
+
+    N_unit = len(phonon.unitcell.symbols)
+
+    phonon.run_band_structure([[q]], with_eigenvectors=True)
+    band_structure = phonon.get_band_structure_dict()
+
+    frequencies = np.squeeze(band_structure['frequencies'])
+    eigenvecs = np.squeeze(band_structure['eigenvectors'])
+
+    unstable = np.where(frequencies < -tol_neg)[0]
+
+    if len(unstable) == 0:
+        return [], True
+
+    groups = []
+    used = set()
+
+    for i in unstable:
+
+        if i in used:
+            continue
+
+        deg = np.where(
+            np.abs(frequencies - frequencies[i]) < tol_deg
+        )[0]
+
+        deg = [j for j in deg if j in unstable]
+
+        used.update(deg)
+
+        subspace = []
+
+        for j in deg:
+
+            vec = eigenvecs[:, j]
+
+            imax = np.argmax(np.abs(vec))
+            phase = np.angle(vec[imax])
+            vec = vec * np.exp(-1j * phase)
+
+            subspace.append(vec.real)
+
+        subspace = np.array(subspace).T
+
+        Q, _ = np.linalg.qr(subspace)
+
+        modes = []
+
+        for k in range(Q.shape[1]):
+            modes.append(Q[:, k].reshape(N_unit, 3))
+
+        groups.append({
+            "frequency": frequencies[i],
+            "modes": modes
+        })
+
+    return groups, False
+
 
 def get_displacement(unitcell, q, modevec):
     """Function to generate a supercell and get displacements according to the mode vector and q-point.
@@ -269,28 +328,33 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
         q = q_dict[qpoint]
         # Get mode vector and stability of the mode at the given q-point
         #modevec, stable = get_modevector(phonon, q)
-        modes, stable = get_modevectors(phonon, q)
+        #modes, stable = get_modevectors(phonon, q)
+        groups, stable = get_unstable_mode_groups(phonon, q)
 
-        # If the mode is stable, skip the frozen phonon calculations for this q-point
-        if stable:
-            parprint(f"The mode at q-point {qpoint} is stable. Skipping frozen phonon calculations.")
-        else:
-            parprint(f"Calculating frozen phonons for q-point {qpoint}.")
+        for g_id, group in enumerate(groups):
+
+            modes = group["modes"]
+            freq = group["frequency"]
+
+            dir_group = os.path.join(dir_q, f"mode_{g_id+1}")
+
             if world.rank == 0:
-                # Make directory for the current q-point if it doesn't exist
-                os.makedirs(dir_q, exist_ok=True)
-            
+                os.makedirs(dir_group, exist_ok=True)
+                # Save the frequency of the mode to a text file
+                with open(os.path.join(dir_group, "freq.txt"), "w") as f:
+                    f.write(f"{freq:.6f} THz")
+
             if not deg:
                 modes = [modes[0]] # Only consider the first mode if degenerate modes are not considered
 
             for mode_id, modevec in enumerate(modes):
 
-                modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
-                dir_mode = os.path.join(dir_q, f"Q_{mode_id+1}")
+                dir_mode = os.path.join(dir_group, f"Q_{mode_id+1}")
 
                 if world.rank == 0:
-                # Make directory for the current mode if it doesn't exist
                     os.makedirs(dir_mode, exist_ok=True)
+
+                modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
 
                 # Generate the supercell and get the mode vector for the supercell
                 #modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
