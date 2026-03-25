@@ -21,7 +21,7 @@ def run(formula, task):
     - None. The function performs the relaxation, band structure calculation, and phonon calculation, and saves the results to files.
     """
 
-    perovskite = Perovskite(formula, N=1, bulk=True)
+    perovskite = Perovskite(formula, N=1, bulk=False)
     N = perovskite.ncells
     bulk = perovskite.bulk
     if bulk:
@@ -62,7 +62,7 @@ def run(formula, task):
                                  mode='pw', dir=dir, deg=False)
 
 for formula in ['SrTiO3']:
-    for task in ['frozen']:
+    for task in ['bands', 'phonons']:
         run(formula, task)
         # Wait for all parallel processes to finish
         world.barrier()

@@ -245,7 +245,7 @@ def get_displacement(unitcell, q, modevec):
     return modevec_sc, supercell, supercell_matrix
 
 
-def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
+def calculate_frozen_phonons(phonon, np=10, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
                              mode='lcao', deg=True,
@@ -253,7 +253,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Parameters:
     - phonon: Phonopy object containing the phonon calculation results.
-    - dd: Displacement spacing in Å(a.u.)^1/2 (default: 0.1).
+    - np: Number of displacement points - roughly (default: 10).
     - xcf: Exchange-correlation functional to use in the calculations (default: 'PBEsol').
     - basis: Basis set to use in the calculations (default: 'DZP').
     - EnergyShift: Energy shift parameter for the SIESTA calculations (in Ry, default: 0.01 Ry).
@@ -285,6 +285,13 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
         'X': [0.5, 0.0, 0.0],
         'R': [0.5, 0.5, 0.5],
         'M': [0.5, 0.5, 0.0],
+    }
+
+    dd_dict = {
+        'G': 1/np,
+        'X': 1.5/np,
+        'R': 5/np,
+        'M': 3/np,
     }
 
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
@@ -378,6 +385,7 @@ def calculate_frozen_phonons(phonon, dd=0.1, xcf='PBEsol', basis='DZP',
                 supercell_disp.calc = calc
 
                 amp = 0
+                dd = dd_dict[qpoint]
                 amplitudes = []
                 energies = []
                 images = []
