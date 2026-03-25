@@ -13,8 +13,8 @@ from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
 
 # Create atoms object for BaTiO3 and initialize project
-formula = 'BaTiO3'
-perovskite = Perovskite(formula, N=1, bulk=False, dvac=15)
+formula = 'SrTiO3'
+perovskite = Perovskite(formula)
 project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
@@ -24,7 +24,7 @@ shifts =  [0.01]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
-strains = [0.0]
+strains = [0.0, 0.005, 0.01, -0.005, -0.01]
 
 def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
