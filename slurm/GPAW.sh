@@ -4,7 +4,7 @@
 #SBATCH -n 24
 #SBATCH --time=24:00:00
 #SBATCH --job-name=gpaw
-#SBATCH --output=logs/slurm-%j.out
+#SBATCH --output=results/logs/slurm-%j.out
 
 set -e
 

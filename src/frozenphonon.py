@@ -245,7 +245,7 @@ def get_displacement(unitcell, q, modevec):
     return modevec_sc, supercell, supercell_matrix
 
 
-def calculate_frozen_phonons(phonon, np=10, xcf='PBEsol', basis='DZP',
+def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
                              mode='lcao', deg=True,
@@ -253,7 +253,7 @@ def calculate_frozen_phonons(phonon, np=10, xcf='PBEsol', basis='DZP',
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Parameters:
     - phonon: Phonopy object containing the phonon calculation results.
-    - np: Number of displacement points - roughly (default: 10).
+    - n_points: Number of displacement points - roughly (default: 10).
     - xcf: Exchange-correlation functional to use in the calculations (default: 'PBEsol').
     - basis: Basis set to use in the calculations (default: 'DZP').
     - EnergyShift: Energy shift parameter for the SIESTA calculations (in Ry, default: 0.01 Ry).
@@ -288,10 +288,10 @@ def calculate_frozen_phonons(phonon, np=10, xcf='PBEsol', basis='DZP',
     }
 
     dd_dict = {
-        'G': 1/np,
-        'X': 1.5/np,
-        'R': 5/np,
-        'M': 3/np,
+        'G': 1/n_points,
+        'X': 1.5/n_points,
+        'R': 5/n_points,
+        'M': 3/n_points,
     }
 
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
@@ -337,6 +337,12 @@ def calculate_frozen_phonons(phonon, np=10, xcf='PBEsol', basis='DZP',
         #modevec, stable = get_modevector(phonon, q)
         #modes, stable = get_modevectors(phonon, q)
         groups, stable = get_unstable_mode_groups(phonon, q)
+
+        if stable:
+            parprint(f"No unstable modes found at q={q}. Skipping frozen phonon calculation.", flush=True)
+            continue
+        
+        parprint(f"Unstable modes found at q={q}. Starting frozen phonon calculation.", flush=True)
 
         for g_id, group in enumerate(groups):
 

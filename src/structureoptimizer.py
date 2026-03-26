@@ -123,7 +123,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
 
     # For SIESTA, calculations are performed with atomic orbitals (LCAO)
     if mode == 'lcao':
-        parprint(f"Relaxing structure for {formula} using SIESTA.")
+        #parprint(f"Relaxing structure for {formula} using SIESTA.", flush=True)
         # Calculation parameters in a dictionary
         calc_params = {
             'label': f'{formula}',
@@ -155,8 +155,8 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
     # In GPAW, calculations are performed with plane waves (PW)
     elif mode == 'pw':
         from gpaw import GPAW
-        parprint(f"Relaxing structure for {formula} using GPAW.")
-        parprint('Note that shift and split do not apply to pw calculations and will be ignored.')
+        #parprint(f"Relaxing structure for {formula} using GPAW.")
+        #parprint('Note that shift and split do not apply to pw calculations and will be ignored.')
         calc_params = {
             'xc': xcf,
             'basis': basis.lower(),

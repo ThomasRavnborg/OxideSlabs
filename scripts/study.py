@@ -58,13 +58,13 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
 
         # If all steps are complete, skip to the next parameter set unless runall is True
         if next_step == "complete" and not runall:
-            parprint(f"All steps complete for calculation {calc_id}. Skipping.")
+            parprint(f"All steps complete for calculation {calc_id}. Skipping.", flush=True)
             continue
 
         # If basis generation needs to be run, run it and update the calculation ID and next step
         if next_step == "basis" or runall:
             # Generate basis.fdf file
-            parprint(f"Generating basis.fdf for calculation {calc_id}")
+            parprint(f"Generating basis.fdf for calculation {calc_id}", flush=True)
             generate_basis(perovskite, **params_calc, dir=dir)
             # Update to next step
             next_step = project.what_to_run(calc_id)
@@ -86,7 +86,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             else:
                 strained = False
             # Run relaxation
-            parprint(f"Running relaxation for calculation {calc_id}")
+            parprint(f"Running relaxation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'relax')
             relax_ase(perovskite, **params_calc, strained=strained, dir=dir_step)
             # Update dataframe and move to next step
@@ -101,7 +101,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
         # If band structure calculation needs to be run, run it and update to the next step
         if next_step == "bands" or runall:
             # Run band structure calculation
-            parprint(f"Running band structure calculation for calculation {calc_id}")
+            parprint(f"Running band structure calculation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'bands')
             calculate_bands(perovskite, **params_calc, dir=dir_step)
             # Update dataframe and move to next step
@@ -110,7 +110,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
 
         # If phonon calculation needs to be run, run it and update to the next step
         if next_step == "phonons" or runall:
-            parprint(f"Running phonon calculation for calculation {calc_id}")
+            parprint(f"Running phonon calculation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'phonons')
             calculate_phonons(perovskite, **params_calc, dir=dir_step)
             # Update dataframe
@@ -120,7 +120,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
         """
         # If frozen phonon calculation needs to be run, run it and update the dataframe
         if next_step == "frozen" or runall:
-            parprint(f"Running frozen phonon calculation for calculation {calc_id}")
+            parprint(f"Running frozen phonon calculation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'frozen')
             # Load phonon data from the specified directory and formula
             phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))

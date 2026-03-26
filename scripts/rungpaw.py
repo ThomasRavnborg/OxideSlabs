@@ -2,7 +2,7 @@
 import os
 from ase import Atoms
 from ase.io import read
-from ase.parallel import world
+from ase.parallel import world, parprint
 import phonopy as ph
 #from ase.parallel import world
 from gpaw.mpi import world
@@ -26,14 +26,17 @@ def run(formula, task):
     bulk = perovskite.bulk
     if bulk:
         struc = f"bulk/{formula}"
+        desc = "bulk"
     else:
         struc = f"slab/{formula}/{N}uc"
+        desc = f"slab_{N}uc"
 
     dir = f'results/{struc}/GPAW/{task}'
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
 
     if task == 'relax':
+        parprint(f"Running relaxation of {desc} {formula} with GPAW", flush=True)
         # Run relaxation using GPAW for atomic positions and cell optimization
         relax_ase(perovskite, xcf='PBEsol',
                   MeshCutoff=60, kgrid=(10, 10, 10),
@@ -43,21 +46,24 @@ def run(formula, task):
         relaxed_atoms = read(os.path.join(f'results/{struc}/GPAW/relax', f'{formula}.xyz'), index=0)
         perovskite.set_atoms(relaxed_atoms)
     if task == 'bands':
+        parprint(f"Running band structure calculation for {desc} {formula} with GPAW", flush=True)
         # Calculate band structure and PDOS
         calculate_bands(perovskite, xcf='PBEsol',
                         MeshCutoff=60, kgrid=(10, 10, 10),
                         mode='pw', dir=dir)
     if task == 'phonons':
+        parprint(f"Running phonon calculation for {desc} {formula} with GPAW", flush=True)
         # Calculate phonon dispersion
         calculate_phonons(perovskite, xcf='PBEsol',
                           MeshCutoff=60, kgrid=(10, 10, 10),
                           mode='pw', dir=dir)
     if task == 'frozen':
+        parprint(f"Running frozen phonon calculation for {desc} {formula} with GPAW", flush=True)
         # Calculate frozen phonons
         # Load phonon data from the specified directory and formula
         phonon = ph.load(os.path.join(f'results/{struc}/GPAW/phonons', f'{formula}.yaml'))
         # Run frozen phonon calculation
-        calculate_frozen_phonons(phonon, np=5, xcf='PBEsol',
+        calculate_frozen_phonons(phonon, n_points=5, xcf='PBEsol',
                                  MeshCutoff=60, kgrid=(10, 10, 10),
                                  mode='pw', dir=dir, deg=False)
 

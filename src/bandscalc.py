@@ -65,7 +65,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
         kgrid[2] = 1
 
     if mode == 'lcao':
-        parprint(f"Calculating band structure and PDOS for {formula} using SIESTA.")
+        #parprint(f"Calculating band structure and PDOS for {formula} using SIESTA.")
         # Calculation parameters in a dictionary
         calc_params = {
             'label': f'{formula}',

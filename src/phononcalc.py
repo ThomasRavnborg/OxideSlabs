@@ -113,7 +113,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
     phonon = Phonopy(unitcell, scell_matrix)
     phonon.generate_displacements(distance=dd)
     supercells = phonon.supercells_with_displacements
-    parprint(f"Generated {len(supercells)} supercells with displacements.")
+    parprint(f"Generated {len(supercells)} supercells with displacements.", flush=True)
     
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
     if mode == 'lcao':
@@ -165,7 +165,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
     # Loop over all supercells and calculate forces
     for i, sc in enumerate(supercells):
         # Print which supercell is being processed
-        parprint(f"Processing supercell {i + 1}/{len(supercells)}")
+        parprint(f"Processing supercell {i + 1}/{len(supercells)}", flush=True)
         
         # Convert PhonopyAtoms to ASE Atoms for each supercell
         atoms_ase = phonopy_to_ase(sc)
