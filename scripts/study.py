@@ -117,7 +117,6 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
         
-        """
         # If frozen phonon calculation needs to be run, run it and update the dataframe
         if next_step == "frozen" or runall:
             parprint(f"Running frozen phonon calculation for calculation {calc_id}")
@@ -128,6 +127,5 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             calculate_frozen_phonons(phonon, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
-        """
 
 run(xcfs, basis, shifts, splits, cutoffs, grids, strains)

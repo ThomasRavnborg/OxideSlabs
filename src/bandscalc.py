@@ -157,7 +157,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
             path = 'GXMG'
             npoints = 180
         BScalc = atoms.calc.fixed_density(
-            nbands=32*ncells,
+            nbands=int(32*ncells),
             symmetry='off',
             kpts={'path': path, 'npoints': npoints},
             convergence={'bands': 16},
