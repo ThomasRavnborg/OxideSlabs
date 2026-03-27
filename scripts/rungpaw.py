@@ -13,15 +13,16 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
 
-def run(formula, task):
+def run(formula, task, strain=0.0):
     """Function to run the entire workflow for a given perovskite formula.
     Parameters:
     - formula: Chemical formula of the perovskite ('ABX3').
+    - strain: Strain value for the perovskite structure.
     Returns:
     - None. The function performs the relaxation, band structure calculation, and phonon calculation, and saves the results to files.
     """
 
-    perovskite = Perovskite(formula, N=1.5, bulk=False)
+    perovskite = Perovskite(formula)
     N = perovskite.ncells
     bulk = perovskite.bulk
     if bulk:
@@ -31,44 +32,58 @@ def run(formula, task):
         struc = f"slab/{formula}/{N}uc"
         desc = f"slab_{N}uc"
 
-    dir = f'results/{struc}/GPAW/{task}'
+    dir = f'results/{struc}/GPAW/{strain}'
+    dir_task = os.path.join(dir, task)
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
 
     if task == 'relax':
+        # If strain is not 0, then load the unstrained structure, apply the specified strain
+        if strain != 0.0:
+            # Define directory for the unstrained structure (strain = 0.0)
+            dir_ref = f'results/{struc}/GPAW/0.0/relax'
+            # Load the unstrained structure
+            perovskite.set_atoms(read(os.path.join(dir_ref, 'relax', f'{formula}.xyz')))
+            # Apply the specified strain
+            perovskite.apply_strain(strain)
+            strained = True
+        else:
+            strained = False
+
         parprint(f"Running relaxation of {desc} {formula} with GPAW", flush=True)
         # Run relaxation using GPAW for atomic positions and cell optimization
         relax_ase(perovskite, xcf='PBEsol',
-                  MeshCutoff=60, kgrid=(10, 10, 10),
-                  mode='pw', dir=dir)
+                  MeshCutoff=60, kgrid=(12, 12, 12),
+                  mode='pw', dir=dir_task, strained=strained)
     elif task == 'bands' or task == 'phonons':
         # Read relaxed structure
-        relaxed_atoms = read(os.path.join(f'results/{struc}/GPAW/relax', f'{formula}.xyz'), index=0)
+        relaxed_atoms = read(os.path.join(dir, 'relax', f'{formula}.xyz'), index=0)
         perovskite.set_atoms(relaxed_atoms)
     if task == 'bands':
         parprint(f"Running band structure calculation for {desc} {formula} with GPAW", flush=True)
         # Calculate band structure and PDOS
         calculate_bands(perovskite, xcf='PBEsol',
-                        MeshCutoff=60, kgrid=(10, 10, 10),
-                        mode='pw', dir=dir)
+                        MeshCutoff=60, kgrid=(12, 12, 12),
+                        mode='pw', dir=dir_task)
     if task == 'phonons':
         parprint(f"Running phonon calculation for {desc} {formula} with GPAW", flush=True)
         # Calculate phonon dispersion
         calculate_phonons(perovskite, xcf='PBEsol',
-                          MeshCutoff=60, kgrid=(10, 10, 10),
-                          mode='pw', dir=dir)
+                          MeshCutoff=60, kgrid=(12, 12, 12),
+                          mode='pw', dir=dir_task)
     if task == 'frozen':
         parprint(f"Running frozen phonon calculation for {desc} {formula} with GPAW", flush=True)
         # Calculate frozen phonons
         # Load phonon data from the specified directory and formula
-        phonon = ph.load(os.path.join(f'results/{struc}/GPAW/phonons', f'{formula}.yaml'))
+        phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))
         # Run frozen phonon calculation
         calculate_frozen_phonons(phonon, n_points=5, xcf='PBEsol',
-                                 MeshCutoff=60, kgrid=(10, 10, 10),
-                                 mode='pw', dir=dir, deg=False)
+                                 MeshCutoff=60, kgrid=(12, 12, 12),
+                                 mode='pw', dir=dir_task, deg=False)
 
 for formula in ['BaTiO3', 'SrTiO3']:
-    for task in ['relax', 'bands', 'phonons']:
-        run(formula, task)
-        # Wait for all parallel processes to finish
-        world.barrier()
+    for strain in [0.1, -0.1]:
+        for task in ['relax', 'bands', 'phonons']:
+            run(formula, task, strain)
+            # Wait for all parallel processes to finish
+            world.barrier()
