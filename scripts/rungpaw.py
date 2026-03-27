@@ -34,14 +34,16 @@ def run(formula, task, strain=0.0):
 
     dir = f'results/{struc}/GPAW/{strain}'
     dir_task = os.path.join(dir, task)
-    if not os.path.exists(dir):
-        os.makedirs(dir, exist_ok=True)
+
+    # Make folder for the task if it doesn't exist
+    if not os.path.exists(dir_task):
+        os.makedirs(dir_task, exist_ok=True)
 
     if task == 'relax':
         # If strain is not 0, then load the unstrained structure, apply the specified strain
         if strain != 0.0:
             # Define directory for the unstrained structure (strain = 0.0)
-            dir_ref = f'results/{struc}/GPAW/0.0/relax'
+            dir_ref = f'results/{struc}/GPAW/0.0'
             # Load the unstrained structure
             perovskite.set_atoms(read(os.path.join(dir_ref, 'relax', f'{formula}.xyz')))
             # Apply the specified strain
@@ -81,9 +83,9 @@ def run(formula, task, strain=0.0):
                                  MeshCutoff=60, kgrid=(12, 12, 12),
                                  mode='pw', dir=dir_task, deg=False)
 
-for formula in ['BaTiO3', 'SrTiO3']:
-    for strain in [0.1, -0.1]:
-        for task in ['relax', 'bands', 'phonons']:
+for formula in ['BaTiO3']:
+    for strain in [0.01]:
+        for task in ['phonons']:
             run(formula, task, strain)
             # Wait for all parallel processes to finish
             world.barrier()

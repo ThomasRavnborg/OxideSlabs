@@ -23,19 +23,6 @@ from src.cleanfiles import cleanFiles
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
-def phonon_to_atoms(phonon, cell='unit'):
-    if cell == 'unit':
-        cell = phonon.unitcell
-    elif cell == 'super':
-        cell = phonon.supercell
-    atoms = Atoms(
-        symbols=cell.symbols,
-        scaled_positions=cell.scaled_positions,
-        cell=cell.cell,
-        pbc=True
-    )
-    return atoms
-
 def ase_to_phonopy(atoms_ase):
     """Function to convert ASE Atoms object to PhonopyAtoms object.
     Parameters:
@@ -44,8 +31,9 @@ def ase_to_phonopy(atoms_ase):
     - PhonopyAtoms object with the same structure as the input ASE Atoms.
     """
     return PhonopyAtoms(symbols=atoms_ase.get_chemical_symbols(),
-                        positions=atoms_ase.get_positions(),
+                        scaled_positions=atoms_ase.get_scaled_positions(),
                         cell=atoms_ase.get_cell(),
+                        pbc=atoms_ase.get_pbc(),
                         masses=atoms_ase.get_masses())
 
 def phonopy_to_ase(atoms_phonopy):
@@ -56,8 +44,28 @@ def phonopy_to_ase(atoms_phonopy):
     - ASE Atoms object with the same structure as the input PhonopyAtoms.
     """
     return Atoms(symbols=atoms_phonopy.symbols,
-                 positions=atoms_phonopy.positions,
-                 cell=atoms_phonopy.cell)
+                 scaled_positions=atoms_phonopy.scaled_positions,
+                 cell=atoms_phonopy.cell,
+                 pbc=atoms_phonopy.pbc,
+                 masses=atoms_phonopy.masses)
+
+def phonon_to_atoms(phonon, cell='unit'):
+    """Function to convert a Phonopy object to an ASE Atoms object.
+    Parameters:
+    - phonon: Phonopy object representing the structure.
+    - cell: String indicating whether to use 'unit' or 'super' cell.
+    Returns:
+    - ASE Atoms object with the same structure as the input Phonopy object.
+    """
+    # Determine which cell to use based on the input parameter
+    if cell == 'unit':
+        cell = phonon.unitcell
+    elif cell == 'super':
+        cell = phonon.supercell
+    else:
+        raise ValueError("Cell must be 'unit' or 'super'")
+    # Convert PhonopyAtoms to ASE Atoms
+    return phonopy_to_ase(cell)
 
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
                       EnergyShift=0.01, SplitNorm=0.15,
@@ -170,9 +178,11 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
         # Convert PhonopyAtoms to ASE Atoms for each supercell
         atoms_ase = phonopy_to_ase(sc)
         
+        """
         if not bulk:
             # Remove periodicity in the z-direction for slab calculations
             atoms_ase.pbc = (True, True, False)
+        """
 
         # Set up the calculator based on the selected mode
         if mode == 'lcao':
