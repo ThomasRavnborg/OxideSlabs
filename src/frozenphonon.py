@@ -341,12 +341,14 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
 
         # Get groups of degenerate unstable modes at the given q-point
         groups, stable = get_unstable_mode_groups(phonon, q)
+        # Count number of unstable modes at the given q-point
+        n_unstable = len(groups)
 
         if stable:
             parprint(f"No unstable modes found at {qpoint}. Skipping frozen phonon calculation.", flush=True)
             continue
         
-        parprint(f"Unstable modes found at {qpoint}. Starting frozen phonon calculation.", flush=True)
+        parprint(f"{n_unstable} unstable mode(s) found at {qpoint}. Starting frozen phonon calculation.", flush=True)
 
         for g_id, group in enumerate(groups):
 

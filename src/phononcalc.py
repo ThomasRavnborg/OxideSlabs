@@ -30,30 +30,36 @@ def ase_to_phonopy(atoms_ase):
     Returns:
     - PhonopyAtoms object with the same structure as the input ASE Atoms.
     """
-    return PhonopyAtoms(symbols=atoms_ase.get_chemical_symbols(),
-                        scaled_positions=atoms_ase.get_scaled_positions(),
-                        cell=atoms_ase.get_cell(),
-                        pbc=atoms_ase.get_pbc(),
-                        masses=atoms_ase.get_masses())
+    # Convert ASE Atoms to PhonopyAtoms
+    return PhonopyAtoms(cell=atoms_ase.get_cell(),
+                        positions=atoms_ase.get_positions(),
+                        symbols=atoms_ase.get_chemical_symbols())
 
-def phonopy_to_ase(atoms_phonopy):
+def phonopy_to_ase(atoms_phonopy, bulk=True):
     """Function to convert PhonopyAtoms object to ASE Atoms object.
     Parameters:
     - atoms_phonopy: PhonopyAtoms object representing the structure.
+    - bulk: Boolean indicating whether to use the bulk structure.
     Returns:
     - ASE Atoms object with the same structure as the input PhonopyAtoms.
     """
-    return Atoms(symbols=atoms_phonopy.symbols,
-                 scaled_positions=atoms_phonopy.scaled_positions,
-                 cell=atoms_phonopy.cell,
-                 pbc=atoms_phonopy.pbc,
-                 masses=atoms_phonopy.masses)
+    # Set periodic boundary conditions (pbc) based on whether the structure is bulk or slab
+    if bulk:
+        pbc = True
+    else:
+        pbc = (True, True, False)
+    # Convert PhonopyAtoms to ASE Atoms
+    return Atoms(cell=atoms_phonopy.cell,
+                 positions=atoms_phonopy.positions,
+                 symbols=atoms_phonopy.symbols,
+                 pbc=pbc)
 
-def phonon_to_atoms(phonon, cell='unit'):
+def phonon_to_atoms(phonon, cell='unit', bulk=True):
     """Function to convert a Phonopy object to an ASE Atoms object.
     Parameters:
     - phonon: Phonopy object representing the structure.
     - cell: String indicating whether to use 'unit' or 'super' cell.
+    - bulk: Boolean indicating whether to use the bulk structure.
     Returns:
     - ASE Atoms object with the same structure as the input Phonopy object.
     """
@@ -65,7 +71,7 @@ def phonon_to_atoms(phonon, cell='unit'):
     else:
         raise ValueError("Cell must be 'unit' or 'super'")
     # Convert PhonopyAtoms to ASE Atoms
-    return phonopy_to_ase(cell)
+    return phonopy_to_ase(cell, bulk)
 
 def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
                       EnergyShift=0.01, SplitNorm=0.15,
@@ -176,7 +182,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
         parprint(f"Processing supercell {i + 1}/{len(supercells)}", flush=True)
         
         # Convert PhonopyAtoms to ASE Atoms for each supercell
-        atoms_ase = phonopy_to_ase(sc)
+        atoms_ase = phonopy_to_ase(sc, bulk)
         
         """
         if not bulk:
