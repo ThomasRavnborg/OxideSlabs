@@ -12,9 +12,9 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
 
-# Create atoms object for BaTiO3 and initialize project
-formula = 'BaTiO3'
-perovskite = Perovskite(formula, N=1.5, bulk=False)
+# Create atoms object for SrTiO3 and initialize project
+formula = 'SrTiO3'
+perovskite = Perovskite(formula)
 project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
@@ -24,7 +24,7 @@ shifts =  [0.01]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
-strains = [0.0]
+strains = [0.0, 0.01, -0.01, 0.005, -0.005]
 
 def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
@@ -117,7 +117,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
         
-        """
+        
         # If frozen phonon calculation needs to be run, run it and update the dataframe
         if next_step == "frozen" or runall:
             parprint(f"Running frozen phonon calculation for calculation {calc_id} with SIESTA", flush=True)
@@ -128,6 +128,6 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             calculate_frozen_phonons(phonon, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
-        """
+        
 
 run(xcfs, basis, shifts, splits, cutoffs, grids, strains)

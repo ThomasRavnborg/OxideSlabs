@@ -332,10 +332,14 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
     for qpoint in q_dict.keys():
         # Set the results directory for the current q-point
         dir_q = os.path.join(dir, qpoint)
+        # Define coordinates and displacement distance for the current q-point
         q = q_dict[qpoint]
+        dd = dd_dict[qpoint]
         # Get mode vector and stability of the mode at the given q-point
         #modevec, stable = get_modevector(phonon, q)
         #modes, stable = get_modevectors(phonon, q)
+
+        # Get groups of degenerate unstable modes at the given q-point
         groups, stable = get_unstable_mode_groups(phonon, q)
 
         if stable:
@@ -391,7 +395,6 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                 supercell_disp.calc = calc
 
                 amp = 0
-                dd = dd_dict[qpoint]
                 amplitudes = []
                 energies = []
                 images = []
