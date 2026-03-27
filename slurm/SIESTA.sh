@@ -2,7 +2,7 @@
 #SBATCH --partition=xeon24el8
 #SBATCH -N 1
 #SBATCH -n 24
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --job-name=siesta
 #SBATCH --output=results/logs/slurm-%j.out
 

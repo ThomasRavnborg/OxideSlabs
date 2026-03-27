@@ -83,9 +83,9 @@ def run(formula, task, strain=0.0):
                                  MeshCutoff=60, kgrid=(12, 12, 12),
                                  mode='pw', dir=dir_task, deg=False)
 
-for formula in ['BaTiO3']:
-    for strain in [0.01]:
-        for task in ['phonons']:
+for formula in ['BaTiO3', 'SrTiO3']:
+    for strain in [-0.01]:
+        for task in ['relax', 'bands', 'phonons']:
             run(formula, task, strain)
             # Wait for all parallel processes to finish
             world.barrier()
