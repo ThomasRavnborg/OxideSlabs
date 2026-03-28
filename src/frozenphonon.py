@@ -371,7 +371,11 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                 dir_mode = os.path.join(dir_group, f"Q_{mode_id+1}")
 
                 if world.rank == 0:
-                    os.makedirs(dir_mode, exist_ok=True)
+                    try:
+                        os.makedirs(dir_mode, exist_ok=False)
+                    except FileExistsError:
+                        parprint(f"Directory {dir_mode} already exists. Skipping calculation for this mode.", flush=True)
+                        continue
 
                 modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
 
@@ -469,3 +473,8 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                 
                 # Wait for all parallel processes to finish
                 world.barrier()
+
+    # After all calculations are complete, write a completion message to a text file in the main directory
+    if world.rank == 0:
+        with open(os.path.join(dir, "complete.txt"), "w") as f:
+            f.write("Frozen phonon calculations complete.")

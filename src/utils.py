@@ -186,10 +186,16 @@ class SiestaProject:
         return os.path.exists(filepath)
 
     def _frozen_completed(self, calc_id):
+        filepath = os.path.join(
+            self.path, calc_id, "frozen", "complete.txt"
+        )
+        return os.path.exists(filepath)
+        """
         dir_frozen = os.path.join(
             self.path, calc_id, "frozen"
         )
         return os.path.exists(dir_frozen) and len(os.listdir(dir_frozen)) > 0
+        """
     
     # -----------------------------
     # CSV handling
