@@ -65,7 +65,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
         if next_step == "basis" or runall:
             # Generate basis.fdf file
             parprint(f"Generating basis.fdf for calculation {calc_id}", flush=True)
-            generate_basis(perovskite, **params_calc, dir=dir)
+            generate_basis(perovskite.atoms, **params_calc, dir=dir)
             # Update to next step
             next_step = project.what_to_run(calc_id)
 

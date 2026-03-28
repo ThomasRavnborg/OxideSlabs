@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import re
 from ase import Atoms
 from ase.build import make_supercell
 
@@ -76,3 +77,24 @@ class Perovskite:
         cell[1, 1] *= (1 + strain)  # Strain applied to b
         # Update the cell parameters of the atoms object
         self.atoms.set_cell(cell, scale_atoms=True)
+
+
+def get_reduced_formula(ase_atoms):
+    """Function to extract the reduced formula in the form of ABX3 from an ASE Atoms object.
+    Args:
+        ase_atoms (ase.Atoms): An ASE Atoms object representing the structure.
+    Returns:
+        str: The reduced formula in the form of ABX3 if found, otherwise the full formula."""
+    # Get the full chemical formula from the ASE Atoms object
+    full_formula = ase_atoms.get_chemical_formula(mode='reduce')
+    # Use a regular expression to find the pattern of the form ABX3
+    pattern = r'([A-Z][a-z]?)([A-Z][a-z]?)([A-Z][a-z]?)3'
+    match = re.search(pattern, full_formula)
+    # If a match is found, return the matched pattern; otherwise, return the full formula
+    if match:
+        formula = match[0]
+    else:
+        #print("No match found for the ABX3 pattern in the formula.")
+        formula = full_formula
+    
+    return formula

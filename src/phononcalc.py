@@ -430,7 +430,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     ax1.axhline(y=0, color='k', linestyle=':', lw=0.8)
     ax2.axhline(y=0, color='k', linestyle=':', lw=0.8)
 
-    dir = f'results/{struc}/GPAW/phonons'
+    dir = f'results/{struc}/GPAW/0.0/phonons'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion and total DOS for PW
     _plot_disp(ax1, phonon, 'PW', col='k')
@@ -538,7 +538,7 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
         PlotSettings().set_style_ax(ax, style='default', minor=False)
 
     
-    dir = f'results/{struc}/GPAW/phonons'
+    dir = f'results/{struc}/GPAW/0.0/phonons'
     phonon = ph.load(os.path.join(dir, f'{formula}.yaml'))
     # Plot phonon dispersion
     _plot_disp(axes[0], phonon, 'PW', col=colors[0])

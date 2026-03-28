@@ -133,7 +133,7 @@ def basis_opt(perovskite, shifts, splits):
             print(f"EnergyShift={shift} Ry and SplitNorm={split} is in the DataFrame. Skipping.")
         else:
             # Create basis.fdf file for the current parameters
-            generate_basis(perovskite, EnergyShift=shift, SplitNorm=split, dir=dir)
+            generate_basis(perovskite.atoms, EnergyShift=shift, SplitNorm=split, dir=dir)
             # Get energy and enthalpy from SIESTA
             energy = run_siesta(perovskite, EnergyShift=shift, SplitNorm=split,
                                 MeshCutoff=600, kgrid=(6, 6, 6), dir=dir)
@@ -173,7 +173,7 @@ def grid_conv(perovskite, meshcuts, kpoints):
     # Check if a basis optimization has been performed and if the corresponding basis.fdf file exists
     if not os.path.exists(os.path.join(dir, 'basis.fdf')):
         # Create basis.fdf file for the current parameters
-        generate_basis(perovskite, EnergyShift=0.01, SplitNorm=0.15, dir=dir)
+        generate_basis(perovskite.atoms, EnergyShift=0.01, SplitNorm=0.15, dir=dir)
 
     def _run_single_calculation(perovskite, mc, kp):
 
