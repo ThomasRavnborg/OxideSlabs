@@ -25,9 +25,15 @@ case "$MODE" in
     GPAW)
         RUN_SCRIPT="$SCRIPT_DIR/GPAW.sh"
         ;;
+    A100)
+        RUN_SCRIPT="$SCRIPT_DIR/A100.sh"
+        ;;
+    H200)
+        RUN_SCRIPT="$SCRIPT_DIR/H200.sh"
+        ;;
     *)
         echo "Unknown mode: $MODE"
-        echo "Allowed modes: SIESTA, GPAW"
+        echo "Allowed modes: SIESTA, GPAW, A100, H200"
         exit 1
         ;;
 esac

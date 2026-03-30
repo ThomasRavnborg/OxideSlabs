@@ -20,7 +20,6 @@ module load GPAW/25.7.0-foss-2025b
 
 # Get the script path from the command line argument
 SCRIPT_PATH="scripts/$1"
-
 # Run the GPAW calculation using 24 processors
 echo "Running gpaw -P 24 python $SCRIPT_PATH"
 gpaw -P 24 python "$SCRIPT_PATH"
