@@ -1,6 +1,7 @@
 # Importing packages and modules
 import os
 import time
+import copy as cp
 import numpy as np
 import pandas as pd
 import sisl as si
@@ -12,14 +13,14 @@ from ase.units import Ry
 from ase.build import make_supercell
 from ase.calculators.siesta import Siesta
 from ase.calculators.siesta.parameters import Species, PAOBasisBlock
+from ase.calculators.singlepoint import SinglePointCalculator
 from ase.parallel import parprint, broadcast
 # Phonopy
 import phonopy as ph
 from phonopy import Phonopy
 # Custom modules
-from src.parameterconv import run_siesta
 from src.cleanfiles import cleanFiles
-from src.phononcalc import ase_to_phonopy, phonopy_to_ase
+from src.phononcalc import phonon_to_atoms
 
 # Try to import world from gpaw.mpi for parallel processing
 # If not available, fall back to ase.parallel.world
@@ -28,27 +29,28 @@ try:
 except ImportError:
     from ase.parallel import world
 
-def phonon_to_atoms(phonon, cell='unit'):
-    """Function to convert a Phonopy object to an ASE Atoms object.
-    Parameters:
-    - phonon: Phonopy object containing the phonon calculation results.
-    - cell: String indicating whether to use the 'unit' cell or 'super' cell from the Phonopy object (default: 'unit').
+def copy_calc_results(ase_atoms):
+    """Function to copy the results of a calculation from an ASE Atoms object to a new one.
+    Arguments:
+        ase_atoms (ase.Atoms): The ASE Atoms object containing the results of a calculation.
     Returns:
-    - atoms: ASE Atoms object containing the structure of the specified cell from the Phonopy object.
+        atoms_copy (ase.Atoms): A new ASE Atoms object with the same structure and the results of the calculation copied from the original one.
     """
-    # Determine which cell to use based on the input argument
-    if cell == 'unit':
-        cell = phonon.unitcell
-    elif cell == 'super':
-        cell = phonon.supercell
-    # Convert the Phonopy cell to an ASE Atoms object
-    atoms = Atoms(
-        symbols=cell.symbols,
-        scaled_positions=cell.scaled_positions,
-        cell=cell.cell,
-        pbc=True
+    # Extract the results of the calculation from the original ASE Atoms object
+    energy = ase_atoms.get_potential_energy()
+    forces = ase_atoms.get_forces()
+    stress = ase_atoms.get_stress()
+    # Create a new ASE Atoms object with the same structure as the original one
+    atoms_copy = ase_atoms.copy()
+    # Assign the results of the calculation to the new ASE Atoms object using a SinglePointCalculator
+    calc = SinglePointCalculator(
+        atoms_copy,
+        energy=energy,
+        forces=forces,
+        stress=stress
     )
-    return atoms
+    atoms_copy.calc = calc
+    return atoms_copy
 
 def get_modevector(phonon, q):
     """Function to extract the mode vector corresponding to the lowest frequency mode at a given q-point.
@@ -251,19 +253,19 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                              mode='lcao', deg=True,
                              dir='resultsold/bulk/frozen', par=False):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
-    Parameters:
-    - phonon: Phonopy object containing the phonon calculation results.
-    - n_points: Number of displacement points - roughly (default: 10).
-    - xcf: Exchange-correlation functional to use in the calculations (default: 'PBEsol').
-    - basis: Basis set to use in the calculations (default: 'DZP').
-    - EnergyShift: Energy shift parameter for the SIESTA calculations (in Ry, default: 0.01 Ry).
-    - SplitNorm: Split norm parameter for the SIESTA calculations (default: 0.15).
-    - MeshCutoff: Mesh cutoff for the SIESTA calculations (in Ry, default: 1000 Ry).
-    - kgrid: Tuple specifying the k-point grid size for the SIESTA calculations (default: (10, 10, 10)).
-    - mode: String indicating whether to use localized atomic orbitals ('lcao') or plane waves ('pw') for the calculations (default: 'lcao').
-    - deg: Boolean indicating whether to consider degenerate modes at the q-points (default: True).
-    - dir: Directory where the results will be saved (default: 'resultsold/bulk/frozen').
-    - par: Boolean indicating whether to run calculations in parallel (default: False).
+    Arguments:
+    - phonon (Phonopy): Phonopy object containing the phonon calculation results.
+    - n_points (int): Number of displacement points - roughly (default: 10).
+    - xcf (str): Exchange-correlation functional to use in the calculations (default: 'PBEsol').
+    - basis (str): Basis set to use in the calculations (default: 'DZP').
+    - EnergyShift (float): Energy shift parameter for the SIESTA calculations (in Ry, default: 0.01 Ry).
+    - SplitNorm (float): Split norm parameter for the SIESTA calculations (default: 0.15).
+    - MeshCutoff (float): Mesh cutoff for the SIESTA calculations (in Ry, default: 1000 Ry).
+    - kgrid (tuple): Tuple specifying the k-point grid size for the SIESTA calculations (default: (10, 10, 10)).
+    - mode (str): String indicating whether to use localized atomic orbitals ('lcao') or plane waves ('pw') for the calculations (default: 'lcao').
+    - deg (bool): Boolean indicating whether to consider degenerate modes at the q-points (default: True).
+    - dir (str): Directory where the results will be saved (default: 'resultsold/bulk/frozen').
+    - par (bool): Boolean indicating whether to run calculations in parallel (default: False).
     Returns:
     - None (results are saved to files in the specified directory).
     """
@@ -370,12 +372,14 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
 
                 dir_mode = os.path.join(dir_group, f"Q_{mode_id+1}")
 
+                """
                 if world.rank == 0:
                     try:
                         os.makedirs(dir_mode, exist_ok=False)
                     except FileExistsError:
                         parprint(f"Directory {dir_mode} already exists. Skipping calculation for this mode.", flush=True)
                         continue
+                """
 
                 modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
 
@@ -438,8 +442,8 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                     energy = energy / ncells
                     energies.append(energy)
                     # Append the supercell structure with displacements, forces and stresses to the list of images
-                    img = supercell_disp.copy()
-                    img.calc = None
+                    img = copy_calc_results(supercell_disp)
+                    #img.calc = None
                     images.append(img)
                     """
                     if mode == 'pw':

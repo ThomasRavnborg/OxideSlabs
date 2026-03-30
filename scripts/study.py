@@ -12,8 +12,8 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
 
-# Create atoms object for SrTiO3 and initialize project
-formula = 'SrTiO3'
+# Create atoms object for BaTiO3 and initialize project
+formula = 'BaTiO3'
 perovskite = Perovskite(formula)
 project = SiestaProject(perovskite)
 
@@ -55,6 +55,8 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
         # Create a copy of the parameters dictionary without the 'strain' key for use in the calculation functions
         params_calc = params.copy()
         params_calc.pop('strain')
+
+        next_step = 'frozen'  # Temporary
 
         # If all steps are complete, skip to the next parameter set unless runall is True
         if next_step == "complete" and not runall:
