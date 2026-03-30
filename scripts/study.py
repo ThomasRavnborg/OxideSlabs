@@ -30,7 +30,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
     # Find all combinations of parameters and store in a list of dictionaries
     combinations = list(product(xcfs, basis, shifts, splits, cutoffs, grids, strains))
-    parprint(f"Total combinations: {len(combinations)}")
+    #parprint(f"Total combinations: {len(combinations)}")
     param_dicts = []
     for combo in combinations:
         param_dicts.append({
