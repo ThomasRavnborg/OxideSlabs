@@ -5,41 +5,38 @@ from ase.io import read
 #import calorine
 from calorine.nep import setup_training
 
-# Read in the structures and energies
-structures = read('results/bulk/BaTiO3/0082/frozen/G/mode_1/Q_1/structures.xyz@0:')
-energies = {'Ba': -761.227747, 'Ti': -1604.974503, 'O': -440.177463}
 
 # Define the directory in which to create the input files for NEP training
 run_dir = 'results/bulk/BaTiO3/ML'
 
+# Read in the structures and energies
+structures = read(os.path.join(run_dir, 'structures.xyz@0:'))
+energies = {'Ba': -761.227747, 'Ti': -1604.974503, 'O': -440.177463}
 
-def shift_energy(structures, energies):
-
-    structures_copy = cp.deepcopy(structures)
-
-    for atoms in structures_copy:
-        elements = atoms.get_chemical_symbols()
-        atoms.calc.results['energy'] -= sum(energies[element] for element in elements)
-
-    return structures_copy
-
-structures = shift_energy(structures, energies)
-
-
-elements = structures[0].get_chemical_symbols()
-unique_elements = list(set(elements))
+# Shift the energies of the structures by the sum of the energies of the constituent atoms
+# This ensures that the NEP will learn the relative energies of the structures rather than the absolute energies
+# This is important for the transferability of the NEP to other systems containing the same elements.
+# Also, keep track of the unique elements in the structures
+unique_elements = set()
+for atoms in structures:
+    N_atoms = len(atoms)
+    elements = atoms.get_chemical_symbols()
+    unique_elements.update(elements)
+    atoms.calc.results['energy'] -= sum(energies[element] for element in elements)
+    atoms.calc.results['energy'] /= N_atoms
+# Count the number of unique elements in the structures
 N_elements = len(unique_elements)
-unique_elements_str = ' '.join(unique_elements)
 
-# prepare input for NEP construction
+# Prepare input for NEP construction
 parameters = dict(version=4,
-                  type=[N_elements, unique_elements_str],
+                  type=[N_elements, ' '.join(unique_elements)],
                   cutoff=[8, 4],
                   neuron=30,
                   generation=100000,
                   batch=1000000)
-
+# Set up the input files for NEP training
 setup_training(parameters, structures, rootdir=run_dir, overwrite=True)
 
+# Run the NEP training via the nep executable of the GPUMD package
 subprocess.run(["nep"], cwd=os.path.join(run_dir, 'nepmodel_full'),
                check=True, text=True)

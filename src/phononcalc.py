@@ -454,7 +454,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
     
 
-    ax2.set_xlabel('DOS')
+    ax2.set_xlabel('DOS (1/THz)')
     ax2.legend(loc='upper right')
     # Force x- and y-ticks
     ax2.set_xticks(dos_tickmarks, dos_tickmarks)
