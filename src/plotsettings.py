@@ -81,20 +81,53 @@ class PlotSettings():
             ax.grid(True, which="minor", linestyle=":", linewidth=0.5, alpha=0.4)
 
     
-    def set_size(self, fig, width_pt=369.0, fraction=1, aspect_ratio=None):
+    def set_size(self, fig, width=1, aspect_ratio=None):
+
+        width_pt=369.0
         inches_per_pt = 1 / 72.27
-        # Target width
-        width_in = width_pt * fraction * inches_per_pt
+
+        # Total figure width (fixed)
+        fig_width_in = width_pt * inches_per_pt
+
+        # Graphics width
+        graphics_width_in = fig_width_in * width
 
         # Preserve original AR if not specified
         if aspect_ratio is None:
             w0, h0 = fig.get_size_inches()
             aspect_ratio = h0 / w0
 
-        height_in = width_in * aspect_ratio
-        # Set figure size
-        fig.set_size_inches(width_in, height_in)
+        # Graphics height from aspect ratio
+        graphics_height_in = graphics_width_in * aspect_ratio
+
+        # Figure height equals graphics height (no vertical whitespace)
+        fig_height_in = graphics_height_in
+
+        fig.set_size_inches(fig_width_in, fig_height_in)
+
+        # Center graphics horizontally
+        margin = (1 - width) / 2
+        fig.tight_layout(rect=[margin, 0, 1 - margin, 1])
     
+
+
+    def create_figure(self, width=0.7, style='default', minor=True, gridlines=False):
+        """Function to create a Matplotlib figure and axis with consistent styling.
+        Parameters:
+        - width: Fraction of the target width for the figure (default is 0.7).
+        - style: String specifying the style to apply to the axis ('default', 'minimalist', 'bands').
+        - minor: Boolean indicating whether to show minor ticks.
+        - gridlines: Boolean indicating whether to show gridlines.
+        Returns:
+        - fig: Matplotlib figure object with the specified size and styling.
+        - ax: Matplotlib axis object with the specified styling.
+        """
+        fig, ax = plt.subplots()
+        self.set_size(fig, width=width)
+        self.set_style_ax(ax, style=style, minor=minor, gridlines=gridlines)
+        return fig, ax
+
+
     def save_figure(self, fig, filename="figure", dir="figures"):
         """Function to save figure with consistent formatting (pdf).
         Parameters:
