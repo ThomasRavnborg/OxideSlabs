@@ -9,16 +9,16 @@ import numpy as np
 import pandas as pd
 from itertools import product
 from src.fdfcreate import generate_basis
+from src.structure import get_reduced_formula
 from src.cleanfiles import cleanFiles
 
-def run_siesta(perovskite, xcf='PBEsol', basis='DZPp',
+def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
                EnergyShift=0.01, SplitNorm=0.15,
                MeshCutoff=1000, kgrid=(10, 10, 10),
-               pseudo='PBEsol', dir='results/bulk/basis'):
+               dir='results/bulk/basis'):
     """Function to run a single Siesta self-consistent calculation
-    Parameters:
-    - perovskite: Custom object representing the structure to be relaxed.
-    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+    Arguments:
+    - atoms: ASE Atoms object representing the structure to be relaxed.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to use for the calculation (default: 'DZP').
              If basis ends with (lower-case) p, a polarization orbital will be added to the A-site (Ba)
@@ -26,15 +26,13 @@ def run_siesta(perovskite, xcf='PBEsol', basis='DZPp',
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 1000 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - pseudo: Pseudopotential to be used (default is 'PBEsol').
     - dir: Directory to save the results (default is 'results/bulk/phonons').
     Returns:
     - None. The function runs the calculation and outputs files in the specified directory.
     """
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
-    formula = perovskite.formula
-    atoms = perovskite.atoms
+    formula = get_reduced_formula(atoms)
 
     # Custom basis sets ending with 'p' are generated with the same parameters as the standard basis sets
     # However, an extra polarization (d) orbital is added to the A-site during LCAO basis generation
@@ -135,7 +133,7 @@ def basis_opt(perovskite, shifts, splits):
             # Create basis.fdf file for the current parameters
             generate_basis(perovskite.atoms, EnergyShift=shift, SplitNorm=split, dir=dir)
             # Get energy and enthalpy from SIESTA
-            energy = run_siesta(perovskite, EnergyShift=shift, SplitNorm=split,
+            energy = run_siesta(perovskite.atoms, EnergyShift=shift, SplitNorm=split,
                                 MeshCutoff=600, kgrid=(6, 6, 6), dir=dir)
             enthalpy = get_enthalpy(formula, dir)
             force = get_max_force(formula, dir)
@@ -191,7 +189,7 @@ def grid_conv(perovskite, meshcuts, kpoints):
             print(f"MeshCutoff={mc} and kgrid=({kp}, {kp}, {kp}) is in the DataFrame. Skipping.")
         else:
             # Get energy and enthalpy from SIESTA
-            energy = run_siesta(perovskite, EnergyShift=0.01, SplitNorm=0.15,
+            energy = run_siesta(perovskite.atoms, EnergyShift=0.01, SplitNorm=0.15,
                                 MeshCutoff=mc, kgrid=(kp, kp, kp), dir=dir)
             enthalpy = get_enthalpy(formula, dir)
             force = get_max_force(formula, dir)

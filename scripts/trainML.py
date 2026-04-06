@@ -28,7 +28,7 @@ for atoms in structures:
     elements = atoms.get_chemical_symbols()
     unique_elements.update(elements)
     atoms.calc.results['energy'] -= sum(energies[element] for element in elements)
-    atoms.calc.results['energy'] /= N_atoms
+    #atoms.calc.results['energy'] /= N_atoms
 # Count the number of unique elements in the structures
 N_elements = len(unique_elements)
 
