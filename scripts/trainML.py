@@ -1,5 +1,7 @@
 import os
 import copy as cp
+import json
+import random
 import subprocess
 from ase.io import read
 #import calorine
@@ -11,7 +13,10 @@ run_dir = 'results/bulk/BaTiO3/ML'
 
 # Read in the structures and energies
 structures = read(os.path.join(run_dir, 'structures.xyz@0:'))
-energies = {'Ba': -761.227747, 'Ti': -1604.974503, 'O': -440.177463}
+with open(os.path.join(run_dir, 'energies.json'), 'r') as f:
+    energies = json.load(f)
+# Randomly shuffle order of structures to ensure that the training and test sets are representative of the entire dataset
+random.shuffle(structures)
 
 # Shift the energies of the structures by the sum of the energies of the constituent atoms
 # This ensures that the NEP will learn the relative energies of the structures rather than the absolute energies
@@ -35,8 +40,10 @@ parameters = dict(version=4,
                   generation=100000,
                   batch=1000000)
 # Set up the input files for NEP training
-setup_training(parameters, structures, rootdir=run_dir, overwrite=True)
+setup_training(parameters, structures,
+               rootdir=run_dir, overwrite=True,
+               mode='kfold', n_splits=10)
 
 # Run the NEP training via the nep executable of the GPUMD package
-subprocess.run(["nep"], cwd=os.path.join(run_dir, 'nepmodel_full'),
+subprocess.run(["nep"], cwd=os.path.join(run_dir, 'nepmodel_split1'),
                check=True, text=True)
