@@ -21,10 +21,11 @@ project = SiestaProject(perovskite)
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
 shifts =  [0.01]
-splits =  [0.15]
+splits =  [0.3]
 cutoffs = [1000]
 grids =   [12]
-strains = [0.0, 0.01, -0.01, 0.005, -0.005]
+strains = [0.0]
+#strains = [0.0, 0.01, -0.01, 0.005, -0.005]
 
 def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
