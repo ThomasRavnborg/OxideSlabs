@@ -214,7 +214,7 @@ def convert_labels(labels):
     return np.array(converted)
 
 # Define a function that plots the bandstructure and DOS together
-def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
+def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, width=1):
     """Function to plot bandstructure and DOS for a given formula.
     Requires that the bandstructure and PDOS have already been calculated and saved to files.
     Parameters:
@@ -222,7 +222,8 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     - ids: Numpy array of IDs to plot.
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
-    - Ncells: Number of unit cells 
+    - Ncells: Number of unit cells
+    - width: Fraction of the target width for the figure (default is 1).
     Returns:
     - None. The function reads the bandstructure and PDOS data from files and plots the results.
     """
@@ -245,7 +246,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     ax1, ax2 = axes
     # Adjust spacing between subplots and set figure size using the custom PlotSettings class
     plt.subplots_adjust(wspace=0.08)
-    PlotSettings().set_size(fig)
+    #PlotSettings().set_size(fig)
 
     def _plot_bandstructure(ax, dir, val, col='k', mode='lcao'):
         if mode == 'lcao':
@@ -335,7 +336,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     ax1.axhline(y=0, color='k', linestyle=':', lw=0.8)
     ax2.axhline(y=0, color='k', linestyle=':', lw=0.8)
 
-    dir = f'results/{struc}/GPAW/bands'
+    dir = f'results/{struc}/GPAW/0.0/bands'
     CBM, VBM = _plot_bandstructure(ax1, dir, 'PW', mode='pw', col=colors[0])
     shift = VBM + (CBM - VBM)/2
     _plot_dos(ax2, dir, 'PW', mode='pw', shift=shift, col=colors[0])
@@ -378,11 +379,12 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     ax2.set_yticklabels([])
     # Apply custom plot settings to the axes
     PlotSettings().set_style_ax(ax2, style='bands')
-    
+    # Set figure size using the custom PlotSettings class
+    PlotSettings().set_size(fig, width)
     # Show figure
     plt.show()
 
-def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
+def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, width=1):
     """Function to plot bandstructures seperately
     Requires that the bandstructure has already been calculated and saved to files.
     Parameters:
@@ -391,6 +393,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
     - Ncells: Number of unit cells
+    - width: Fraction of the target width for the figure (default is 1).
     Returns:
     - None. The function reads the bandstructure data from files and plots the results.
     """
@@ -411,7 +414,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
 
     # Adjust spacing between subplots and set figure size using the custom PlotSettings class
     plt.subplots_adjust(wspace=0.05)
-    PlotSettings().set_size(fig)
+    #PlotSettings().set_size(fig)
 
     def _plot_bandstructure(ax, dir, val, col='k', mode='lcao'):
 
@@ -477,7 +480,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
         # Apply custom plot settings to the axes
         PlotSettings().set_style_ax(ax, style='default', minor=False)
     
-    dir = f'results/{struc}/GPAW/bands'
+    dir = f'results/{struc}/GPAW/0.0/bands'
     _plot_bandstructure(axes[0], dir, 'PW', col=colors[0], mode='pw')
 
     #dir = 'results/bulk/test_bands'
@@ -495,6 +498,8 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
     
     # Move y-axis of the last subplot to the right but maintain the y-tickmarks on the left
     axes[-1].tick_params(axis='y', labelright=True, labelleft=False)
+    # Set figure size using the custom PlotSettings class
+    PlotSettings().set_size(fig, width)
     # Show figure
     plt.show()
 
@@ -571,7 +576,7 @@ def plot_DOS(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
         PlotSettings().set_style_ax(ax, style='default', minor=False)
 
     
-    dir = f'results/{struc}/GPAW/bands'
+    dir = f'results/{struc}/GPAW/0.0/bands'
     _plot_dos(axes[0], dir, 'PW', col=colors[0], mode='pw', pDOS=False)
 
     #dir = 'results/bulk/test_bands'

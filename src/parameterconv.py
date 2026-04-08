@@ -62,6 +62,10 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     atoms.calc = calc
     # Run the calculation
     energy = atoms.get_potential_energy()
+
+    # Clean directory of SIESTA calculations
+    cleanFiles(directory=dir, confirm=False)
+
     return energy
 
 
@@ -134,16 +138,14 @@ def basis_opt(perovskite, shifts, splits):
             generate_basis(perovskite.atoms, EnergyShift=shift, SplitNorm=split, dir=dir)
             # Get energy and enthalpy from SIESTA
             energy = run_siesta(perovskite.atoms, EnergyShift=shift, SplitNorm=split,
-                                MeshCutoff=600, kgrid=(6, 6, 6), dir=dir)
+                                MeshCutoff=600, kgrid=(8, 8, 8), dir=dir)
             enthalpy = get_enthalpy(formula, dir)
-            force = get_max_force(formula, dir)
             # Append results
             row = {
                 "EnergyShift": shift,
                 "SplitNorm": split,
                 "Energy": energy,
-                "Enthalpy": enthalpy,
-                "MaxForce": force
+                "Enthalpy": enthalpy
             }
             # Create new dataframe
             df_new = pd.DataFrame([row])

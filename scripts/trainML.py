@@ -42,7 +42,7 @@ parameters = dict(version=4,
 # Set up the input files for NEP training
 setup_training(parameters, structures,
                rootdir=run_dir, overwrite=True,
-               mode='kfold', n_splits=10)
+               mode='bagging', train_fraction=0.9, n_splits=1)
 
 # Run the NEP training via the nep executable of the GPUMD package
 subprocess.run(["nep"], cwd=os.path.join(run_dir, 'nepmodel_split1'),

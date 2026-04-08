@@ -327,7 +327,7 @@ def get_phonon_pdos(phonon, bulk=True):
     return (pdos, freq, symbols)
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, pDOS=False):
+def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, pDOS=False, width=1):
     """Function to plot the phonon dispersion and DOS together.
     Parameters:
     - phonon: Phonopy object containing phonon data.
@@ -371,9 +371,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     #ax1 = fig.add_axes([0, 0, 1, 1])
     #ax2 = fig.add_axes([1.05, 0, 0.4, 1])
     ax1, ax2 = axes
-
     plt.subplots_adjust(wspace=0.08)
-    PlotSettings().set_size(fig)
     
     def _plot_disp(ax, phonon, val, col='k', vlines=True):
         # Extract phonon dispersion data
@@ -464,13 +462,16 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     ax2.set_ylim(E_tickmarks[0], E_tickmarks[-1])
     # Hide y-tick labels
     ax2.set_yticklabels([])
+
+    # Set figure size using the custom PlotSettings class
+    PlotSettings().set_size(fig, width)
     
     # Show figure
     plt.show()
 
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
+def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, width=1):
     """Function to plot the phonon dispersion seperately
     Parameters:
     - formula: Chemical formula of the material.
@@ -503,7 +504,6 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
     fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')
 
     plt.subplots_adjust(wspace=0.05)
-    PlotSettings().set_size(fig)
     
     def _plot_disp(ax, phonon, val, col='k'):
         # Extract phonon dispersion data
@@ -557,5 +557,8 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
     
     # Move y-axis of the last subplot to the right but maintain the y-tickmarks on the left
     axes[-1].tick_params(axis='y', labelright=True, labelleft=False)
+
+    # Set figure size using the custom PlotSettings class
+    PlotSettings().set_size(fig, width)
     # Show figure
     plt.show()

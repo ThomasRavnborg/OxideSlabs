@@ -372,15 +372,14 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
 
                 dir_mode = os.path.join(dir_group, f"Q_{mode_id+1}")
 
-                """
+                
                 if world.rank == 0:
                     try:
                         os.makedirs(dir_mode, exist_ok=False)
                     except FileExistsError:
                         parprint(f"Directory {dir_mode} already exists. Skipping calculation for this mode.", flush=True)
                         continue
-                """
-
+                
                 modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
 
                 # Generate the supercell and get the mode vector for the supercell
@@ -411,30 +410,9 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                 if world.rank == 0:
                     t0 = time.time() # Start timer
                 while True:
-                    # Create a copy of the supercell
-                    #supercell_disp = supercell.copy()
                     # Displace the atoms according to the mode vector by dd
                     supercell_disp.positions = ref_positions + amp * modevec_sc
-                    """
-                    if mode == 'lcao':
-                        # Set up the Siesta calculator
-                        calc = Siesta(**calc_params, fdf_arguments=fdf_args,
-                                      kpts=(kx, ky, kz), directory=dir_mode)
-                    elif mode == 'pw':
-                        # Check if a previous calculation exists in the directory
-                        if os.path.exists(os.path.join(dir_mode, "calc.gpw")):
-                            # If it exists, read the previous calculation to restart
-                            calc = GPAW(os.path.join(dir_mode, "calc.gpw"),
-                                        txt=os.path.join(dir_mode, f"{formula}.txt"),
-                                        symmetry={'point_group': False})
-                        else:
-                            # If not, start a new calculation
-                            calc = GPAW(txt=os.path.join(dir_mode, f"{formula}.txt"), **calc_params,
-                                        kpts={'size': (kx,ky,kz), 'gamma': True})
                     
-                    # Attach the calculator to the supercell
-                    supercell_disp.calc = calc
-                    """
                     # Run the calculation
                     energy = supercell_disp.get_potential_energy()
 
@@ -443,13 +421,7 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                     energies.append(energy)
                     # Append the supercell structure with displacements, forces and stresses to the list of images
                     img = copy_calc_results(supercell_disp)
-                    #img.calc = None
                     images.append(img)
-                    """
-                    if mode == 'pw':
-                        # Save the GPAW calculation to a file for restarting
-                        calc.write(os.path.join(dir_mode, "calc.gpw"), mode='all')
-                    """
                     # Append amplitude and update for the next iteration
                     amplitudes.append(amp)
                     amp += dd

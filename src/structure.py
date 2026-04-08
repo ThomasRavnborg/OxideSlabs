@@ -11,11 +11,11 @@ class Perovskite:
     - a: Lattice constant in Angstroms.
     - N: Number of unit cells in each direction for bulk (int) or thickness of the slab in unit cells (float).
     - bulk: Boolean indicating whether to create a bulk structure (True) or a slab structure (False).
-    - dvac: Vacuum spacing in the z-direction for slab structures (default is 10.0).
+    - dvac: Vacuum spacing in the z-direction for slab structures (default is 20.0).
     Attributes:
     - atoms: ASE Atoms object representing the perovskite structure.
     """
-    def __init__(self, formula='ABX3', N=1, bulk=True, dvac=10.0):
+    def __init__(self, formula='ABX3', N=1, bulk=True, dvac=20.0):
         self.formula = formula
         self.symbols = [formula[0:2], formula[2:4], formula[4]]
         self.ncells = N

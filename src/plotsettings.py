@@ -11,7 +11,7 @@ class PlotSettings():
     def __init__(self):
         pass
 
-    def set_global_style(self, latex=False, base_font_size=10):
+    def set_global_style(self, latex=False, base_font_size=9):
         """Function to set global plot styles for consistent and publication-quality figures.
         Parameters:
         - latex: Boolean indicating whether to use LaTeX for text rendering.
@@ -26,8 +26,8 @@ class PlotSettings():
             "font.serif": ["DejaVu Serif"],
             "mathtext.fontset": "cm",
             "font.size": base_font_size,
-            "axes.labelsize": base_font_size,
             "axes.titlesize": base_font_size,
+            "axes.labelsize": base_font_size * 0.9,
             "legend.fontsize": base_font_size * 0.8,
             "xtick.labelsize": base_font_size * 0.8,
             "ytick.labelsize": base_font_size * 0.8,
@@ -83,6 +83,46 @@ class PlotSettings():
     
     def set_size(self, fig, width=1, aspect_ratio=None):
 
+        width_pt = 369.0
+        inches_per_pt = 1 / 72.27
+
+        fig_width_in = width_pt * inches_per_pt
+        graphics_width_in = fig_width_in * width
+
+        if aspect_ratio is None:
+            w0, h0 = fig.get_size_inches()
+            aspect_ratio = h0 / w0
+
+        graphics_height_in = graphics_width_in * aspect_ratio
+        fig_height_in = graphics_height_in
+
+        fig.set_size_inches(fig_width_in, fig_height_in)
+
+        # initial margins from graphics width
+        margin = (1 - width) / 2
+
+        fig.subplots_adjust(left=margin, right=1-margin, bottom=0.2, top=0.95)
+
+        # draw figure to compute label sizes
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+        extra_left = 0
+        extra_right = 0
+
+        for ax in fig.axes:
+
+            if ax.get_ylabel():
+                bbox = ax.yaxis.label.get_window_extent(renderer)
+                extra_left = max(extra_left, bbox.width / fig.dpi / fig_width_in)
+        print(extra_left)
+        # extend both sides equally so the plot stays centered
+        margin = margin + extra_left
+
+        fig.subplots_adjust(left=margin, right=1-margin, bottom=0.2, top=0.95)
+
+    def set_size_old(self, fig, width=1, aspect_ratio=None):
+
         width_pt=369.0
         inches_per_pt = 1 / 72.27
 
@@ -107,7 +147,8 @@ class PlotSettings():
 
         # Center graphics horizontally
         margin = (1 - width) / 2
-        fig.tight_layout(rect=[margin, 0, 1 - margin, 1])
+        #fig.tight_layout(rect=[margin, 0, 1 - margin, 1])
+        fig.subplots_adjust(left=margin, right=1 - margin, bottom=0.2, top=0.95)
     
 
 
@@ -141,4 +182,4 @@ class PlotSettings():
         parts = filename.split('.')
         filename = parts[0]
         # Save the figure as a PDF with the specified filename
-        fig.savefig(os.path.join(dir, f'{parts[0]}.pdf'), bbox_inches="tight")
+        fig.savefig(os.path.join(dir, f'{parts[0]}.pdf'))
