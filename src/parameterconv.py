@@ -54,7 +54,8 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     # fdf arguments in a dictionary
     fdf_args = {
         '%include': os.path.join(dir_fdf, 'basis.fdf'),
-        'PAO.SplitNorm': SplitNorm
+        'PAO.SplitNorm': SplitNorm,
+        'SCF.DM.Tolerance': 1e-6
     }
     
     # Set up the Siesta calculator and attach it to the atoms object
@@ -64,7 +65,7 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     energy = atoms.get_potential_energy()
 
     # Clean directory of SIESTA calculations
-    cleanFiles(directory=dir, confirm=False)
+    cleanFiles(directory=dir, formats=['.BASIS_ENTHALPY', '.FA'], confirm=False)
 
     return energy
 

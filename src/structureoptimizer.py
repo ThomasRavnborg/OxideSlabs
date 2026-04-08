@@ -109,7 +109,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
     kgrid = list(kgrid)
 
     # Relaxation parameters
-    fmax = 0.005
+    fmax = 1    # meV/Å
     filt = True
 
     # Custom basis sets ending with 'p' are generated with the same parameters as the standard basis sets
@@ -190,7 +190,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
                logfile=os.path.join(dir, f"{formula}.log"),
                trajectory=os.path.join(dir, f"{formula}.traj"))
     # Run the optimization until forces are smaller than fmax
-    opt.run(fmax=fmax)
+    opt.run(fmax=fmax*1.e-3)
 
     if world.rank == 0:
         t1 = time.time() # Stop timer
