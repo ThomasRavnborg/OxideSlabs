@@ -14,7 +14,7 @@ from src.frozenphonon import calculate_frozen_phonons
 
 # Create atoms object for BaTiO3 and initialize project
 formula = 'BaTiO3'
-perovskite = Perovskite(formula)
+perovskite = Perovskite(formula, N=1.5, bulk=False)
 project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
