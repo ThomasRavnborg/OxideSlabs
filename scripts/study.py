@@ -57,8 +57,6 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
         params_calc = params.copy()
         params_calc.pop('strain')
 
-        next_step = 'frozen'  # Temporary
-
         # If all steps are complete, skip to the next parameter set unless runall is True
         if next_step == "complete" and not runall:
             parprint(f"All steps complete for calculation {calc_id}. Skipping.", flush=True)
@@ -120,6 +118,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
         
+        next_step = 'skip' # Temporary
         
         # If frozen phonon calculation needs to be run, run it and update the dataframe
         if next_step == "frozen" or runall:
