@@ -89,7 +89,7 @@ def modify_basis(block_in, symbols, auto_radii=True):
         # append polarization shell
         lines.extend(pol_shell)
 
-        block_out = "\n".join(lines)
+        block_out = "\n".join(lines) + "\n"
         return block_out
     
     for i in indices:
