@@ -19,10 +19,10 @@ project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['TZPp']
+basis =   ['DZPp', 'DZPd']
 shifts =  [0.01]
 splits =  [0.15]
-cutoffs = [1000]
+cutoffs = [1001]
 grids =   [12]
 strains = [0.0]
 #strains = [0.0, 0.01, -0.01, 0.005, -0.005]
