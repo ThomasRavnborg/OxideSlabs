@@ -57,7 +57,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
 
     # Custom basis sets ending with 'p' are generated with the same parameters as the standard basis sets
     # However, an extra polarization (d) orbital is added to the A-site during LCAO basis generation
-    if basis.endswith('p'):
+    if basis.endswith('p') or basis.endswith('d'):
         basis = basis[:-1]
 
     if not bulk:
