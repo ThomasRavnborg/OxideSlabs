@@ -251,7 +251,7 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
                              mode='lcao', deg=True,
-                             dir='resultsold/bulk/frozen', par=False):
+                             dir='resultsold/bulk/frozen', par=True):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Arguments:
     - phonon (Phonopy): Phonopy object containing the phonon calculation results.
@@ -265,7 +265,7 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
     - mode (str): String indicating whether to use localized atomic orbitals ('lcao') or plane waves ('pw') for the calculations (default: 'lcao').
     - deg (bool): Boolean indicating whether to consider degenerate modes at the q-points (default: True).
     - dir (str): Directory where the results will be saved (default: 'resultsold/bulk/frozen').
-    - par (bool): Boolean indicating whether to run calculations in parallel (default: False).
+    - par (bool): Boolean indicating whether to run calculations in parallel (default: True).
     Returns:
     - None (results are saved to files in the specified directory).
     """
