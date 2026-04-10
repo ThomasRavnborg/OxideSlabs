@@ -200,7 +200,7 @@ def generate_basis(atoms, xcf='PBEsol', basis='DZPp',
         orbitals_dict = {
                 'Ba': '5d',
                 'Sr': '4d',
-                'Ti': '4d',
+                'Ti': '4f',
         }
         orbitals = [orbitals_dict[targets[i]] for i in range(len(targets))]
 

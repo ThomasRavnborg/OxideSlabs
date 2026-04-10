@@ -17,14 +17,12 @@ formula = 'SrTiO3'
 perovskite = Perovskite(formula, N=1.5, bulk=False)
 project = SiestaProject(perovskite)
 
-project.remove_calculation('0004')
-
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['DZPp', 'DZPd']
+basis =   ['DZPd']
 shifts =  [0.01]
 splits =  [0.15]
-cutoffs = [1001]
+cutoffs = [1000]
 grids =   [12]
 strains = [0.0]
 #strains = [0.0, 0.01, -0.01, 0.005, -0.005]
@@ -120,7 +118,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
         
-        next_step = 'skip' # Temporary
+        """
         
         # If frozen phonon calculation needs to be run, run it and update the dataframe
         if next_step == "frozen" or runall:
@@ -132,6 +130,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             calculate_frozen_phonons(phonon, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
+        """
         
 
-run(xcfs, basis, shifts, splits, cutoffs, grids, strains)
+run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=True)
