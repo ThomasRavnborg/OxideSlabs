@@ -195,7 +195,6 @@ def generate_basis(atoms, xcf='PBEsol', basis='DZPp',
 
     # If the original basis string ended with 'p', add a polarization orbital to the A-site
     if add_p:
-        targets = [symbols[0]]
 
         orbitals_dict = {
                 'Ba': '5d',
