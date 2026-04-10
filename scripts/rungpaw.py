@@ -13,16 +13,18 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
 
-def run(formula, task, strain=0.0):
+def run(formula, task, strain=0.0, Ncells=1, bulk=True):
     """Function to run the entire workflow for a given perovskite formula.
     Parameters:
     - formula: Chemical formula of the perovskite ('ABX3').
     - strain: Strain value for the perovskite structure.
+    - Ncells: Number of unit cells in the perovskite structure.
+    - bulk: Boolean indicating whether the structure is bulk or a slab.
     Returns:
     - None. The function performs the relaxation, band structure calculation, and phonon calculation, and saves the results to files.
     """
 
-    perovskite = Perovskite(formula)
+    perovskite = Perovskite(formula, N=Ncells, bulk=bulk)
     N = perovskite.ncells
     bulk = perovskite.bulk
     if bulk:
@@ -83,9 +85,10 @@ def run(formula, task, strain=0.0):
                                  MeshCutoff=60, kgrid=(12, 12, 12),
                                  mode='pw', dir=dir_task, deg=False)
 
-for formula in ['BaTiO3', 'SrTiO3']:
-    for strain in [-0.01]:
-        for task in ['relax', 'bands', 'phonons']:
-            run(formula, task, strain)
-            # Wait for all parallel processes to finish
-            world.barrier()
+for formula in ['BaTiO3']:
+    for Ncells in [2.5, 3.5]:
+        for strain in [0.0]:
+            for task in ['relax', 'bands', 'phonons']:
+                run(formula, task, strain, Ncells=Ncells, bulk=False)
+                # Wait for all parallel processes to finish
+                world.barrier()
