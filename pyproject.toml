@@ -7,6 +7,7 @@ requires-python = ">=3.9"
 dependencies = [
     "ase>=3.26.0",
     "calorine>=3.3",
+    "hiphive>=1.5",
     "phonopy>=2.45.1",
     "sisl>=0.16.2",
 ]
