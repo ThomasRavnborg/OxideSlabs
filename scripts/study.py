@@ -12,14 +12,14 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
 
-# Create atoms object for SrTiO3 and initialize project
-formula = 'SrTiO3'
-perovskite = Perovskite(formula, N=1.5, bulk=False)
+# Create atoms object for BaTiO3 and initialize project
+formula = 'BaTiO3'
+perovskite = Perovskite(formula, N=2.5, bulk=False)
 project = SiestaProject(perovskite)
 
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
-basis =   ['DZPd']
+basis =   ['DZPp']
 shifts =  [0.01]
 splits =  [0.15]
 cutoffs = [1000]
@@ -133,4 +133,4 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
         """
         
 
-run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=True)
+run(xcfs, basis, shifts, splits, cutoffs, grids, strains)
