@@ -13,7 +13,7 @@ from src.calculators import run_siesta
 
 class ActiveLearningNEP:
 
-    def __init__(self, run_dir, iteration=1):
+    def __init__(self, run_dir, iteration=1, overwrite=False):
 
         self.run_dir = run_dir
         self.iteration = iteration
@@ -42,11 +42,7 @@ class ActiveLearningNEP:
                 else:
                     print(f"Warning! {self.count} structures have no calculator results.")
                     print("DFT calculations must be run with run_DFT(), or these will be omitted.", flush=True)
-
-            # Save snapshot if not already present or count != 0
-            if not os.path.exists(self.iter_dataset_path) or self.count != 0:
-                write(self.iter_dataset_path, self.data)
-                print(f"Saved iteration snapshot → {self.iter_dataset_path}", flush=True)
+        
         else:
             print("No global dataset found.", flush=True)
             self.data = None
@@ -199,7 +195,6 @@ class ActiveLearningNEP:
                        rootdir=self.iter_dir, overwrite=True,
                        mode='bagging', train_fraction=0.9, n_splits=1)
         print(f"NEP training setup complete. {len(data)} structures selected for training/testing.", flush=True)
-
     
 
     def train_nep(self):
@@ -222,7 +217,7 @@ class ActiveLearningNEP:
             f.writelines(lines)
 
 
-    def extract_descriptors(self):
+    def run_prediction_mode(self):
         nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
         nep_in = os.path.join(nep_dir, "nep.in")
 
@@ -230,21 +225,6 @@ class ActiveLearningNEP:
 
         print("Running NEP in prediction mode...", flush=True)
         subprocess.run(["nep"], cwd=nep_dir, check=True)
-
-        desc_file = os.path.join(nep_dir, "descriptor.out")
-
-        if not os.path.exists(desc_file):
-            raise RuntimeError("descriptor.out not found")
-
-        A = np.loadtxt(desc_file)
-
-        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
-
-        self.descriptors = A
-
-        print(f"Loaded descriptor matrix: {A.shape}", flush=True)
-
-
 
     def _maxvol(self, A, n_select, n_iter=20):
 
@@ -270,13 +250,24 @@ class ActiveLearningNEP:
 
         return np.unique(idx)
 
+    def extract_descriptors(self):
+        nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
+        desc_file = os.path.join(nep_dir, "descriptor.out")
 
+        if not os.path.exists(desc_file):
+            raise RuntimeError("descriptor.out not found")
+
+        A = np.loadtxt(desc_file)
+
+        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
+
+        self.descriptors = A
+
+        print(f"Loaded descriptor matrix: {A.shape}", flush=True)
 
     def build_active_set(self, n_active=200):
-
-        if not hasattr(self, "descriptors"):
-            raise RuntimeError("Run extract_descriptors first")
-
+        # Extract descriptors for the dataset structures
+        self.extract_descriptors()
         A = self.descriptors
 
         print("Running MaxVol for active set...", flush=True)
@@ -347,10 +338,6 @@ class ActiveLearningNEP:
             cwd=md_dir,
             check=True
         )
-
-        print("MD finished. Outputs:")
-        print("- dump.xyz (structures)")
-        print("- extrapolation.dat (gamma)")
     
 
     def extract_md_descriptors(self):
