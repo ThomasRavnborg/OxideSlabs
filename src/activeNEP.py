@@ -209,7 +209,8 @@ class ActiveLearningNEP:
 
         lines = [l for l in lines if not l.strip().startswith(("prediction", "dataset"))]
 
-        lines.append("prediction 1\n")
+        lines.append("prediction 1\n")          # Set prediction mode
+        lines.append("output_descriptor 2\n")   # Output per-atom descriptors
         if dataset is not None:
             lines.append(f"dataset {dataset}\n")
 

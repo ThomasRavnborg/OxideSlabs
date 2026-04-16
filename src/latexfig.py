@@ -61,17 +61,42 @@ class LatexFigure:
 
         return width_in, height_in
 
-    def _style_axes(self, axes, grid, minor):
+    def _style_axes(self, axes, style, grid, minor):
 
         for ax in axes:
 
+            if style == 'default':
+                # Ticks on all sides, pointing inwards, with specific lengths and widths
+                ax.tick_params(which='both', direction='in', top=True, right=True)
+                #ax.tick_params(which='major', length=6, width=0.8)
+                #ax.tick_params(which='minor', length=3, width=0.8)
+                # Change spine widths
+                for spine in ax.spines.values():
+                    spine.set_linewidth(0.8)
+
+            if style == 'minimalist':
+                # Minimalist style
+                # Hide top and right spines (borders)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                # Ticks only on bottom and left
+                ax.tick_params(which='both', top=False, right=False)
+            
+            if style == 'bands':
+                # Ticks on all sides, pointing outwards, with specific lengths and widths
+                ax.tick_params(which='both', direction='out', pad = 4)
+                #ax.tick_params(which='major', length=6, width=0.8)
+                #ax.tick_params(which='minor', length=3, width=0.8)
+
             if minor:
-                ax.xaxis.set_minor_locator(AutoMinorLocator())
-                ax.yaxis.set_minor_locator(AutoMinorLocator())
+                ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+                ax.yaxis.set_minor_locator(AutoMinorLocator(2))
 
             if grid:
                 ax.grid(True, which="major", ls="--", lw=0.6, alpha=0.7)
                 ax.grid(True, which="minor", ls=":", lw=0.5, alpha=0.5)
+            
+        
 
     def _add_panel_labels(self, axes, offset=(0.02, 0.95)):
 
@@ -89,12 +114,13 @@ class LatexFigure:
                 ha="left",
             )
 
-    def create(self, width=1.0, AR=0.62, subplots=(1, 1), grid=False, minor=True, panel_labels=False, **kwargs):
+    def create(self, width=1.0, AR=0.62, subplots=(1, 1), style='default', grid=False, minor=True, panel_labels=False, **kwargs):
         """Function to create a figure and style the axes.
         Arguments:
         - width: fraction of LaTeX textwidth to use for figure width (e.g. 0.8 for 80% of textwidth)
         - AR: the aspect ratio of the figure
         - subplots: tuple of (nrows, ncols) for the number of subplots
+        - style: the style to apply to the axes
         - grid: whether to show grid lines
         - minor: whether to show minor ticks
         - panel_labels: whether to add panel labels (a), (b), etc.
@@ -109,7 +135,7 @@ class LatexFigure:
                                  constrained_layout=True, **kwargs)
         axes = axes.flatten()
 
-        self._style_axes(axes, grid, minor)
+        self._style_axes(axes, style, grid, minor)
 
         if panel_labels:
             self._add_panel_labels(axes)
