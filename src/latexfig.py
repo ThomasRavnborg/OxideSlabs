@@ -53,20 +53,15 @@ class LatexFigure:
             "savefig.dpi": 300,
         })
 
-    def _figsize(self, aspect_ratio=0.62):
+    def _figsize(self, width, nrows, ncols, aspect_ratio):
 
         inches_per_pt = 1 / 72.27
-        width = self.textwidth_pt * inches_per_pt
-        height = width * aspect_ratio
+        width_in = self.textwidth_pt * inches_per_pt * width
+        height_in = width_in * aspect_ratio * nrows / ncols
 
-        return width, height
+        return width_in, height_in
 
     def _style_axes(self, axes, grid, minor):
-
-        if not hasattr(axes, "flat"):
-            axes = [axes]
-        else:
-            axes = axes.flat
 
         for ax in axes:
 
@@ -79,11 +74,6 @@ class LatexFigure:
                 ax.grid(True, which="minor", ls=":", lw=0.5, alpha=0.5)
 
     def _add_panel_labels(self, axes, offset=(0.02, 0.95)):
-
-        if not hasattr(axes, "flat"):
-            axes = [axes]
-        else:
-            axes = axes.flat
 
         for i, ax in enumerate(axes):
 
@@ -99,9 +89,11 @@ class LatexFigure:
                 ha="left",
             )
 
-    def create(self, subplots=(1, 1), grid=False, minor=True, panel_labels=False, **kwargs):
+    def create(self, width=1.0, AR=0.62, subplots=(1, 1), grid=False, minor=True, panel_labels=False, **kwargs):
         """Function to create a figure and style the axes.
         Arguments:
+        - width: fraction of LaTeX textwidth to use for figure width (e.g. 0.8 for 80% of textwidth)
+        - AR: the aspect ratio of the figure
         - subplots: tuple of (nrows, ncols) for the number of subplots
         - grid: whether to show grid lines
         - minor: whether to show minor ticks
@@ -112,7 +104,10 @@ class LatexFigure:
         - axes: the created axes object(s)
         """
 
-        fig, axes = plt.subplots(*subplots, figsize=self._figsize(), constrained_layout=True, **kwargs)
+        fig, axes = plt.subplots(*subplots,
+                                 figsize=self._figsize(width, *subplots, aspect_ratio=AR),
+                                 constrained_layout=True, **kwargs)
+        axes = axes.flatten()
 
         self._style_axes(axes, grid, minor)
 
