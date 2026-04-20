@@ -178,12 +178,12 @@ class ActiveLearningNEP:
                 write(os.path.join(self.run_dir, f"{label}.xyz"), data)
 
         if which in ('train', 'all'):
-            _label_DFT(self.data_train, label='train')
+            _label_DFT(self.train_data, label='train')
         if which in ('test', 'all'):
-            _label_DFT(self.data_test, label='test')
+            _label_DFT(self.test_data, label='test')
 
-        #write(os.path.join(self.run_dir, "train.xyz"), self.data_train)
-        #write(os.path.join(self.run_dir, "test.xyz"), self.data_test)
+        #write(os.path.join(self.run_dir, "train.xyz"), self.train_data)
+        #write(os.path.join(self.run_dir, "test.xyz"), self.test_data)
 
         self.count = 0
 
