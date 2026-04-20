@@ -54,12 +54,11 @@ def phonopy_to_ase(atoms_phonopy, bulk=True):
                  symbols=atoms_phonopy.symbols,
                  pbc=pbc)
 
-def phonon_to_atoms(phonon, cell='unit', bulk=True):
+def phonon_to_atoms(phonon, cell='unit'):
     """Function to convert a Phonopy object to an ASE Atoms object.
     Parameters:
     - phonon: Phonopy object representing the structure.
     - cell: String indicating whether to use 'unit' or 'super' cell.
-    - bulk: Boolean indicating whether to use the bulk structure.
     Returns:
     - ASE Atoms object with the same structure as the input Phonopy object.
     """
@@ -70,6 +69,11 @@ def phonon_to_atoms(phonon, cell='unit', bulk=True):
         cell = phonon.supercell
     else:
         raise ValueError("Cell must be 'unit' or 'super'")
+    # Check if the supercell is a slab
+    if phonon.supercell_matrix.diagonal()[-1] == 1:
+        bulk = False
+    else:
+        bulk = True
     # Convert PhonopyAtoms to ASE Atoms
     return phonopy_to_ase(cell, bulk)
 

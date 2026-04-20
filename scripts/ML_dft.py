@@ -1,4 +1,4 @@
 from src.activeNEP import ActiveLearningNEP
 
-NEP = ActiveLearningNEP('results/MLtest')
-NEP.run_DFT()
+NEP = ActiveLearningNEP('results/nep')
+NEP.run_DFT('train')

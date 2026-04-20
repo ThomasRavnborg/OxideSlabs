@@ -5,7 +5,8 @@ import subprocess
 import numpy as np
 import phonopy as ph
 from ase.io import read, write
-from calorine.nep import setup_training
+from calorine.nep import setup_training, get_descriptors
+#from calorine.nep import get_descriptors
 from hiphive.structure_generation import generate_phonon_rattled_structures
 from src.phononcalc import phonon_to_atoms, phonopy_to_ase
 from src.frozenphonon import copy_calc_results
@@ -15,23 +16,23 @@ class ActiveLearningNEP:
 
     def __init__(self, run_dir, iteration=1, overwrite=False):
 
+        # Define run directory and iteration number for active learning loop
         self.run_dir = run_dir
         self.iteration = iteration
 
-        # Global dataset
-        self.dataset_path = os.path.join(run_dir, "dataset.xyz")
-
-        # Iteration folder
+        # Create iteration folder
         self.iter_dir = os.path.join(run_dir, f"iteration_{iteration}")
         os.makedirs(self.iter_dir, exist_ok=True)
 
-        # Snapshot dataset for THIS iteration
-        self.iter_dataset_path = os.path.join(self.iter_dir, "dataset.xyz")
-
-        if os.path.exists(self.dataset_path):
-            self.data = read(self.dataset_path, ":")
-            print(f"Loaded global dataset: {len(self.data)} structures", flush=True)
+        # Attempt to load existing training and test datasets from the run directory, if they exist.
+        try:
+            self.train_data = read(os.path.join(self.run_dir, "train.xyz"), ":")
+            self.test_data = read(os.path.join(self.run_dir, "test.xyz"), ":")
+            print(f"Loaded {len(self.train_data)} training structures and {len(self.test_data)} test structures", flush=True)
+            
+            self.data = self.train_data + self.test_data
             self.count = len([s for s in self.data if s.calc is None])
+
             if self.count > 0:
                 if self.count == len(self.data):
                     print("Warning! No structures have calculator results.")
@@ -43,29 +44,57 @@ class ActiveLearningNEP:
                     print(f"Warning! {self.count} structures have no calculator results.")
                     print("DFT calculations must be run with run_DFT(), or these will be omitted.", flush=True)
         
-        else:
-            print("No global dataset found.", flush=True)
+        except Exception:
+            self.train_data = None
+            self.test_data = None
             self.data = None
+            print("No train.xyz and test.xyz files found.")
+            print("Use prepare_dataset() to create the datasets based on .yaml files.", flush=True)
+
+    def _get_rattled_structures(self, atoms, fc, T, n_structures):
+        # Produce phonon rattled structures using the force constants and the original structure
+        rattled_structures = generate_phonon_rattled_structures(atoms, fc2=fc, temperature=T,
+                                                                n_structures=n_structures)
+        return rattled_structures
+
+    def _strain_structure(self, atoms, strain):
+        strain *= 0.01  # Convert percentage to a decimal
+
+        # Get the current cell parameters
+        cell = atoms.cell.copy()
+        # Randomly pick a lattice parameter (a, b, or c) to apply the strain to
+        i = np.random.randint(0, 3)
+        # Apply the specified strain to the in-plane lattice parameters (a and b)
+        cell[i, i] *= (1 + strain)  # Strain applied to a
+        # Update the cell parameters of the atoms object
+        atoms.set_cell(cell, scale_atoms=True)
 
     # 0. Prepare dataset for NEP training
 
-    def prepare_dataset(self, overwrite=False,
-                        n_rattle=100, temperatures=[300, 500, 700],
-                        n_strain=10, strains=[-1.0, -0.5, 0.5, 1.0]):
-        
+    def prepare_dataset(self, N_structures=500, temperatures = [300, 500, 700],
+                        frac_strain=0.1, strains=[-1.0, -0.5, 0.5, 1.0],
+                        train_fraction=0.9, overwrite=False):
+
         if self.data is not None and not overwrite:
             print("Existing data found. Data preperation skipped.")
             print("To overwrite existing data, set overwrite=True.", flush=True)
             return
 
         yaml_files = [f for f in os.listdir(self.run_dir) if f.endswith(".yaml")]
+        n_rattle = N_structures//(len(yaml_files)*len(temperatures))
 
         if not yaml_files:
             raise RuntimeError("No phonopy (.yaml) files found in specified directory.")
 
         else:
-            data = []
+            train_data = []
+            test_data = []
+
             for yaml_file in yaml_files:
+
+                structures = []
+                augmented_structures = []
+
                 phonon = ph.load(os.path.join(self.run_dir, yaml_file))
         
                 # Produce the force constants
@@ -73,59 +102,57 @@ class ActiveLearningNEP:
                 # Get the force constants matrix
                 fc = phonon.force_constants
 
-                atoms = phonon_to_atoms(phonon, cell='super')
-
                 # Convert the phonon object to an ASE Atoms object
-                structures = [atoms]
+                atoms = phonon_to_atoms(phonon, cell='super')
+                structures.append(atoms)
 
                 # Extract all displaced structures and convert them to ASE Atoms objects
                 for atoms_phonopy in phonon.supercells_with_displacements:
                     # Convert the phonopy Atoms object to an ASE Atoms object and append
                     displaced_structures = phonopy_to_ase(atoms_phonopy, bulk=True)
                     structures.append(displaced_structures)
-                
-                print(f"Extracted {len(structures)} structures from phonon calculation (including original and displaced)", flush=True)
-                
-                def _get_rattled_structures(atoms, fc, T, n_structures):
-                    # Produce phonon rattled structures using the force constants and the original structure
-                    rattled_structures = generate_phonon_rattled_structures(atoms, fc2=fc, temperature=T,
-                                                                            n_structures=n_structures)
-                    return rattled_structures
+            
+                #print(f"Extracted {len(structures)} structures from phonon calculation (including original and displaced)", flush=True)
 
                 for T in temperatures:
-                    structures.extend(_get_rattled_structures(atoms, fc, T, n_rattle))
+                    augmented_structures.extend(self._get_rattled_structures(atoms, fc, T, n_rattle))
                 
-                print(f"Generated {n_rattle*len(temperatures)} rattled structures", flush=True)
+                #print(f"Generated {n_rattle*len(temperatures)} rattled structures", flush=True)
+                
+                # Randomly pick out a fraction of the augmented structures to apply random strains to
+                n_strain = int(len(augmented_structures) * frac_strain)
+                idx = np.random.choice(len(augmented_structures), size=n_strain, replace=False)
 
-                def _get_strained_structures(atoms, strain):
-                    strain *= 0.01  # Convert percentage to a decimal
-                    
-                    strained_structures = []
-                    # Pick random component of the cell matrix to strain
-                    for _ in range(n_strain):
-                        atoms_strain = atoms.copy()
-                        cell = atoms.get_cell()
-                        i = np.random.randint(0, 3)
-                        j = np.random.randint(0, 3)
-                        cell[i, j] *= (1 + strain)
-                        atoms_strain.set_cell(cell, scale_atoms=True)
-                        strained_structures.append(atoms_strain)
-                    return strained_structures
+                for i in idx:
+                    strain = np.random.choice(strains)
+                    self._strain_structure(augmented_structures[i], strain)
 
-                for strain in strains:
-                    structures.extend(_get_strained_structures(atoms, strain))
+                #print(f"Strained {n_strain*len(strains)} of the rattled structures", flush=True)
 
-                print(f"Generated {n_strain*len(strains)} strained structures", flush=True)
+                #print(f"{len(structures)} total structures", flush=True)
+                train_data.extend(structures)
 
-                print(f"{len(structures)} total structures", flush=True)
-                data.extend(structures)
+                n_train = int(len(augmented_structures) * train_fraction)
+                np.random.shuffle(augmented_structures)
 
-            self.data = data
-            write(os.path.join(self.run_dir, "dataset.xyz"), data)
+                train_data.extend(augmented_structures[:n_train])
+                test_data.extend(augmented_structures[n_train:])
+
+                #print(f"{len(data)} structures in the dataset", flush=True)
+            
+            print(f"Total dataset prepared: {len(train_data) + len(test_data)} structures")
+            print(f"Training set: {len(train_data)} structures, Test set: {len(test_data)} structures", flush=True)
+
+            write(os.path.join(self.run_dir, "train.xyz"), train_data)
+            write(os.path.join(self.run_dir, "test.xyz"), test_data)
+
+            self.train_data = train_data
+            self.test_data = test_data
     
+
     # 1. Run DFT calculations
 
-    def run_DFT(self):
+    def run_DFT(self, which='all'):
 
         try:
             with open(os.path.join(self.run_dir, 'dft_params.json'), 'r') as f:
@@ -139,15 +166,26 @@ class ActiveLearningNEP:
             print("No data available to run DFT. Please prepare the dataset first.", flush=True)
             return
         
-        self.count = len([s for s in self.data if s.calc is None])
+        #self.count = len([s for s in self.data if s.calc is None])
         print(f"Running DFT on {self.count} structures without calculator assigned...", flush=True)
-        for i in range(len(self.data)):
-            struct = self.data[i]
-            if struct.calc is None:
-                run_siesta(struct, **dft_params, dir=os.path.join(self.run_dir, 'siesta'))
-                self.data[i] = copy_calc_results(struct)
-            
-            write(os.path.join(self.run_dir, "dataset.xyz"), self.data)
+        
+        def _label_DFT(data, label='train'):
+            for i in range(len(data)):
+                struct = data[i]
+                if struct.calc is None:
+                    run_siesta(struct, **dft_params, dir=os.path.join(self.run_dir, 'DFT'))
+                data[i] = copy_calc_results(struct)
+                write(os.path.join(self.run_dir, f"{label}.xyz"), data)
+
+        if which in ('train', 'all'):
+            _label_DFT(self.data_train, label='train')
+        if which in ('test', 'all'):
+            _label_DFT(self.data_test, label='test')
+
+        #write(os.path.join(self.run_dir, "train.xyz"), self.data_train)
+        #write(os.path.join(self.run_dir, "test.xyz"), self.data_test)
+
+        self.count = 0
 
     # 2. Set up NEP training
 
@@ -195,7 +233,66 @@ class ActiveLearningNEP:
                        rootdir=self.iter_dir, overwrite=True,
                        mode='bagging', train_fraction=0.9, n_splits=1)
         print(f"NEP training setup complete. {len(data)} structures selected for training/testing.", flush=True)
+
+        #self.train_data = read(os.path.join(self.iter_dir, "nepmodel_split1", "train.xyz"), ":")
+        #self.test_data = read(os.path.join(self.iter_dir, "nepmodel_split1", "test.xyz"), ":")
     
+
+    def setup_nep2(self, parameters_nep):
+        # Check if data is available and has calculator results before setting up NEP training
+        
+        try:
+            # Copy train.xyz and test.xyz to the iteration directory for NEP training
+            write(os.path.join(self.iter_dir, "train.xyz"), self.train_data)
+            write(os.path.join(self.iter_dir, "test.xyz"), self.test_data)
+        
+        except Exception:
+            print(f"Missing train.xyz and/or test.xyz. Cannot setup NEP training.", flush=True)
+            return
+
+        if self.count > 0:
+            print(f"Warning! {self.count} structures have no calculator results.", flush=True)
+            #return
+        
+        self.unique_elements = set()
+        
+        def _shift_energies(data):
+            # Attempt to read energies from energies.json, which should have been generated by the DFT calculations
+            try:
+                with open(os.path.join(self.run_dir, 'energies.json'), 'r') as f:
+                    energies = json.load(f)
+
+            except FileNotFoundError:
+                energies = None
+                print("Atomic energies file (energies.json) not found in directory.")
+                print("It is highly recommended to have the atomic energies of the constituent elements for better NEP training.", flush=True)
+
+            energies = None # temporary fix
+
+            # Shift the energies of the structures by the sum of the energies of the constituent atoms, if energies are available
+            for atoms in data:
+                elements = atoms.get_chemical_symbols()
+                self.unique_elements.update(elements)
+                if energies is not None:
+                    atoms.calc.results['energy'] -= sum(energies[element] for element in elements)
+
+        _shift_energies(self.train_data)
+        _shift_energies(self.test_data)
+
+        # Set up the input files for NEP training
+        params = dict(version=4, type=[len(self.unique_elements), ' '.join(self.unique_elements)])
+        params.update(parameters_nep)
+
+        # Dump params to a .in file
+        with open(os.path.join(self.iter_dir, "nep.in"), "w") as f:
+            for key, value in params.items():
+                if isinstance(value, list):
+                    value_str = ' '.join(map(str, value))
+                else:
+                    value_str = str(value)
+                f.write(f"{key}  {value_str}\n")
+
+
 
     def train_nep(self):
         train_dir = os.path.join(self.iter_dir, "nepmodel_split1")
@@ -227,29 +324,6 @@ class ActiveLearningNEP:
         print("Running NEP in prediction mode...", flush=True)
         subprocess.run(["nep"], cwd=nep_dir, check=True)
 
-    def _maxvol(self, A, n_select, n_iter=20):
-
-        N = A.shape[0]
-        n_select = min(n_select, N)
-
-        idx = np.random.choice(N, n_select, replace=False)
-
-        for _ in range(n_iter):
-            sub = A[idx]
-
-            try:
-                inv = np.linalg.pinv(sub)
-            except np.linalg.LinAlgError:
-                break
-
-            scores = np.linalg.norm(A @ inv, axis=1)
-
-            worst = np.argmax(scores)
-            replace = np.argmin(scores[idx])
-
-            idx[replace] = worst
-
-        return np.unique(idx)
 
     def extract_descriptors(self):
         nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
@@ -266,24 +340,105 @@ class ActiveLearningNEP:
 
         print(f"Loaded descriptor matrix: {A.shape}", flush=True)
 
-    def build_active_set(self, n_active=200):
-        # Extract descriptors for the dataset structures
-        self.extract_descriptors()
-        A = self.descriptors
 
-        print("Running MaxVol for active set...", flush=True)
-        idx = self._maxvol(A, n_active)
+    def compute_descriptors(self):
+        
+        desc_file = os.path.join(self.iter_dir, "descriptor.out")
+        nep_file = os.path.join(self.iter_dir, "nep.txt")
 
-        asi_path = os.path.join(self.iter_dir, "active_set.asi")
+        if os.path.exists(desc_file):
+            A = np.loadtxt(desc_file)
+            print(f"Loaded existing descriptor matrix: {A.shape}", flush=True)
+        
+        elif os.path.exists(nep_file):
+            print("Descriptor file not found, but nep.txt exists. Computing descriptors with Calorine.", flush=True)
+            A = []
+            for structure in self.train_data:
+                A.append(get_descriptors(structure, os.path.join(self.iter_dir, "nep.txt")))
+            A = np.vstack(A)
+            # Save to descriptor.out for future use
+            np.savetxt(os.path.join(self.iter_dir, "descriptor.out"), A, fmt="%.6e")
 
-        with open(asi_path, "w") as f:
-            f.write("# Active set indices\n")
-            for i in idx:
-                f.write(f"{i}\n")
+        else:
+            raise RuntimeError("Neither descriptor.out nor nep.txt found. Cannot compute descriptors.")
 
-        self.active_set = idx
+        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
 
-        print(f"Active set written: {len(idx)} environments", flush=True)
+        self.descriptors = A
+
+        print(f"Computed descriptor matrix: {A.shape}", flush=True)
+
+    """
+    def build_structure_mapping(xyz_file):
+        Returns:
+            struct_index: (N_atoms,) mapping atom -> structure id
+            struct_sizes: number of atoms per structure
+
+        traj = read(xyz_file, index=":")
+
+        struct_index = []
+        #struct_sizes = []
+
+        for i, atoms in enumerate(traj):
+            n = len(atoms)
+            struct_index.extend([i] * n)
+            #struct_sizes.append(n)
+
+        return np.array(struct_index)
+    """
+
+
+    def build_active_set(self, batch_size=None):
+        """
+        Wrapper for MaxVol active set selection.
+
+        Args:
+            B (np.ndarray): descriptor matrix (N, M)
+            batch_size (int or None)
+
+        Returns:
+            active_set_struct (np.ndarray): selected descriptor matrix (M, M-ish)
+            active_struct_index (np.ndarray): indices of selected environments
+            active_rows (np.ndarray): row indices in B
+        """
+        from src.MaxVol import calculate_maxvol
+        from src.asiIO import save_asi
+
+        def find_inverse(m):
+            return np.linalg.pinv(m, rcond=1e-8)
+
+        train_data = read(os.path.join(self.iter_dir, "train.xyz"), ":")
+
+        struct_index = []
+
+        for i, atoms in enumerate(train_data):
+            n = len(atoms)
+            struct_index.extend([i] * n)
+        struct_index = np.array(struct_index)
+        self.active_index = struct_index
+
+        print("Performing MaxVol...")
+
+        A_active, active_struct_index = calculate_maxvol(
+            self.descriptors,
+            struct_index,
+            batch_size=batch_size,
+        )
+        self.active = A_active
+
+        # recover row indices in original B
+        active_rows = []
+        for idx in active_struct_index:
+            active_rows.append(np.where(struct_index == idx)[0][0])
+        active_rows = np.array(active_rows)
+
+        print("Finding inverse...")
+        A_inv = find_inverse(A_active)
+
+        print("Saving active set inverse...")
+        save_asi(A_inv, filename=os.path.join(self.iter_dir, "active_set.asi"))
+
+        #return A_active, active_struct_index, active_rows
 
 
 

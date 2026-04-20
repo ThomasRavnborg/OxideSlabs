@@ -1,12 +1,8 @@
 import os
+import string
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
-import string
-import os
-import string
-import matplotlib.pyplot as plt
-from matplotlib.ticker import AutoMinorLocator
-
 
 class LatexFigure:
     """
@@ -133,7 +129,8 @@ class LatexFigure:
         fig, axes = plt.subplots(*subplots,
                                  figsize=self._figsize(width, *subplots, aspect_ratio=AR),
                                  constrained_layout=True, **kwargs)
-        axes = axes.flatten()
+        
+        axes = np.atleast_1d(axes).ravel()
 
         self._style_axes(axes, style, grid, minor)
 
