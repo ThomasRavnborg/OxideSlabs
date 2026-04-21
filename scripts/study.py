@@ -12,11 +12,6 @@ from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
 
-# Create atoms object for BaTiO3 and initialize project
-formula = 'BaTiO3'
-perovskite = Perovskite(formula, N=2.5, bulk=False)
-project = SiestaProject(perovskite)
-
 # Define lists of parameters to iterate over
 xcfs =    ['PBEsol']
 basis =   ['DZPp']
@@ -27,7 +22,7 @@ grids =   [12]
 strains = [0.0]
 #strains = [0.0, 0.01, -0.01, 0.005, -0.005]
 
-def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
+def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
     # Find all combinations of parameters and store in a list of dictionaries
     combinations = list(product(xcfs, basis, shifts, splits, cutoffs, grids, strains))
@@ -43,6 +38,10 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             'kgrid': (combo[5], combo[5], combo[5]),
             'strain': combo[6]
         })
+
+    # Create atoms object for BaTiO3 and initialize project
+    perovskite = Perovskite(formula, N=1.5, bulk=False)
+    project = SiestaProject(perovskite)
 
     # Loop over parameter combinations and prepare calculations
     for params in param_dicts:
@@ -118,8 +117,6 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
         
-        """
-        
         # If frozen phonon calculation needs to be run, run it and update the dataframe
         if next_step == "frozen" or runall:
             parprint(f"Running frozen phonon calculation for calculation {calc_id} with SIESTA", flush=True)
@@ -130,7 +127,7 @@ def run(xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
             calculate_frozen_phonons(phonon, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
-        """
-        
 
-run(xcfs, basis, shifts, splits, cutoffs, grids, strains)
+
+for formula in ['BaTiO3', 'SrTiO3']:
+    run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains)

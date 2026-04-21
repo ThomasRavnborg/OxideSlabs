@@ -10,6 +10,7 @@ from calorine.nep import setup_training, get_descriptors
 from hiphive.structure_generation import generate_phonon_rattled_structures
 from src.phononcalc import phonon_to_atoms, phonopy_to_ase
 from src.frozenphonon import copy_calc_results
+from src.fdfcreate import generate_basis
 from src.calculators import run_siesta
 
 class ActiveLearningNEP:
@@ -37,11 +38,11 @@ class ActiveLearningNEP:
                 if self.count == len(self.data):
                     print("Warning! No structures have calculator results.")
                     print("DFT calculations must be runwith run_DFT(), or the dataset will be empty.", flush=True)
-                elif self.count == 1:
+                elif self.count == len(self.data) - 1:
                     print("Warning! 1 structure has no calculator results.")
                     print("DFT calculations must be runwith run_DFT(), or this structure will be omitted.", flush=True)
                 else:
-                    print(f"Warning! {self.count} structures have no calculator results.")
+                    print(f"Warning! {self.count}/{len(self.data)} structures have no calculator results.")
                     print("DFT calculations must be run with run_DFT(), or these will be omitted.", flush=True)
         
         except Exception:
@@ -173,6 +174,7 @@ class ActiveLearningNEP:
             for i in range(len(data)):
                 struct = data[i]
                 if struct.calc is None:
+                    #generate_basis(struct, dir=os.path.join(self.run_dir, 'DFT'))
                     run_siesta(struct, **dft_params, dir=os.path.join(self.run_dir, 'DFT'))
                 data[i] = copy_calc_results(struct)
                 write(os.path.join(self.run_dir, f"{label}.xyz"), data)
@@ -325,48 +327,53 @@ class ActiveLearningNEP:
         subprocess.run(["nep"], cwd=nep_dir, check=True)
 
 
-    def extract_descriptors(self):
-        nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
-        desc_file = os.path.join(nep_dir, "descriptor.out")
+    def _extract_descriptors(self, desc_file):
+        #nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
+        #desc_file = os.path.join(nep_dir, "descriptor.out")
 
-        if not os.path.exists(desc_file):
-            raise RuntimeError("descriptor.out not found")
+        #if not os.path.exists(desc_file):
+        #    raise RuntimeError("descriptor.out not found")
 
         A = np.loadtxt(desc_file)
 
         A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
 
-        self.descriptors = A
-
         print(f"Loaded descriptor matrix: {A.shape}", flush=True)
 
+        return A
 
-    def compute_descriptors(self):
+    def _calculate_descriptors(self, structures):
+        A = []
+        for structure in structures:
+            A.append(get_descriptors(structure, os.path.join(self.iter_dir, "nep.txt")))
+        A = np.vstack(A)
+
+        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
+
+        print(f"Computed descriptor matrix: {A.shape}", flush=True)
+
+        return A
+
+
+    def compute_descriptors(self, get_out=True, write_out=True):
         
         desc_file = os.path.join(self.iter_dir, "descriptor.out")
         nep_file = os.path.join(self.iter_dir, "nep.txt")
 
-        if os.path.exists(desc_file):
-            A = np.loadtxt(desc_file)
-            print(f"Loaded existing descriptor matrix: {A.shape}", flush=True)
-        
+        if os.path.exists(desc_file) and get_out:
+            A = self._extract_descriptors(desc_file)
+
         elif os.path.exists(nep_file):
             print("Descriptor file not found, but nep.txt exists. Computing descriptors with Calorine.", flush=True)
-            A = []
-            for structure in self.train_data:
-                A.append(get_descriptors(structure, os.path.join(self.iter_dir, "nep.txt")))
-            A = np.vstack(A)
+            A = self._calculate_descriptors(self.data_train)
             # Save to descriptor.out for future use
-            np.savetxt(os.path.join(self.iter_dir, "descriptor.out"), A, fmt="%.6e")
+            if write_out:
+                np.savetxt(os.path.join(self.iter_dir, "descriptor.out"), A, fmt="%.6e")
 
         else:
             raise RuntimeError("Neither descriptor.out nor nep.txt found. Cannot compute descriptors.")
 
-        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
-
         self.descriptors = A
-
-        print(f"Computed descriptor matrix: {A.shape}", flush=True)
 
     """
     def build_structure_mapping(xyz_file):
@@ -388,7 +395,45 @@ class ActiveLearningNEP:
     """
 
 
-    def build_active_set(self, batch_size=None):
+    def _extract_active_set(self, asi_file):
+
+        from src.asiIO import load_asi
+        def find_inverse(m):
+            return np.linalg.pinv(m, rcond=1e-8)
+
+        A_inv = load_asi(asi_file)
+        A_active = find_inverse(A_inv)
+
+        return A_active
+
+    def _calculate_active_set(self, structures, batch_size=None):
+
+        from src.MaxVol import calculate_maxvol
+
+        struct_index = []
+
+        for i, atoms in enumerate(structures):
+            n = len(atoms)
+            struct_index.extend([i] * n)
+        struct_index = np.array(struct_index)
+        self.active_index = struct_index
+
+        print("Performing MaxVol...")
+
+        descriptors = self.compute_descriptors(structures, get_out=False, write_out=False)
+
+        A_active, active_struct_index = calculate_maxvol(
+            descriptors, struct_index, batch_size=batch_size
+        )
+        
+        #A_inv = find_inverse(A_active)
+        
+        return A_active
+
+    
+
+
+    def build_active_set(self, batch_size=None, get_asi=True, write_asi=True):
         """
         Wrapper for MaxVol active set selection.
 
@@ -401,44 +446,30 @@ class ActiveLearningNEP:
             active_struct_index (np.ndarray): indices of selected environments
             active_rows (np.ndarray): row indices in B
         """
+        """
         from src.MaxVol import calculate_maxvol
-        from src.asiIO import save_asi
+        from src.asiIO import load_asi, save_asi
+
+        def find_inverse(m):
+            return np.linalg.pinv(m, rcond=1e-8)
+        """
 
         def find_inverse(m):
             return np.linalg.pinv(m, rcond=1e-8)
 
-        train_data = read(os.path.join(self.iter_dir, "train.xyz"), ":")
+        asi_file = os.path.join(self.iter_dir, "active_set.asi")
+        if os.path.exists(asi_file) and get_asi:
+            print("Existing active set inverse found. Loading...")
+            A_active = self._extract_active_set(asi_file)
+            self.active = A_active
+        else:
+            print("Building active set...")
+            A_active = self._calculate_active_set(self.data_train, batch_size=batch_size)
+            self.active = A_active
+            if write_asi:
+                np.savetxt(asi_file, find_inverse(A_active), fmt="%.6e")
+                print(f"Active set inverse saved to {asi_file}", flush=True)
 
-        struct_index = []
-
-        for i, atoms in enumerate(train_data):
-            n = len(atoms)
-            struct_index.extend([i] * n)
-        struct_index = np.array(struct_index)
-        self.active_index = struct_index
-
-        print("Performing MaxVol...")
-
-        A_active, active_struct_index = calculate_maxvol(
-            self.descriptors,
-            struct_index,
-            batch_size=batch_size,
-        )
-        self.active = A_active
-
-        # recover row indices in original B
-        active_rows = []
-        for idx in active_struct_index:
-            active_rows.append(np.where(struct_index == idx)[0][0])
-        active_rows = np.array(active_rows)
-
-        print("Finding inverse...")
-        A_inv = find_inverse(A_active)
-
-        print("Saving active set inverse...")
-        save_asi(A_inv, filename=os.path.join(self.iter_dir, "active_set.asi"))
-
-        #return A_active, active_struct_index, active_rows
 
 
 
@@ -524,6 +555,21 @@ class ActiveLearningNEP:
         self.md_descriptors = A
 
         print(f"MD descriptor matrix: {A.shape}", flush=True)
+
+
+    def find_candidates(self, new_structures):
+
+        data = self.train_data + new_structures
+
+        active_set_index = self.build_active_set(data, get_asi=False, write_asi=False)
+
+
+        candidate_structures = [data[i] for i in active_set_index if i >= len(self.train_data)]
+
+        print(f"Found {len(candidate_structures)} candidate structures from MD", flush=True)
+
+        return candidate_structures
+
 
 
     def select_structures(self, gamma_threshold=5.0):
