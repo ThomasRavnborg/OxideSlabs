@@ -328,11 +328,6 @@ class ActiveLearningNEP:
 
 
     def _extract_descriptors(self, desc_file):
-        #nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
-        #desc_file = os.path.join(nep_dir, "descriptor.out")
-
-        #if not os.path.exists(desc_file):
-        #    raise RuntimeError("descriptor.out not found")
 
         A = np.loadtxt(desc_file)
 
@@ -365,7 +360,7 @@ class ActiveLearningNEP:
 
         elif os.path.exists(nep_file):
             print("Descriptor file not found, but nep.txt exists. Computing descriptors with Calorine.", flush=True)
-            A = self._calculate_descriptors(self.data_train)
+            A = self._calculate_descriptors(self.train_data)
             # Save to descriptor.out for future use
             if write_out:
                 np.savetxt(os.path.join(self.iter_dir, "descriptor.out"), A, fmt="%.6e")
@@ -374,25 +369,6 @@ class ActiveLearningNEP:
             raise RuntimeError("Neither descriptor.out nor nep.txt found. Cannot compute descriptors.")
 
         self.descriptors = A
-
-    """
-    def build_structure_mapping(xyz_file):
-        Returns:
-            struct_index: (N_atoms,) mapping atom -> structure id
-            struct_sizes: number of atoms per structure
-
-        traj = read(xyz_file, index=":")
-
-        struct_index = []
-        #struct_sizes = []
-
-        for i, atoms in enumerate(traj):
-            n = len(atoms)
-            struct_index.extend([i] * n)
-            #struct_sizes.append(n)
-
-        return np.array(struct_index)
-    """
 
 
     def _extract_active_set(self, asi_file):
@@ -416,23 +392,20 @@ class ActiveLearningNEP:
             n = len(atoms)
             struct_index.extend([i] * n)
         struct_index = np.array(struct_index)
-        self.active_index = struct_index
 
         print("Performing MaxVol...")
 
-        descriptors = self.compute_descriptors(structures, get_out=False, write_out=False)
+        descriptors = self._calculate_descriptors(structures)
 
-        A_active, active_struct_index = calculate_maxvol(
+        A_active, active_index = calculate_maxvol(
             descriptors, struct_index, batch_size=batch_size
         )
         
         #A_inv = find_inverse(A_active)
         
-        return A_active
+        return A_active, active_index
 
     
-
-
     def build_active_set(self, batch_size=None, get_asi=True, write_asi=True):
         """
         Wrapper for MaxVol active set selection.
@@ -454,6 +427,8 @@ class ActiveLearningNEP:
             return np.linalg.pinv(m, rcond=1e-8)
         """
 
+        from src.asiIO import save_asi
+
         def find_inverse(m):
             return np.linalg.pinv(m, rcond=1e-8)
 
@@ -464,21 +439,21 @@ class ActiveLearningNEP:
             self.active = A_active
         else:
             print("Building active set...")
-            A_active = self._calculate_active_set(self.data_train, batch_size=batch_size)
+            A_active, active_index = self._calculate_active_set(self.train_data, batch_size=batch_size)
             self.active = A_active
+            self.active_index = active_index
             if write_asi:
-                np.savetxt(asi_file, find_inverse(A_active), fmt="%.6e")
+                save_asi(find_inverse(A_active), asi_file)
                 print(f"Active set inverse saved to {asi_file}", flush=True)
 
 
 
-
-    def setup_MD(self, temperature=300, n_steps=5000, dump_interval=10):
+    def setup_MD(self, temperature=300, n_steps=10000, dump_interval=100):
         md_dir = os.path.join(self.iter_dir, "md")
         os.makedirs(md_dir, exist_ok=True)
 
         # Copy the trained NEP model to the MD directory
-        nep_src = os.path.join(self.iter_dir, "nepmodel_split1", "nep.txt")
+        nep_src = os.path.join(self.iter_dir, "nep.txt")
         nep_dst = os.path.join(md_dir, "nep.txt")
 
         if not os.path.exists(nep_src):
@@ -497,19 +472,19 @@ class ActiveLearningNEP:
         write(model_path, atoms)
 
         run_in = f"""
-        replicate 5 5 5
-        potential nep.txt
+potential nep.txt
 
-        velocity {temperature}
-        time_step 1.0
+velocity {temperature}
+time_step 1.0
+dump_exyz {dump_interval} 0 1
 
-        compute_extrapolation asi_file ../active_set.asi check_interval 10 gamma_low 5 gamma_high 10
-        ensemble npt_mttk iso 0 0 temp {temperature} {temperature+200}
-        run {n_steps}
+compute_extrapolation asi_file ../active_set.asi gamma_low 5 gamma_high 10 check_interval {dump_interval} dump_interval {dump_interval}
+ensemble npt_mttk iso 0 0 temp {temperature} {temperature+200}
+run {n_steps}
 
-        compute_extrapolation asi_file ../active_set.asi check_interval 10 gamma_low 5 gamma_high 10
-        ensemble npt_mttk iso 0 0 temp {temperature+200} {temperature}
-        run {n_steps}
+compute_extrapolation asi_file ../active_set.asi gamma_low 5 gamma_high 10 check_interval {dump_interval} dump_interval {dump_interval}
+ensemble npt_mttk iso 0 0 temp {temperature+200} {temperature}
+run {n_steps}
         """
 
         with open(os.path.join(md_dir, "run.in"), "w") as f:
@@ -530,7 +505,7 @@ class ActiveLearningNEP:
     def extract_md_descriptors(self):
 
         md_dir = os.path.join(self.iter_dir, "md")
-        nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
+        nep_dir = os.path.join(self.iter_dir, "nep.txt")
 
         dump_file = os.path.join(md_dir, "dump.xyz")
         if not os.path.exists(dump_file):
@@ -557,14 +532,41 @@ class ActiveLearningNEP:
         print(f"MD descriptor matrix: {A.shape}", flush=True)
 
 
-    def find_candidates(self, new_structures):
+    def find_candidates(self, new_structures, gamma_th=5.0, n_MaxVol=1):
 
-        data = self.train_data + new_structures
+        gamma_structures = self.calculate_gamma(new_structures)
 
-        active_set_index = self.build_active_set(data, get_asi=False, write_asi=False)
+        # Filter structures with gamma above a certain threshold
+        highgamma_structures = [s for s, g in zip(new_structures, gamma_structures) if g > gamma_th]
+        
+        if len(highgamma_structures) == 0:
+            print(f"No structures found with gamma > {gamma_th}", flush=True)
+            return []
+        
+        print(f"Found {len(highgamma_structures)} high-gamma structures with gamma > {gamma_th}")
+        
+        """
+        print(f"Performing {n_MaxVol}-round MaxVol selection on high-gamma structures...", flush=True)
+        candidate_structures = []
+        remaining_structures = highgamma_structures.copy()
 
+        for _ in range(n_MaxVol):
 
-        candidate_structures = [data[i] for i in active_set_index if i >= len(self.train_data)]
+            # Perform MaxVol on the candidate structures to find the most informative ones
+            A_active, active_struc_index = self._calculate_active_set(remaining_structures)
+            active_struc_index = np.unique(active_struc_index)
+            unique_structures = [remaining_structures[i] for i in active_struc_index]
+
+            # Append the unique structures from this round of MaxVol to the candidate list
+            candidate_structures.extend(unique_structures)
+            # Remove the selected structures from the high-gamma pool for the next round
+            remaining_structures = [s for i, s in enumerate(remaining_structures) if i not in active_struc_index]
+
+        """
+        # Perform MaxVol on the candidate structures to find the most informative ones
+        A_active, active_struc_index = self._calculate_active_set(highgamma_structures)
+        active_struc_index = np.unique(active_struc_index)
+        candidate_structures = [highgamma_structures[i] for i in active_struc_index]
 
         print(f"Found {len(candidate_structures)} candidate structures from MD", flush=True)
 
@@ -592,6 +594,38 @@ class ActiveLearningNEP:
         self.candidate_structures = selected
 
         print(f"Selected {len(selected)} high-gamma structures", flush=True)
+
+
+    def calculate_gamma(self, structures):
+        """
+        Compute extrapolation grade (gamma) for all environments.
+
+        Args:
+            structures (list): List of structure objects
+
+        Returns:
+            gamma (np.ndarray): shape (N,)
+        """
+        
+        B = self._calculate_descriptors(structures)
+
+        def find_inverse(m):
+            return np.linalg.pinv(m, rcond=1e-8)
+        
+        A_inv = find_inverse(self.active)
+
+        # projection matrix
+        C = B @ A_inv  # (N, M)
+
+        gamma = np.max(np.abs(C), axis=1)
+
+        struct_index = self._map_env_to_struct(structures)
+
+        gamma_struct = []
+        for s in np.unique(struct_index):
+            gamma_struct.append(np.max(gamma[struct_index == s]))
+
+        return np.array(gamma_struct)
 
 
 
