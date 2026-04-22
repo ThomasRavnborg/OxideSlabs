@@ -480,10 +480,10 @@ time_step 1.0
 dump_exyz {dump_interval} 0 1
 
 compute_extrapolation asi_file ../active_set.asi gamma_low 5 gamma_high 10 check_interval {dump_interval} dump_interval {dump_interval}
+
 ensemble npt_mttk iso 0 0 temp {temperature} {temperature+200}
 run {n_steps}
 
-compute_extrapolation asi_file ../active_set.asi gamma_low 5 gamma_high 10 check_interval {dump_interval} dump_interval {dump_interval}
 ensemble npt_mttk iso 0 0 temp {temperature+200} {temperature}
 run {n_steps}
         """
