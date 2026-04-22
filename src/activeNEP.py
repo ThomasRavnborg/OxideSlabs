@@ -324,7 +324,8 @@ class ActiveLearningNEP:
         self._set_prediction_mode(nep_in)
 
         print("Running NEP in prediction mode...", flush=True)
-        subprocess.run(["nep"], cwd=nep_dir, check=True)
+        subprocess.run(["nep"], cwd=nep_dir,
+                       check=True, text=True)
 
 
     def _extract_descriptors(self, desc_file):
@@ -495,11 +496,8 @@ run {n_steps}
         md_dir = os.path.join(self.iter_dir, "md")
         print("Running GPUMD...")
 
-        subprocess.run(
-            ["gpumd"],
-            cwd=md_dir,
-            check=True
-        )
+        subprocess.run(["gpumd"], cwd=md_dir,
+                       check=True, text=True)
     
 
     def extract_md_descriptors(self):
