@@ -40,7 +40,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
         })
 
     # Create atoms object for BaTiO3 and initialize project
-    perovskite = Perovskite(formula, N=1.5, bulk=False)
+    perovskite = Perovskite(formula, N=2.5, bulk=False)
     project = SiestaProject(perovskite)
 
     # Loop over parameter combinations and prepare calculations
@@ -124,7 +124,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             # Load phonon data from the specified directory and formula
             phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))
             # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-            calculate_frozen_phonons(phonon, **params_calc, dir=dir_step)
+            calculate_frozen_phonons(phonon, **params_calc, dir=dir_step, bulk=perovskite.bulk)
             # Update dataframe
             project.update_summary(calc_id, params)
 

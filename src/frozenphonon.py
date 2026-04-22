@@ -250,7 +250,7 @@ def get_displacement(unitcell, q, modevec):
 def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
-                             mode='lcao', deg=True,
+                             mode='lcao', bulk=True, deg=True,
                              dir='resultsold/bulk/frozen', par=True):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Arguments:
@@ -295,6 +295,11 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
         'R': 5/n_points,
         'M': 3/n_points,
     }
+
+    if not bulk:
+        # Remove 'R' from dictionaries
+        q_dict.pop('R')
+        dd_dict.pop('R')
 
     # In SIESTA, calculations are performed with localized atomic orbitals (LCAO)
     if mode == 'lcao':
