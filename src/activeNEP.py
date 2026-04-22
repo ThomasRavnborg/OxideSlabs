@@ -334,6 +334,12 @@ class ActiveLearningNEP:
         #nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
         nep_in = os.path.join(self.iter_dir, "nep.in")
 
+        # Check if there is an existing descriptor.out file and remove it
+        desc_file = os.path.join(self.iter_dir, "descriptor.out")
+        if os.path.exists(desc_file):
+            print("Existing descriptor.out file found. Was removed.", flush=True)
+            os.remove(desc_file)
+
         self._set_prediction_mode(nep_in)
 
         print("Running NEP in prediction mode...", flush=True)
@@ -398,7 +404,7 @@ class ActiveLearningNEP:
 
         return A_active
 
-    def _calculate_active_set(self, structures, batch_size=None):
+    def _calculate_active_set(self, structures, get_out=False, batch_size=None):
 
         from src.MaxVol import calculate_maxvol
 
@@ -409,9 +415,13 @@ class ActiveLearningNEP:
             struct_index.extend([i] * n)
         struct_index = np.array(struct_index)
 
+        desc_file = os.path.join(self.iter_dir, "descriptor.out")
+        if get_out:
+            descriptors = self._extract_descriptors(desc_file)
+        else:
+            descriptors = self._calculate_descriptors(structures)
+        
         print("Performing MaxVol...")
-
-        descriptors = self._calculate_descriptors(structures)
 
         A_active, active_index = calculate_maxvol(
             descriptors, struct_index, batch_size=batch_size
@@ -455,7 +465,7 @@ class ActiveLearningNEP:
             self.active = A_active
         else:
             print("Building active set...")
-            A_active, active_index = self._calculate_active_set(self.train_data, batch_size=batch_size)
+            A_active, active_index = self._calculate_active_set(self.train_data, get_out=True, batch_size=batch_size)
             self.active = A_active
             self.active_index = active_index
             if write_asi:
