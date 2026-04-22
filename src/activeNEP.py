@@ -318,13 +318,13 @@ class ActiveLearningNEP:
 
 
     def run_prediction_mode(self):
-        nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
-        nep_in = os.path.join(nep_dir, "nep.in")
+        #nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
+        nep_in = os.path.join(self.iter_dir, "nep.in")
 
         self._set_prediction_mode(nep_in)
 
         print("Running NEP in prediction mode...", flush=True)
-        subprocess.run(["nep"], cwd=nep_dir,
+        subprocess.run(["nep"], cwd=self.iter_dir,
                        check=True, text=True)
 
 
@@ -332,7 +332,7 @@ class ActiveLearningNEP:
 
         A = np.loadtxt(desc_file)
 
-        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
+        #A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
 
         print(f"Loaded descriptor matrix: {A.shape}", flush=True)
 
@@ -344,7 +344,7 @@ class ActiveLearningNEP:
             A.append(get_descriptors(structure, os.path.join(self.iter_dir, "nep.txt")))
         A = np.vstack(A)
 
-        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
+        #A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
 
         print(f"Computed descriptor matrix: {A.shape}", flush=True)
 
@@ -523,7 +523,7 @@ run {n_steps}
         desc_file = os.path.join(nep_dir, "descriptor.out")
         A = np.loadtxt(desc_file)
 
-        A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
+        #A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
 
         self.md_descriptors = A
 
