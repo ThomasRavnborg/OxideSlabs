@@ -14,14 +14,25 @@ from src.calculators import run_siesta
 
 class ActiveLearningNEP:
 
-    def __init__(self, run_dir, iteration=1):
+    def __init__(self, run_dir):
 
-        # Define run directory and iteration number for active learning loop
+        # Define run directory
         self.run_dir = run_dir
-        self.iteration = iteration
+
+        # Load iteration number if it exists, otherwise start at 1
+        iter_file = os.path.join(self.run_dir, "iteration.txt")
+        if os.path.exists(iter_file):
+            with open(iter_file) as f:
+                self.iteration = int(f.read().strip())
+        else:
+            self.iteration = 1
+            with open(iter_file, "w") as f:
+                f.write(str(self.iteration))
+        
+        print(f"Current iteration: {self.iteration}", flush=True)
 
         # Create iteration folder
-        self.iter_dir = os.path.join(run_dir, f"iteration_{iteration}")
+        self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
         os.makedirs(self.iter_dir, exist_ok=True)
 
         # Attempt to load existing training and test datasets from the run directory, if they exist.
@@ -52,7 +63,7 @@ class ActiveLearningNEP:
             self.train_data = None
             self.test_data = None
             self.data = None
-            self.unique_elements = None
+            self.unique_elements = set()
             print("No train.xyz and test.xyz files found.")
             print("Use prepare_dataset() to create the datasets based on .yaml files.", flush=True)
 
@@ -486,23 +497,24 @@ class ActiveLearningNEP:
         write(model_path, atoms)
 
         run_in = f"""
-potential ../nep.txt
+        potential ../nep.txt
 
-velocity {temperature}
-time_step 1.0
-dump_exyz {dump_interval} 0 1
+        velocity {temperature}
+        time_step 1.0
+        dump_exyz {dump_interval} 0 1
 
-compute_extrapolation asi_file ../active_set.asi gamma_low 5 gamma_high 10 check_interval {dump_interval} dump_interval {dump_interval}
+        compute_extrapolation asi_file ../active_set.asi gamma_low 1 gamma_high 10 check_interval {dump_interval} dump_interval {dump_interval}
 
-ensemble npt_mttk iso 0 0 temp {temperature} {temperature+200}
-run {n_steps}
+        ensemble npt_mttk iso 0 0 temp {temperature} {temperature+200}
+        run {n_steps}
 
-ensemble npt_mttk iso 0 0 temp {temperature+200} {temperature}
-run {n_steps}
+        ensemble npt_mttk iso 0 0 temp {temperature+200} {temperature}
+        run {n_steps}
         """
 
         with open(os.path.join(md_dir, "run.in"), "w") as f:
-            f.write(run_in)
+            text = "\n".join(line.strip() for line in run_in.splitlines())
+            f.write(text)
 
 
     def run_MD(self):
@@ -511,7 +523,7 @@ run {n_steps}
 
         subprocess.run(["gpumd"], cwd=md_dir, check=True, text=True)
     
-
+    """
     def extract_md_descriptors(self):
 
         md_dir = os.path.join(self.iter_dir, "md")
@@ -540,7 +552,7 @@ run {n_steps}
         self.md_descriptors = A
 
         print(f"MD descriptor matrix: {A.shape}", flush=True)
-
+    """
 
     def assign_gamma(self, structures, descriptors):
         
@@ -643,3 +655,9 @@ run {n_steps}
 
         print(f"Sucessfully added {len(new_structs)} structures to train.xyz")
         print(f"Total structures in train.xyz: {len(self.train_data)}", flush=True)
+
+        # Update iteration number and overwrite iteration.txt
+        self.iteration += 1
+        iter_file = os.path.join(self.run_dir, "iteration.txt")
+        with open(iter_file, "w") as f:
+            f.write(str(self.iteration))

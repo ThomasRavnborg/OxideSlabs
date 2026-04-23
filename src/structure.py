@@ -6,20 +6,22 @@ from ase.build import make_supercell
 
 class Perovskite:
     """Class to create a perovskite structure.
+    
     Parameters:
     - formula: Chemical formula of the perovskite ('ABX3').
-    - a: Lattice constant in Angstroms.
-    - N: Number of unit cells in each direction for bulk (int) or thickness of the slab in unit cells (float).
     - bulk: Boolean indicating whether to create a bulk structure (True) or a slab structure (False).
-    - dvac: Vacuum spacing in the z-direction for slab structures (default is 20.0).
+    - dslab: Thickness of the slab in unit cells (default is 1). For bulk structures, this parameter is ignored.
+    - dvac: Vacuum spacing in the z-direction for slab structures in Å (default is 20.0).
+    
     Attributes:
     - atoms: ASE Atoms object representing the perovskite structure.
     """
-    def __init__(self, formula='ABX3', N=1, bulk=True, dvac=20.0):
+
+    def __init__(self, formula='ABX3', bulk=True, dslab=1, dvac=20.0):
         self.formula = formula
-        self.symbols = [formula[0:2], formula[2:4], formula[4]]
-        self.ncells = N
-        self.bulk = bulk
+        #self.symbols = [formula[0:2], formula[2:4], formula[4]]
+        #self.ncells = N
+        #self.bulk = bulk
 
         lats = {'BaTiO3': 3.98,
                 'SrTiO3': 3.90}
@@ -38,22 +40,24 @@ class Perovskite:
 
         if bulk:
             atoms_ucell.pbc = (True, True, True)
-            self.atoms = atoms_ucell * (N, N, N)
+            self.atoms = atoms_ucell
         else:
-            # Create an asymmetric (if N is an int) or symmetric (if N is a float) slab
-            if isinstance(N, int):
+            # Create an asymmetric (if dslab is an int) or symmetric (if dslab is a float) slab
+            if isinstance(dslab, int):
                 # Create asymetric slab supercell by copying the unit cell
-                P = np.diag([1, 1, N])
+                P = np.diag([1, 1, dslab])
                 slab = make_supercell(atoms_ucell, P)
-            elif isinstance(N, float):
+            elif isinstance(dslab, float):
                 # Round up from the float value
-                n = math.ceil(N)
+                n = math.ceil(dslab)
                 # Create asymetric slab supercell by copying the unit cell
                 P = np.diag([1, 1, n])
                 slab = make_supercell(atoms_ucell, P)
                 # Remove A and X atom at the end to make the slab symmetric
                 for i in sorted([0, 4], reverse=True):
                     del slab[i]
+                # Sort atoms by formula to ensure the correct order of A, B, and X atoms
+                slab.sort()
             slab.pbc = (True, True, False)
             # Center the slab in the cell and add vacuum in the z-direction
             slab.center(axis=2, vacuum=dvac)
@@ -87,9 +91,12 @@ def get_reduced_formula(ase_atoms):
         str: The reduced formula in the form of ABX3 if found, otherwise the full formula."""
     # Get the full chemical formula from the ASE Atoms object
     full_formula = ase_atoms.get_chemical_formula(mode='reduce')
-    # Use a regular expression to find the pattern of the form ABX3
-    pattern = r'([A-Z][a-z]?)([A-Z][a-z]?)([A-Z][a-z]?)3'
-    match = re.search(pattern, full_formula)
+    # Use a regular expression to find the pattern of the form ABX3 or A4B4X12 in the full formula
+    pattern1 = r'([A-Z][a-z]?)([A-Z][a-z]?)([A-Z][a-z]?)3'
+    pattern2 = r'([A-Z][a-z]?)4([A-Z][a-z]?)4([A-Z][a-z]?)12'
+    match = re.search(pattern1, full_formula)
+    if not match:
+        match = re.search(pattern2, full_formula)
     # If a match is found, return the matched pattern; otherwise, return the full formula
     if match:
         formula = match[0]
@@ -98,3 +105,28 @@ def get_reduced_formula(ase_atoms):
         formula = full_formula
     
     return formula
+
+
+def check_if_bulk(atoms):
+    pbc = atoms.get_pbc()
+    if not all(pbc):
+        return False
+    return True
+
+
+def kspacing_from_kgrid(atoms, kgrid):
+    cell = atoms.get_cell()
+    rec = 2 * np.pi * np.linalg.inv(cell).T
+    b_lengths = np.linalg.norm(rec, axis=1)
+
+    kgrid = np.array(kgrid)
+    kspacing = b_lengths / kgrid
+
+    return sum(kspacing) / len(kspacing)
+
+def kgrid_from_kspacing(atoms, kspacing):
+    cell = atoms.get_cell()
+    rec = 2 * np.pi * np.linalg.inv(cell).T
+    b_lengths = np.linalg.norm(rec, axis=1)
+    kpts = np.maximum(1, np.round(b_lengths / kspacing).astype(int))
+    return kpts

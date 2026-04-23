@@ -1,7 +1,7 @@
 import os
 from ase.units import Ry
 from ase.calculators.siesta import Siesta
-from src.structure import get_reduced_formula
+from src.structure import get_reduced_formula, check_if_bulk
 from src.cleanfiles import cleanFiles
 
 def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
@@ -31,6 +31,14 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     if basis.endswith('p'):
         basis = basis[:-1]
 
+    kgrid = list(kgrid)
+    if not check_if_bulk(atoms):
+        # For slab calculations, set k-point sampling to 1 in the z-direction
+        kgrid[2] = 1
+
+    #kspacing = kspacing_from_kgrid(atoms, kgrid)
+    #kgrid = kgrid_from_kspacing(atoms, kspacing)
+
     # Calculation parameters in a dictionary
     calc_params = {
         'label': f'{formula}',
@@ -49,6 +57,9 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
         'PAO.SplitNorm': SplitNorm,
         'SCF.DM.Tolerance': 1e-6
     }
+    if not check_if_bulk(atoms):
+        # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+        fdf_args['Slab.DipoleCorrection'] = 'T'
     
     # Set up the Siesta calculator and attach it to the atoms object
     calc = Siesta(**calc_params, fdf_arguments=fdf_args)
@@ -57,4 +68,4 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     atoms.get_potential_energy()
 
     # Clean directory of SIESTA calculations
-    cleanFiles(directory=dir, confirm=False)
+    cleanFiles(directory=dir, formats=['.DM'], confirm=False)
