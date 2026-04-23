@@ -11,6 +11,7 @@ from src.phononcalc import phonon_to_atoms, phonopy_to_ase
 from src.frozenphonon import copy_calc_results
 from src.fdfcreate import generate_basis
 from src.calculators import run_siesta
+from src.structure import check_if_bulk
 
 class ActiveLearningNEP:
 
@@ -121,11 +122,13 @@ class ActiveLearningNEP:
                 # Convert the phonon object to an ASE Atoms object
                 atoms = phonon_to_atoms(phonon, cell='super')
                 structures.append(atoms)
+                bulk = check_if_bulk(atoms)
 
                 # Extract all displaced structures and convert them to ASE Atoms objects
                 for atoms_phonopy in phonon.supercells_with_displacements:
+                    bulk = check_if_bulk(atoms_phonopy)
                     # Convert the phonopy Atoms object to an ASE Atoms object and append
-                    displaced_structures = phonopy_to_ase(atoms_phonopy, bulk=True)
+                    displaced_structures = phonopy_to_ase(atoms_phonopy, bulk=bulk)
                     structures.append(displaced_structures)
             
                 #print(f"Extracted {len(structures)} structures from phonon calculation (including original and displaced)", flush=True)
@@ -188,7 +191,7 @@ class ActiveLearningNEP:
         
         #self.count = len([s for s in self.data if s.calc is None])
         print(f"Running DFT on {self.count} structures without calculator assigned...", flush=True)
-        
+
         def _label_DFT(data, label='train'):
             for i in range(len(data)):
                 struct = data[i]
@@ -232,8 +235,6 @@ class ActiveLearningNEP:
                 energies = None
                 print("Atomic energies file (energies.json) not found in directory.")
                 print("It is highly recommended to have the atomic energies of the constituent elements for better NEP training.", flush=True)
-
-            energies = None # temporary
 
             # Shift the energies of the structures by the sum of the energies of the constituent atoms, if energies are available
             for atoms in data:
