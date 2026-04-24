@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import subprocess
 import numpy as np
 import phonopy as ph
@@ -11,7 +12,9 @@ from src.phononASE import phonon_to_atoms, phonopy_to_ase
 from src.frozenphonon import copy_calc_results
 from src.fdfcreate import generate_basis
 from src.calculators import run_siesta
-from src.structure import check_if_bulk
+from src.structure import check_if_bulk, wrap_to_reference
+from src.asiIO import save_asi, load_asi
+from src.gpumdIO import save_run_in
 
 class ActiveLearningNEP:
 
@@ -271,6 +274,7 @@ class ActiveLearningNEP:
                        check=True, text=True)
     
 
+    """
     def _set_prediction_mode(self, nep_in, dataset=None):
         with open(nep_in, "r") as f:
             lines = f.readlines()
@@ -312,6 +316,7 @@ class ActiveLearningNEP:
                        check=True, text=True)
         
         self._unset_prediction_mode(nep_in)
+    """
 
 
     def _extract_descriptors(self, desc_file):
@@ -388,7 +393,6 @@ class ActiveLearningNEP:
 
     def _extract_active_set(self, asi_file):
 
-        from src.asiIO import load_asi
         def find_inverse(m):
             return np.linalg.pinv(m, rcond=1e-8)
 
@@ -456,8 +460,6 @@ class ActiveLearningNEP:
             return np.linalg.pinv(m, rcond=1e-8)
         """
 
-        from src.asiIO import save_asi
-
         #def find_inverse(m):
         #    return np.linalg.pinv(m, rcond=1e-8)
 
@@ -474,56 +476,76 @@ class ActiveLearningNEP:
 
 
 
-    def setup_MD(self, temperature=300, n_steps=10000, dump_interval=100):
-        md_dir = os.path.join(self.iter_dir, "md")
-        os.makedirs(md_dir, exist_ok=True)
+    def setup_MD(self, n_traj, parameters_md):
 
-        # Copy the trained NEP model to the MD directory
-        nep_src = os.path.join(self.iter_dir, "nep.txt")
-        #nep_dst = os.path.join(md_dir, "nep.txt")
-
-        if not os.path.exists(nep_src):
-            raise RuntimeError("nep.txt not found. Train NEP first.")
-
-        #shutil.copy(nep_src, nep_dst)
-        
-        # Choose a structure from the dataset to run MD on
+        # Check if there is any data loaded
         if self.data is None or len(self.data) == 0:
             raise RuntimeError("No structures available for MD")
-        # For now, just take the first structure with calculator results.
-        atoms = self.data[0]  # simple choice for now
 
-        model_path = os.path.join(md_dir, "model.xyz")
+        # Look for a NEP model in the iteration directory
+        nep_src = os.path.join(self.iter_dir, "nep.txt")
+        if not os.path.exists(nep_src):
+            raise RuntimeError("nep.txt not found. Train NEP first.")
+        
+        # Create directory for MD results
+        md_dir = os.path.join(self.iter_dir, "md")
+        os.makedirs(md_dir, exist_ok=True)
+        
+        # Split up structures by chemical formula
+        labels = set()
+        train_data_dict = {}
+        for atoms in self.train_data:
+            label = atoms.get_chemical_formula()
+            labels.add(label)
+            if label not in train_data_dict:
+                train_data_dict[label] = []
+            train_data_dict[label].append(atoms)
+        labels = list(labels)
 
-        write(model_path, atoms)
+        for i, label in enumerate(labels):
 
-        run_in = f"""
-        potential ../nep.txt
+            for j in range(n_traj):
+                run = i*n_traj + j + 1
+                atoms = random.choice(train_data_dict[label]).copy()
 
-        velocity {temperature}
-        time_step 1.0
-        dump_exyz {dump_interval} 0 1
+                md_run_dir = os.path.join(md_dir, f"run_{run:03d}")
+                os.makedirs(md_run_dir, exist_ok=True)
+                # Write atoms object to md_run_dir without calculator results
 
-        compute_extrapolation asi_file ../active_set.asi gamma_low 1 gamma_high 10 check_interval {dump_interval} dump_interval {dump_interval}
-
-        ensemble npt_mttk iso 0 0 temp {temperature} {temperature+200}
-        run {n_steps}
-
-        ensemble npt_mttk iso 0 0 temp {temperature+200} {temperature}
-        run {n_steps}
-        """
-
-        with open(os.path.join(md_dir, "run.in"), "w") as f:
-            text = "\n".join(line.strip() for line in run_in.splitlines())
-            f.write(text)
+                write(os.path.join(md_run_dir, "model.xyz"), atoms)
+                # Create run.in file for GPUMD to run MD simulations with the trained NEP model
+                save_run_in(parameters_md, md_run_dir)
 
 
     def run_MD(self):
         md_dir = os.path.join(self.iter_dir, "md")
-        print("Running GPUMD...")
+        # List all folders in md_dir
+        folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
+        print(f"Running {len(folders)} MD simulations with GPUMD ...")
 
-        subprocess.run(["gpumd"], cwd=md_dir, check=True, text=True)
-    
+        for folder in folders:
+            md_run_dir = os.path.join(md_dir, folder)
+            subprocess.run(["gpumd"], cwd=md_run_dir, check=True, text=True)
+
+
+    def collect_MD_structures(self):
+        md_dir = os.path.join(self.iter_dir, "md")
+        # List all folders in md_dir
+        folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
+        trajs = []
+        for folder in folders:
+            md_run_dir = os.path.join(md_dir, folder)
+            model = read(os.path.join(md_run_dir, "model.xyz"))
+            traj = read(os.path.join(md_run_dir, "dump.xyz"), index=":")
+            # Wrap trajectory to reference structure
+            traj = wrap_to_reference(traj, model)
+            # Append the wrapped trajectory to the trajs list
+            trajs.append(traj)
+
+        # Save all trajectories to a single file
+        write(os.path.join(md_dir, "md_structures.xyz"), trajs)
+
+
     """
     def extract_md_descriptors(self):
 

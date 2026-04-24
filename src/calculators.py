@@ -68,4 +68,4 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     atoms.get_potential_energy()
 
     # Clean directory of SIESTA calculations
-    cleanFiles(directory=dir, formats=['.DM'], confirm=False)
+    cleanFiles(directory=dir, confirm=False)

@@ -119,6 +119,36 @@ def check_if_bulk(atoms):
     return True
 
 
+def wrap_to_reference(unwrapped_traj, ref_atoms):
+    wrapped_traj = []
+
+    cell = ref_atoms.get_cell()
+
+    # Reference fractional positions
+    ref_scaled = ref_atoms.get_scaled_positions()
+
+    for atoms in unwrapped_traj:
+        new_atoms = atoms.copy()
+
+        # Convert to fractional coordinates
+        scaled = np.linalg.solve(cell.T, atoms.get_positions().T).T
+
+        # Compute displacement relative to reference
+        delta = scaled - ref_scaled
+
+        # Wrap relative displacement into [-0.5, 0.5]
+        delta -= np.floor(delta + 0.5)
+
+        # Reconstruct wrapped positions
+        new_scaled = ref_scaled + delta
+
+        new_atoms.set_scaled_positions(new_scaled)
+        wrapped_traj.append(new_atoms)
+
+    return wrapped_traj
+
+
+
 def kspacing_from_kgrid(atoms, kgrid):
     cell = atoms.get_cell()
     rec = 2 * np.pi * np.linalg.inv(cell).T
