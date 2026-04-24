@@ -15,6 +15,7 @@ from ase.dft.kpoints import bandpath
 from ase.parallel import parprint
 # Custom modules
 from src.cleanfiles import cleanFiles
+from src.structure import check_if_bulk
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
@@ -48,9 +49,8 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = perovskite.formula
-    #symbols = perovskite.symbols
     atoms = perovskite.atoms
-    bulk = perovskite.bulk
+    bulk = check_if_bulk(atoms)
     ncells = perovskite.ncells
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)

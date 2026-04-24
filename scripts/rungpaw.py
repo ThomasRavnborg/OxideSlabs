@@ -7,7 +7,7 @@ import phonopy as ph
 #from ase.parallel import world
 from gpaw.mpi import world
 
-from src.structure import Perovskite
+from src.structure import Perovskite, check_if_bulk
 from src.structureoptimizer import relax_ase
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
@@ -26,7 +26,7 @@ def run(formula, task, strain=0.0, Ncells=1, bulk=True):
 
     perovskite = Perovskite(formula, N=Ncells, bulk=bulk)
     N = perovskite.ncells
-    bulk = perovskite.bulk
+    bulk = check_if_bulk(perovskite.atoms)
     if bulk:
         struc = f"bulk/{formula}"
         desc = "bulk"

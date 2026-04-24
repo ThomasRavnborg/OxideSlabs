@@ -5,7 +5,7 @@ import phonopy as ph
 from itertools import product
 from src.frozenphonon import calculate_frozen_phonons
 from src.utils import SiestaProject
-from src.structure import Perovskite
+from src.structure import Perovskite, check_if_bulk
 from src.fdfcreate import generate_basis
 from src.structureoptimizer import relax_ase, relax_siesta
 from src.bandscalc import calculate_bands
@@ -124,7 +124,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             # Load phonon data from the specified directory and formula
             phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))
             # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-            calculate_frozen_phonons(phonon, **params_calc, dir=dir_step, bulk=perovskite.bulk)
+            calculate_frozen_phonons(phonon, **params_calc, dir=dir_step, bulk=check_if_bulk(perovskite.atoms))
             # Update dataframe
             project.update_summary(calc_id, params)
 

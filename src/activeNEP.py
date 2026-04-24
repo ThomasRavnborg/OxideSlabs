@@ -7,7 +7,7 @@ from ase.io import read, write
 from calorine.nep import setup_training, get_descriptors
 #from calorine.nep import get_descriptors
 from hiphive.structure_generation import generate_phonon_rattled_structures
-from src.phononcalc import phonon_to_atoms, phonopy_to_ase
+from src.phononASE import phonon_to_atoms, phonopy_to_ase
 from src.frozenphonon import copy_calc_results
 from src.fdfcreate import generate_basis
 from src.calculators import run_siesta

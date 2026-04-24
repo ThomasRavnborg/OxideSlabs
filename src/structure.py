@@ -20,8 +20,9 @@ class Perovskite:
     def __init__(self, formula='ABX3', bulk=True, dslab=1, dvac=20.0):
         self.formula = formula
         #self.symbols = [formula[0:2], formula[2:4], formula[4]]
-        #self.ncells = N
+        self.ncells = dslab if not bulk else 1
         #self.bulk = bulk
+        # thes
 
         lats = {'BaTiO3': 3.98,
                 'SrTiO3': 3.90}
@@ -90,7 +91,9 @@ def get_reduced_formula(ase_atoms):
     Returns:
         str: The reduced formula in the form of ABX3 if found, otherwise the full formula."""
     # Get the full chemical formula from the ASE Atoms object
-    full_formula = ase_atoms.get_chemical_formula(mode='reduce')
+    formula = ase_atoms.get_chemical_formula(mode='reduce')
+    
+    """
     # Use a regular expression to find the pattern of the form ABX3 or A4B4X12 in the full formula
     pattern1 = r'([A-Z][a-z]?)([A-Z][a-z]?)([A-Z][a-z]?)3'
     pattern2 = r'([A-Z][a-z]?)4([A-Z][a-z]?)4([A-Z][a-z]?)12'
@@ -104,6 +107,8 @@ def get_reduced_formula(ase_atoms):
         #print("No match found for the ABX3 pattern in the formula.")
         formula = full_formula
     
+    """
+
     return formula
 
 

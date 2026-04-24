@@ -14,6 +14,7 @@ from ase.parallel import parprint
 from ase.io import write
 # Custom modules
 from src.cleanfiles import cleanFiles
+from src.structure import check_if_bulk
 
 # Try to import world from gpaw.mpi for parallel processing
 # If not available, fall back to ase.parallel.world
@@ -101,9 +102,8 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = perovskite.formula
-    #symbols = perovskite.symbols
     atoms = perovskite.atoms
-    bulk = perovskite.bulk
+    bulk = check_if_bulk(atoms)
 
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
@@ -230,7 +230,7 @@ def relax_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
     cwd = os.getcwd()
     formula = perovskite.formula
     atoms = perovskite.atoms
-    bulk = perovskite.bulk
+    bulk = check_if_bulk(atoms)
     symbols = atoms.symbols
 
     # Convert kgrid to a list to allow for modification

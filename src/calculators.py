@@ -24,7 +24,7 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     """
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
-    formula = get_reduced_formula(atoms)
+    formula = atoms.get_chemical_formula()
 
     # Custom basis sets ending with 'p' are generated with the same parameters as the standard basis sets
     # However, an extra polarization (d) orbital is added to the A-site during LCAO basis generation

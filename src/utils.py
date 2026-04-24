@@ -4,6 +4,8 @@ import pandas as pd
 from glob import glob
 import shutil
 
+from src.structure import check_if_bulk
+
 class SiestaProject:
     """A class to manage Siesta calculations for a given material.
     Handles folder structure, parameter normalization, ID assignment, and summary CSV.
@@ -31,7 +33,7 @@ class SiestaProject:
         """
 
         formula = perovskite.formula
-        bulk = perovskite.bulk
+        bulk = check_if_bulk(perovskite.atoms)
         self.material = formula
 
         if bulk:

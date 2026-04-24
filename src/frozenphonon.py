@@ -20,7 +20,7 @@ import phonopy as ph
 from phonopy import Phonopy
 # Custom modules
 from src.cleanfiles import cleanFiles
-from src.phononcalc import phonon_to_atoms
+from src.phononASE import phonon_to_atoms
 
 # Try to import world from gpaw.mpi for parallel processing
 # If not available, fall back to ase.parallel.world
