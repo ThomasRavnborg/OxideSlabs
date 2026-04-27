@@ -11,7 +11,7 @@ from hiphive.structure_generation import generate_phonon_rattled_structures
 from src.phononASE import phonon_to_atoms, phonopy_to_ase
 from src.frozenphonon import copy_calc_results
 from src.fdfcreate import generate_basis
-from src.calculators import run_siesta
+from src.calculators import run_siesta, copy_calc_results
 from src.structure import check_if_bulk, wrap_to_reference
 from src.asiIO import save_asi, load_asi
 from src.gpumdIO import save_run_in
@@ -245,6 +245,10 @@ class ActiveLearningNEP:
                 if energies is not None:
                     atoms.calc.results['energy'] -= sum(energies[element] for element in elements)
 
+        # Sort atoms by alphabetical order of chemical symbols
+        nep_train_data = [copy_calc_results(atoms, sort=True) for atoms in nep_train_data]
+        nep_test_data = [copy_calc_results(atoms, sort=True) for atoms in nep_test_data]
+
         # Shift energies of nep train and test data
         _shift_energies(nep_train_data)
         _shift_energies(nep_test_data)
@@ -269,9 +273,7 @@ class ActiveLearningNEP:
 
 
     def train_nep(self):
-        train_dir = os.path.join(self.iter_dir, "nepmodel_split1")
-        subprocess.run(["nep"], cwd=train_dir,
-                       check=True, text=True)
+        subprocess.run(["nep"], cwd=self.iter_dir, check=True, text=True)
     
 
     """
@@ -540,7 +542,9 @@ class ActiveLearningNEP:
             # Wrap trajectory to reference structure
             traj = wrap_to_reference(traj, model)
             # Append the wrapped trajectory to the trajs list
-            trajs.append(traj)
+            trajs.extend(traj)
+
+        print(trajs)
 
         # Save all trajectories to a single file
         write(os.path.join(md_dir, "md_structures.xyz"), trajs)
@@ -678,6 +682,8 @@ class ActiveLearningNEP:
 
         print(f"Sucessfully added {len(new_structs)} structures to train.xyz")
         print(f"Total structures in train.xyz: {len(self.train_data)}", flush=True)
+
+        self.count = len(new_structs)
 
         # Update iteration number and overwrite iteration.txt
         self.iteration += 1

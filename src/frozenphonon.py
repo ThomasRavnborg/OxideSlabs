@@ -12,15 +12,14 @@ from ase import Atoms
 from ase.units import Ry
 from ase.build import make_supercell
 from ase.calculators.siesta import Siesta
-from ase.calculators.siesta.parameters import Species, PAOBasisBlock
-from ase.calculators.singlepoint import SinglePointCalculator
-from ase.parallel import parprint, broadcast
+from ase.parallel import parprint
 # Phonopy
 import phonopy as ph
 from phonopy import Phonopy
 # Custom modules
 from src.cleanfiles import cleanFiles
 from src.phononASE import phonon_to_atoms
+from src.calculators import copy_calc_results
 
 # Try to import world from gpaw.mpi for parallel processing
 # If not available, fall back to ase.parallel.world
@@ -28,29 +27,6 @@ try:
     from gpaw.mpi import world
 except ImportError:
     from ase.parallel import world
-
-def copy_calc_results(ase_atoms):
-    """Function to copy the results of a calculation from an ASE Atoms object to a new one.
-    Arguments:
-        ase_atoms (ase.Atoms): The ASE Atoms object containing the results of a calculation.
-    Returns:
-        atoms_copy (ase.Atoms): A new ASE Atoms object with the same structure and the results of the calculation copied from the original one.
-    """
-    # Extract the results of the calculation from the original ASE Atoms object
-    energy = ase_atoms.get_potential_energy()
-    forces = ase_atoms.get_forces()
-    stress = ase_atoms.get_stress()
-    # Create a new ASE Atoms object with the same structure as the original one
-    atoms_copy = ase_atoms.copy()
-    # Assign the results of the calculation to the new ASE Atoms object using a SinglePointCalculator
-    calc = SinglePointCalculator(
-        atoms_copy,
-        energy=energy,
-        forces=forces,
-        stress=stress
-    )
-    atoms_copy.calc = calc
-    return atoms_copy
 
 def get_modevector(phonon, q):
     """Function to extract the mode vector corresponding to the lowest frequency mode at a given q-point.

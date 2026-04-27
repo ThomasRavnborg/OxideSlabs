@@ -1,4 +1,4 @@
 from src.activeNEP import ActiveLearningNEP
 
-NEP = ActiveLearningNEP('results/nep')
+NEP = ActiveLearningNEP('results/ALnep')
 NEP.run_DFT()

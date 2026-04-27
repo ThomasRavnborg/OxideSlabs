@@ -1,6 +1,8 @@
 import os
+import numpy as np
 from ase.units import Ry
 from ase.calculators.siesta import Siesta
+from ase.calculators.singlepoint import SinglePointCalculator
 from src.structure import get_reduced_formula, check_if_bulk
 from src.cleanfiles import cleanFiles
 
@@ -69,3 +71,37 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
 
     # Clean directory of SIESTA calculations
     cleanFiles(directory=dir, confirm=False)
+
+
+
+def copy_calc_results(ase_atoms, sort=False):
+    """Function to copy the results of a calculation from an ASE Atoms object to a new one.
+    Arguments:
+        ase_atoms (ase.Atoms): The ASE Atoms object containing the results of a calculation.
+        sort (bool): Whether to sort the atoms by alphabetical order of chemical symbols (default: False).
+    Returns:
+        atoms_copy (ase.Atoms): A new ASE Atoms object with the same structure and the results of the calculation copied from the original one.
+    """
+
+    symbols = ase_atoms.get_chemical_symbols()
+
+    if sort:
+        indices = np.argsort(symbols)
+    else:
+        indices = np.arange(len(symbols))
+
+    # Extract the results of the calculation from the original ASE Atoms object
+    energy = ase_atoms.get_potential_energy()
+    forces = ase_atoms.get_forces()[indices]
+    stress = ase_atoms.get_stress()
+    # Create a new ASE Atoms object with the same structure as the original one
+    atoms_copy = ase_atoms.copy()[indices]
+    # Assign the results of the calculation to the new ASE Atoms object using a SinglePointCalculator
+    calc = SinglePointCalculator(
+        atoms_copy,
+        energy=energy,
+        forces=forces,
+        stress=stress
+    )
+    atoms_copy.calc = calc
+    return atoms_copy

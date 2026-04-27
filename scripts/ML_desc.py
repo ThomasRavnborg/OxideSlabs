@@ -1,4 +1,4 @@
 from src.activeNEP import ActiveLearningNEP
 
-NEP = ActiveLearningNEP('results/MLtest')
+NEP = ActiveLearningNEP('results/ALnep')
 NEP.run_prediction_mode()
