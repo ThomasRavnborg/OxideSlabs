@@ -3,7 +3,7 @@ import numpy as np
 
 def save_asi(asi_dict, filename="active_set.asi"):
     with open(filename, "w") as f:
-        for atom_type, A_inv in asi_dict.items():
+        for atom_type, A_inv in enumerate(asi_dict.values()):
             n, m = A_inv.shape
             f.write(f"{atom_type} {n} {m}\n")
             for val in A_inv.ravel(order="C"):

@@ -22,7 +22,6 @@ class Perovskite:
         #self.symbols = [formula[0:2], formula[2:4], formula[4]]
         self.ncells = dslab if not bulk else 1
         #self.bulk = bulk
-        # thes
 
         lats = {'BaTiO3': 3.98,
                 'SrTiO3': 3.90}
@@ -57,12 +56,11 @@ class Perovskite:
                 # Remove A and X atom at the end to make the slab symmetric
                 for i in sorted([0, 4], reverse=True):
                     del slab[i]
-                # Sort atoms by formula to ensure the correct order of A, B, and X atoms
-                slab.sort()
             slab.pbc = (True, True, False)
             # Center the slab in the cell and add vacuum in the z-direction
             slab.center(axis=2, vacuum=dvac)
             self.atoms = slab
+    
     def __repr__(self):
         return f'Perovskite(formula={self.formula}, cell={self.atoms.cell}, positions={self.atoms.positions.tolist()}, pbc={self.atoms.pbc})'
     

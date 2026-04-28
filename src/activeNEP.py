@@ -4,14 +4,15 @@ import random
 import subprocess
 import numpy as np
 import phonopy as ph
+from tqdm import tqdm
 from ase.io import read, write
-from calorine.nep import setup_training, get_descriptors
-#from calorine.nep import get_descriptors
+from calorine.nep import get_descriptors
 from hiphive.structure_generation import generate_phonon_rattled_structures
 from src.phononASE import phonon_to_atoms, phonopy_to_ase
 from src.frozenphonon import copy_calc_results
 from src.fdfcreate import generate_basis
 from src.calculators import run_siesta, copy_calc_results
+from src.MaxVol import calculate_maxvol
 from src.structure import check_if_bulk, wrap_to_reference
 from src.asiIO import save_asi, load_asi
 from src.gpumdIO import save_run_in
@@ -46,10 +47,11 @@ class ActiveLearningNEP:
             print(f"Loaded {len(self.train_data)} training structures and {len(self.test_data)} test structures", flush=True)
             
             self.data = self.train_data + self.test_data
-            self.unique_elements = set()
+            self.species = set()
             for atoms in self.data:
-                self.unique_elements.update(atoms.get_chemical_symbols())
-            self.unique_elements = sorted(self.unique_elements)
+                self.species.update(atoms.get_chemical_symbols())
+
+            self.species = sorted(self.species)
             self.count = len([s for s in self.data if s.calc is None])
 
             if self.count > 0:
@@ -67,7 +69,7 @@ class ActiveLearningNEP:
             self.train_data = None
             self.test_data = None
             self.data = None
-            self.unique_elements = set()
+            self.species = set()
             print("No train.xyz and test.xyz files found.")
             print("Use prepare_dataset() to create the datasets based on .yaml files.", flush=True)
 
@@ -172,8 +174,8 @@ class ActiveLearningNEP:
             self.test_data = test_data
             self.data = self.train_data + self.test_data
             for atoms in self.data:
-                self.unique_elements.update(atoms.get_chemical_symbols())
-            self.unique_elements = sorted(self.unique_elements)
+                self.species.update(atoms.get_chemical_symbols())
+            self.species = sorted(self.species)
     
 
     # 1. Run DFT calculations
@@ -212,7 +214,7 @@ class ActiveLearningNEP:
 
     # 2. Set up NEP training
 
-    def setup_nep(self, parameters_nep):
+    def setup_nep(self, cutoff=[8, 4], neuron=30, generation=100000, batch=1000000):
         # Check if data is available and has calculator results before setting up NEP training
         
         try:
@@ -259,8 +261,8 @@ class ActiveLearningNEP:
         write(os.path.join(self.iter_dir, "test.xyz"), nep_test_data)
 
         # Set up the input files for NEP training
-        params = dict(version=4, type=[len(self.unique_elements), ' '.join(self.unique_elements)])
-        params.update(parameters_nep)
+        params = dict(version=4, type=[len(self.species), ' '.join(self.species)])
+        params.update(cutoff=cutoff, neuron=neuron, generation=generation, batch=batch)
 
         # Dump params to a .in file
         with open(os.path.join(self.iter_dir, "nep.in"), "w") as f:
@@ -320,7 +322,7 @@ class ActiveLearningNEP:
         self._unset_prediction_mode(nep_in)
     """
 
-
+    """
     def _extract_descriptors(self, desc_file):
 
         B = np.loadtxt(desc_file)
@@ -332,13 +334,30 @@ class ActiveLearningNEP:
     def _calculate_descriptors(self, structures):
         B = []
         for structure in structures:
-            B.append(get_descriptors(structure, os.path.join(self.iter_dir, "nep.txt")))
+            B.append(self._calculate_descriptor(structure))
         B = np.vstack(B)
 
         print(f"Computed descriptor matrix: {B.shape}", flush=True)
 
         return B
+    """
 
+    def _calculate_descriptors(self, structure):
+        B = get_descriptors(structure, os.path.join(self.iter_dir, "nep.txt"))
+        structure.arrays['descriptor'] = B
+
+    def assign_descriptors(self, structures):
+        # Filter out structures that already have descriptors calculated
+        structures = [s for s in structures if 'descriptor' not in s.arrays]
+        if len(structures) == 0:
+            print("All structures already have descriptors calculated.")
+            return
+        print(f"Calculating descriptors for {len(structures)} structures...")
+        for structure in tqdm(structures):
+            if 'descriptor' not in structure.arrays:
+                self._calculate_descriptors(structure)
+
+    """
 
     def compute_descriptors(self, get_out=True, write_out=True):
         
@@ -437,11 +456,67 @@ class ActiveLearningNEP:
         
         return active_set_inv, active_set_struct
 
-    
+    """
+
+    def _collect_descriptors(self, structures, specie):
+
+        B_specie = []           # per-species descriptor matrix (n_atoms_of_specie, d)
+        struct_indicies = []    # list of structure indices corresponding to each row in B_specie
+        atom_indicies = []      # list of atom indices corresponding to each row in B_specie
+
+        for struct_index, structure in enumerate(structures):
+
+            # mask for desired chemical symbol
+            mask = (structure.symbols == specie)
+
+            if not np.any(mask):
+                continue
+
+            desc = structure.arrays['descriptor'][mask]  # shape (n_selected_atoms, d)
+
+            B_specie.append(desc)
+            struct_indicies.extend([struct_index] * len(desc))
+            atom_indicies.extend(np.where(mask)[0])
+        if len(B_specie) == 0:
+            raise ValueError(f"No atoms with symbol {specie} found.")
+
+        B_specie = np.vstack(B_specie)
+        struct_indicies = np.array(struct_indicies)
+        atom_indicies = np.array(atom_indicies)
+
+        return B_specie, struct_indicies, atom_indicies
 
 
-    
-    def build_active_set(self, batch_size=None, get_asi=True, write_asi=True):
+    def _calculate_active_set(self, structures, batch_size=None):
+
+        self.assign_descriptors(structures)
+        
+        # Create active set matrix A for each specie
+        active_set = {}
+        active_set_index = []  # the index of structure
+
+        # Loop over species
+        for specie in self.species:
+            print(f'Building active set for {specie}...')
+            B_specie, struct_indicies, _ = self._collect_descriptors(structures, specie)
+            A_specie, select_indicies = calculate_maxvol(B_specie, struct_indicies, batch_size=batch_size)
+            active_set[specie] = A_specie
+            active_set_index.extend(select_indicies)
+        
+        # Remove duplicates and sort the structure indices
+        active_set_index = list(set(active_set_index))
+        active_set_index.sort()
+
+        # Calculate the inverse of each active set matrix
+        active_set_inv = {
+            t: np.linalg.inv(A).astype(np.float32)
+            for t, A in active_set.items()
+        }
+
+        return active_set_inv, active_set_index
+
+
+    def build_active_set(self, batch_size=None, overwrite=False):
         """
         Wrapper for MaxVol active set selection.
 
@@ -454,31 +529,31 @@ class ActiveLearningNEP:
             active_struct_index (np.ndarray): indices of selected environments
             active_rows (np.ndarray): row indices in B
         """
-        """
-        from src.MaxVol import calculate_maxvol
-        from src.asiIO import load_asi, save_asi
-
-        def find_inverse(m):
-            return np.linalg.pinv(m, rcond=1e-8)
-        """
-
-        #def find_inverse(m):
-        #    return np.linalg.pinv(m, rcond=1e-8)
 
         asi_file = os.path.join(self.iter_dir, "active_set.asi")
-        if os.path.exists(asi_file) and get_asi:
-            print("Existing active set inverse found. Loading...")
-            self.active_inv = self._extract_active_set(asi_file)
+        xyz_file = os.path.join(self.iter_dir, "active_set.xyz")
+
+        if os.path.exists(asi_file) and os.path.exists(xyz_file) and not overwrite:
+            print("Existing active set inverse (.asi) and structures (.xyz) found. Loading...")
+            active_set_inv = load_asi(asi_file)
+            self.active_set_inv = dict(zip(self.species, active_set_inv.values()))
+            self.active_set_struct = read(xyz_file, ":")
+
         else:
             print("Building active set...")
-            self.active_inv, _ = self._calculate_active_set(self.train_data, self.descriptors, batch_size=batch_size)
-            if write_asi:
-                save_asi(self.active_inv, asi_file)
-                print(f"Active set inverse saved to {asi_file}", flush=True)
+            active_set_inv, active_set_index = self._calculate_active_set(self.train_data, batch_size=batch_size)
+           
+            self.active_set_inv = active_set_inv
+            save_asi(self.active_set_inv, asi_file)
+            print(f"Active set inverse saved to {asi_file}")
+            
+            self.active_set_struct = [self.train_data[i] for i in active_set_index]
+            write(xyz_file, self.active_set_struct)
+            print(f"Active set structure saved to {xyz_file}", flush=True)
 
 
 
-    def setup_MD(self, n_traj, parameters_md):
+    def setup_MD(self, n_traj=1, n_steps=10000, T0=20, T1=700):
 
         # Check if there is any data loaded
         if self.data is None or len(self.data) == 0:
@@ -508,7 +583,11 @@ class ActiveLearningNEP:
 
             for j in range(n_traj):
                 run = i*n_traj + j + 1
-                atoms = random.choice(train_data_dict[label]).copy()
+
+                if j == 0:
+                    atoms = train_data_dict[label][0].copy()
+                else:
+                    atoms = random.choice(train_data_dict[label]).copy()
 
                 md_run_dir = os.path.join(md_dir, f"run_{run:03d}")
                 os.makedirs(md_run_dir, exist_ok=True)
@@ -516,14 +595,14 @@ class ActiveLearningNEP:
 
                 write(os.path.join(md_run_dir, "model.xyz"), atoms)
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
-                save_run_in(parameters_md, md_run_dir)
+                save_run_in(n_steps, T0, T1, md_run_dir)
 
 
     def run_MD(self):
         md_dir = os.path.join(self.iter_dir, "md")
         # List all folders in md_dir
         folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
-        print(f"Running {len(folders)} MD simulations with GPUMD ...")
+        print(f"Running {len(folders)} MD simulations with GPUMD ...", flush=True)
 
         for folder in folders:
             md_run_dir = os.path.join(md_dir, folder)
@@ -540,11 +619,9 @@ class ActiveLearningNEP:
             model = read(os.path.join(md_run_dir, "model.xyz"))
             traj = read(os.path.join(md_run_dir, "dump.xyz"), index=":")
             # Wrap trajectory to reference structure
-            traj = wrap_to_reference(traj, model)
+            #traj = wrap_to_reference(traj, model)
             # Append the wrapped trajectory to the trajs list
             trajs.extend(traj)
-
-        print(trajs)
 
         # Save all trajectories to a single file
         write(os.path.join(md_dir, "md_structures.xyz"), trajs)
@@ -581,11 +658,36 @@ class ActiveLearningNEP:
         print(f"MD descriptor matrix: {A.shape}", flush=True)
     """
 
+    def assign_gamma(self, structures):
+
+        if self.active_set_inv is None:
+            raise RuntimeError("Active set inverse not found. Build active set first.")
+
+        for structure in structures:
+            structure.arrays["gamma"] = np.zeros(len(structure))
+        
+        self.assign_descriptors(structures)
+
+        # loop over atom types
+        for specie, A_inv in self.active_set_inv.items():
+
+            B_specie, struct_indicies, atom_indicies = self._collect_descriptors(structures, specie)
+
+            # compute gamma
+            gamma = B_specie @ A_inv
+            gamma = np.max(np.abs(gamma), axis=1)
+
+            # map back to structures
+            for val, s_idx, a_idx in zip(gamma, struct_indicies, atom_indicies):
+                structures[s_idx].arrays["gamma"][a_idx] = val
+    
+
+    """
     def assign_gamma(self, structures, descriptors):
         
         # initialize gamma arrays
-        for atoms in structures:
-            atoms.arrays["gamma"] = np.zeros(len(atoms))
+        for structure in structures:
+            structure.arrays["gamma"] = np.zeros(len(structure))
 
         #B = self._calculate_descriptors(structures)   # (N, D) descriptor matrix for all environments
         B_type, struct_index_by_type, atom_index_by_type = self._map_descriptors_to_type(structures, descriptors)
@@ -607,15 +709,15 @@ class ActiveLearningNEP:
                 structures[s_idx].arrays["gamma"][a_idx] = val
 
         #return structures
+    """
 
     def filter_structures(self, structures, gamma_th=5.0):
 
         print(f"Filtering out structures with gamma < {gamma_th}...")
         print("Calculating descriptors for structures...", flush=True)
 
-        # Calculate descriptors for the structures and assign gamma values to each atom (environment)
-        B = self._calculate_descriptors(structures)
-        self.assign_gamma(structures, B)
+        # Assign gamma values to each atom (environment)
+        self.assign_gamma(structures)
 
         # Filter structures with gamma above a certain threshold
         selected_structures = [atoms for atoms in structures if atoms.arrays["gamma"].max() > gamma_th]
@@ -640,14 +742,11 @@ class ActiveLearningNEP:
         # Combine training data with new structures
         data = self.train_data + structures
 
-        # Calculate descriptors for the combined set of structures
-        B = self._calculate_descriptors(data)
-
         # Compute an active set for the combined set of structures
-        A_inv, active_set_struct = self._calculate_active_set(data, B, batch_size=None)
+        active_set_inv, active_set_index = self._calculate_active_set(data, batch_size=None)
 
         # Return new structures that are in the active set but not in the original training data
-        filtered_structures = [data[i] for i in active_set_struct if i >= len(self.train_data)]
+        filtered_structures = [data[i] for i in active_set_index if i >= len(self.train_data)]
         
         print(f"Found {len(filtered_structures)} filtered structures.", flush=True)
 

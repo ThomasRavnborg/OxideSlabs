@@ -1,35 +1,26 @@
 
 import os
 
-def save_run_in(parameters_md, dir):
-
-    try:
-        temperature = parameters_md['temperature']
-    except KeyError:
-        temperature = 300
-    try:
-        n_steps = parameters_md['n_steps']
-    except KeyError:
-        n_steps = 10000
-    try:
-        dump_interval = parameters_md['dump_interval']
-    except KeyError:
-        dump_interval = 100
+def save_run_in(n_steps, T0, T1, dir):
 
     # Create run.in file for GPUMD
     run_in = f"""
         potential ../../nep.txt
 
-        velocity {temperature}
-        time_step 1.0
-        dump_exyz {dump_interval} 0 1
+        velocity {T0}
+        time_step 1
 
-        ensemble npt_mttk iso 0 0 temp {temperature} {temperature+200}
+        compute_extrapolation asi_file ../../active_set.asi check_interval 10 gamma_low 2 gamma_high 10
+        dump_thermo 200
+        ensemble npt_mttk tri 0 0 temp {T0} {T1}
         run {n_steps}
 
-        ensemble npt_mttk iso 0 0 temp {temperature+200} {temperature}
+        compute_extrapolation asi_file ../../active_set.asi check_interval 10 gamma_low 2 gamma_high 10
+        dump_thermo 200
+        ensemble npt_mttk tri 0 0 temp {T1} {T0}
         run {n_steps}
     """
+
     with open(os.path.join(dir, "run.in"), "w") as f:
         text = "\n".join(line.strip() for line in run_in.splitlines())
         f.write(text)
