@@ -80,7 +80,7 @@ class LatexFigure:
             
             if style == 'bands':
                 # Ticks on all sides, pointing outwards, with specific lengths and widths
-                ax.tick_params(which='both', direction='out', pad = 4)
+                ax.tick_params(which='both', direction='out', top=False, right=False)
                 #ax.tick_params(which='major', length=6, width=0.8)
                 #ax.tick_params(which='minor', length=3, width=0.8)
 
