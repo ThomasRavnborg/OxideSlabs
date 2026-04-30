@@ -64,7 +64,7 @@ class ActiveLearningNEP:
                 else:
                     print(f"Warning! {self.count}/{len(self.data)} structures have no calculator results.")
                     print("DFT calculations must be run with run_DFT(), or these will be omitted.", flush=True)
-        
+
         except Exception:
             self.train_data = None
             self.test_data = None

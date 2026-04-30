@@ -71,7 +71,7 @@ class PlotSettings():
         
         if style == 'bands':
             # Ticks on all sides, pointing outwards, with specific lengths and widths
-            ax.tick_params(which='both', direction='out', labelsize = 16, pad = 4)
+            ax.tick_params(which='both', top=False, right=False, direction='out')
             ax.tick_params(which='major', length=6, width=0.8)
             ax.tick_params(which='minor', length=3, width=0.8)
 
