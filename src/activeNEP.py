@@ -552,7 +552,7 @@ class ActiveLearningNEP:
             print(f"Active set structure saved to {xyz_file}", flush=True)
 
 
-
+    """
     def setup_MD(self, n_traj=1, n_steps=10000, T0=20, T1=700):
 
         # Check if there is any data loaded
@@ -596,8 +596,7 @@ class ActiveLearningNEP:
                 write(os.path.join(md_run_dir, "model.xyz"), atoms)
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
                 save_run_in(n_steps, T0, T1, md_run_dir)
-
-
+    
     def run_MD(self):
         md_dir = os.path.join(self.iter_dir, "md")
         # List all folders in md_dir
@@ -607,9 +606,8 @@ class ActiveLearningNEP:
         for folder in folders:
             md_run_dir = os.path.join(md_dir, folder)
             subprocess.run(["gpumd"], cwd=md_run_dir, check=True, text=True)
-
-
-    def collect_MD_structures(self):
+    
+            def collect_MD_structures(self):
         md_dir = os.path.join(self.iter_dir, "md")
         # List all folders in md_dir
         folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
@@ -625,7 +623,116 @@ class ActiveLearningNEP:
 
         # Save all trajectories to a single file
         write(os.path.join(md_dir, "md_structures.xyz"), trajs)
+    """
 
+    def setup_MD(self, dt=1, n_steps=1*1e6, n_dump=1000, temperatures=[300, 500, 700]):
+        """Function to set up MD simulations with GPUMD using the trained NEP model.
+        It creates a directory for each trajectory and saves the initial structure and run.in file for GPUMD.
+        - Args:
+            dt (float): time step in fs
+            n_steps (int): number of MD steps
+            n_dump (int): total number of dumps to save during MD
+            temperatures (list): list of temperatures for the MD simulations
+        - Returns:
+             None: The function saves the initial structures and run.in files for GPUMD in the iteration directory under "md/label/temperature/".
+             The MD simulations can then be run with the run_MD() method, and the resulting trajectories can be collected with the collect_MD_structures() method.
+        """
+
+        # Check if there is any data loaded
+        if self.data is None or len(self.data) == 0:
+            raise RuntimeError("No structures available for MD")
+
+        # Look for a NEP model in the iteration directory
+        nep_src = os.path.join(self.iter_dir, "nep.txt")
+        if not os.path.exists(nep_src):
+            raise RuntimeError("nep.txt not found. Train NEP first.")
+        
+        # Create directory for MD results
+        md_dir = os.path.join(self.iter_dir, "md")
+        os.makedirs(md_dir, exist_ok=True)
+        
+        # Split up structures by chemical formula
+        labels = set()
+        train_data_dict = {}
+        for atoms in self.train_data:
+            label = atoms.get_chemical_formula()
+            labels.add(label)
+            if label not in train_data_dict:
+                train_data_dict[label] = []
+            train_data_dict[label].append(atoms)
+        labels = list(labels)
+
+        for label in labels:
+            
+            label_dir = os.path.join(md_dir, label)
+            # Create directory for this chemical formula
+            os.makedirs(label_dir, exist_ok=True)
+
+            for T in temperatures:
+
+                temp_dir = os.path.join(label_dir, f"{T} K")
+                # Create directory for this temperature
+                os.makedirs(temp_dir, exist_ok=True)
+
+                # Take the first structure for this chemical formula as the initial structure for the MD simulations.
+                # This assumes that the first structure in the train_data_dict for each label is a reasonable initial structure for MD simulations.
+                # In practice, you may want to implement a more sophisticated selection of initial structures, or generate new initial structures by perturbing existing ones.
+                atoms = train_data_dict[label][0].copy()
+                bulk = check_if_bulk(atoms)
+                
+                # Write atoms object to temp_dir without calculator results
+                write(os.path.join(temp_dir, "model.xyz"), atoms)
+                # Create run.in file for GPUMD to run MD simulations with the trained NEP model
+                save_run_in(dt, n_steps, n_dump, T, bulk, temp_dir)
+
+    def run_MD(self):
+        """Function to run MD simulations with GPUMD using the initial structures and run.in files set up by the setup_MD() method.
+        It loops over the directories created by setup_MD() and runs GPUMD in each run directory, which should contain the model.xyz and run.in files for each trajectory.
+        - Args:
+            None: The function assumes that the setup_MD() method has already been run to create the necessary directories and input files for GPUMD.
+        - Returns:
+            None: The function runs GPUMD in each trajectory directory, which will generate the MD trajectories and save them in the same directories.
+            The resulting trajectories can then be collected with the collect_MD_structures() method.
+        """
+        # List all folders in md_dir
+        md_dir = os.path.join(self.iter_dir, "md")
+        md_folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
+        # Loop over chemical formula folders, then temperature folders to run GPUMD simulations
+        for label in md_folders:
+            label_dir = os.path.join(md_dir, label)
+            temp_folders = [d for d in os.listdir(label_dir) if os.path.isdir(os.path.join(label_dir, d))]
+            for temp in temp_folders:
+                temp_dir = os.path.join(label_dir, temp)
+                # Run GPUMD in the temp_dir, which should contain the model.xyz and run.in files for this trajectory
+                subprocess.run(["gpumd"], cwd=temp_dir, check=True, text=True)
+
+
+    def collect_MD_structures(self):
+        """Function to collect the MD trajectories generated by the run_MD() method.
+        It loops over the directories created by setup_MD() and collects the trajectories from the dump.xyz files generated by GPUMD simulations.
+        - Args:
+            None: The function assumes that the run_MD() method has already been run to generate the MD trajectories with GPUMD.
+        - Returns:
+            None: The function collects the trajectories from the dump.xyz files in each trajectory directory and saves all trajectories to a single file called md_structures.xyz in the md directory of the current iteration.
+        """
+        trajs = []
+        # List all folders in md_dir
+        md_dir = os.path.join(self.iter_dir, "md")
+        md_folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
+        # Loop over chemical formula folders, then temperature folders and
+        # collect the trajectories from the dump.xyz files generated by GPUMD simulations
+        trajs = []
+        for label in md_folders:
+            label_dir = os.path.join(md_dir, label)
+            temp_folders = [d for d in os.listdir(label_dir) if os.path.isdir(os.path.join(label_dir, d))]
+            for temp in temp_folders:
+                temp_dir = os.path.join(label_dir, temp)
+                # Read the trajectory from the dump.xyz file generated by GPUMD in this run directory
+                traj = read(os.path.join(temp_dir, "dump.xyz"), index=":")
+                trajs.extend(traj)
+
+        # Save all trajectories to a single file
+        write(os.path.join(md_dir, "md_structures.xyz"), trajs)
 
     """
     def extract_md_descriptors(self):

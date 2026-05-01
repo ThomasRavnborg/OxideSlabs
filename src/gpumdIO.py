@@ -1,23 +1,31 @@
 
 import os
 
-def save_run_in(n_steps, T0, T1, dir):
+def save_run_in(dt, n_steps, n_dump, T, bulk, dir):
+
+    n_steps = int(n_steps)
+    n_dump = int(n_dump)
+    delta_dump = n_steps // n_dump
+
+    if bulk:
+        direction = 'tri 0 0'
+    else:
+        direction = 'x 0 0 y 0 0 xy 0 0'
 
     # Create run.in file for GPUMD
-    run_in = f"""
-        potential ../../nep.txt
+    run_in = f"""# --- system ---
+        potential ../../../nep.txt
 
-        velocity {T0}
-        time_step 1
+        # --- initialization ---
+        velocity {T}
+        time_step {dt}
 
-        compute_extrapolation asi_file ../../active_set.asi check_interval 10 gamma_low 2 gamma_high 10
-        dump_thermo 200
-        ensemble npt_mttk tri 0 0 temp {T0} {T1}
-        run {n_steps}
+        # --- output ---
+        dump_thermo {delta_dump}
+        dump_exyz {delta_dump} 0 1
 
-        compute_extrapolation asi_file ../../active_set.asi check_interval 10 gamma_low 2 gamma_high 10
-        dump_thermo 200
-        ensemble npt_mttk tri 0 0 temp {T1} {T0}
+        # --- md ---
+        ensemble npt_mttk temp {T} {T} {direction}
         run {n_steps}
     """
 
