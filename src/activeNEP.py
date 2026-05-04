@@ -1,17 +1,21 @@
 import os
 import json
 import random
+import shutil
 import subprocess
 import numpy as np
 import phonopy as ph
-from tqdm import tqdm
 from ase.io import read, write
+from ase.optimize import BFGS
 from calorine.nep import get_descriptors
+from ase.filters import FrechetCellFilter
+from calorine.calculators import CPUNEP
+from calorine.tools import get_force_constants
 from hiphive.structure_generation import generate_phonon_rattled_structures
 from src.phononASE import phonon_to_atoms, phonopy_to_ase
-from src.frozenphonon import copy_calc_results
 from src.fdfcreate import generate_basis
 from src.calculators import run_siesta, copy_calc_results
+from src.structureoptimizer import opt_filter
 from src.MaxVol import calculate_maxvol
 from src.structure import check_if_bulk, wrap_to_reference
 from src.asiIO import save_asi, load_asi
@@ -64,7 +68,9 @@ class ActiveLearningNEP:
                 else:
                     print(f"Warning! {self.count}/{len(self.data)} structures have no calculator results.")
                     print("DFT calculations must be run with run_DFT(), or these will be omitted.", flush=True)
-
+            else:
+                print("All structures have calculator results.", flush=True)
+        
         except Exception:
             self.train_data = None
             self.test_data = None
@@ -187,22 +193,43 @@ class ActiveLearningNEP:
                 dft_params = json.load(f)
 
         except FileNotFoundError:
-            print("DFT parameters file not found.", flush=True)
+            print("DFT parameters file (dft_params.json) not found.", flush=True)
             return
 
         if self.data is None:
             print("No data available to run DFT. Please prepare the dataset first.", flush=True)
             return
         
-        #self.count = len([s for s in self.data if s.calc is None])
-        print(f"Running DFT on {self.count} structures without calculator assigned...", flush=True)
+        basis_file = os.path.join(self.run_dir, 'basis.fdf')
+        dft_dir = os.path.join(self.run_dir, 'DFT')
+        target_file = os.path.join(dft_dir, 'basis.fdf')
 
+        os.makedirs(dft_dir, exist_ok=True)
+
+        # Check if basis file exists in the run directory
+        if os.path.exists(basis_file):
+            # If it exists in the run directory, check if it already exists in the DFT directory
+            if os.path.exists(target_file):
+                # If it already exists in the DFT directory, do nothing
+                return
+            # If it does not exist in the DFT directory, copy it from the run directory
+            shutil.copy(basis_file, target_file)
+        else:
+            # If it does not exist in the run directory, create an empty basis.fdf file in the DFT directory
+            if not os.path.exists(target_file):
+                open(target_file, 'w').close()
+
+        if self.count == 0:
+            print("All structures have calculator results. No DFT calculations needed.")
+            return
+
+        print(f"Running DFT on {self.count} structures without calculator assigned...", flush=True)
         def _label_DFT(data, label='train'):
             for i in range(len(data)):
                 struct = data[i]
                 if struct.calc is None:
                     #generate_basis(struct, dir=os.path.join(self.run_dir, 'DFT'))
-                    run_siesta(struct, **dft_params, dir=os.path.join(self.run_dir, 'DFT'))
+                    run_siesta(struct, **dft_params, dir=dft_dir)
                 data[i] = copy_calc_results(struct)
                 write(os.path.join(self.run_dir, f"{label}.xyz"), data)
 
@@ -256,16 +283,19 @@ class ActiveLearningNEP:
         _shift_energies(nep_test_data)
         print(f"Shifted energies for {len(nep_train_data)} training structures and {len(nep_test_data)} testing structures.")
 
+        nep_dir = os.path.join(self.iter_dir, "nep")
+        os.makedirs(nep_dir, exist_ok=True)
+
         # Save the modified train.xyz and test.xyz to the iteration directory for NEP training
-        write(os.path.join(self.iter_dir, "train.xyz"), nep_train_data)
-        write(os.path.join(self.iter_dir, "test.xyz"), nep_test_data)
+        write(os.path.join(nep_dir, "train.xyz"), nep_train_data)
+        write(os.path.join(nep_dir, "test.xyz"), nep_test_data)
 
         # Set up the input files for NEP training
         params = dict(version=4, type=[len(self.species), ' '.join(self.species)])
         params.update(cutoff=cutoff, neuron=neuron, generation=generation, batch=batch)
 
         # Dump params to a .in file
-        with open(os.path.join(self.iter_dir, "nep.in"), "w") as f:
+        with open(os.path.join(nep_dir, "nep.in"), "w") as f:
             for key, value in params.items():
                 if isinstance(value, list):
                     value_str = ' '.join(map(str, value))
@@ -275,7 +305,12 @@ class ActiveLearningNEP:
 
 
     def train_nep(self):
-        subprocess.run(["nep"], cwd=self.iter_dir, check=True, text=True)
+        nep_dir = os.path.join(self.iter_dir, "nep")
+        subprocess.run(["nep"], cwd=nep_dir, check=True, text=True)
+        # Copy nep.txt to iteration directory for later use in descriptor calculation
+        nep_txt_src = os.path.join(nep_dir, "nep.txt")
+        nep_txt_target = os.path.join(self.iter_dir, "nep.txt")
+        shutil.copy(nep_txt_src, nep_txt_target)
     
 
     """
@@ -347,6 +382,7 @@ class ActiveLearningNEP:
         structure.arrays['descriptor'] = B
 
     def assign_descriptors(self, structures):
+        from tqdm import tqdm
         # Filter out structures that already have descriptors calculated
         structures = [s for s in structures if 'descriptor' not in s.arrays]
         if len(structures) == 0:
@@ -548,7 +584,12 @@ class ActiveLearningNEP:
             print(f"Active set inverse saved to {asi_file}")
             
             self.active_set_struct = [self.train_data[i] for i in active_set_index]
-            write(xyz_file, self.active_set_struct)
+
+            active_set_struct_copy = [copy_calc_results(atoms) for atoms in self.active_set_struct]
+            for atoms in active_set_struct_copy:
+                del atoms.arrays['descriptor']
+
+            write(xyz_file, active_set_struct_copy)
             print(f"Active set structure saved to {xyz_file}", flush=True)
 
 
@@ -896,3 +937,37 @@ class ActiveLearningNEP:
         iter_file = os.path.join(self.run_dir, "iteration.txt")
         with open(iter_file, "w") as f:
             f.write(str(self.iteration))
+
+
+    def relax_atoms(self, atoms, filt=True, fmax=0.0001, strained=False):
+
+        calc = CPUNEP(os.path.join(self.iter_dir, 'nep.txt'))
+
+        # Attach the calculator to the atoms object
+        atoms.calc = calc
+
+        # Apply filter to optimize unit cell parameters and atomic positions if filt is True
+        # Otherwise only optimize atomic positions
+        if filt:
+            atoms_filt = opt_filter(atoms, strained)
+        else:
+            atoms_filt = atoms
+        
+        # Set up the BFGS optimizer on all processes
+        opt = BFGS(atoms_filt)
+        # Run the optimization until forces are smaller than fmax
+        opt.run(fmax=fmax*1.e-3)
+        #return atoms
+
+
+
+    def calculate_phonon(self, atoms, Nc=2):
+        calc = CPUNEP(os.path.join(self.iter_dir, 'nep.txt'))
+        atoms = atoms.copy()
+        atoms.calc = calc
+        if check_if_bulk(atoms):
+            supercell = [Nc, Nc, Nc]
+        else:
+            supercell = [Nc, Nc, 1]
+        phonon = get_force_constants(atoms, calc, supercell)
+        return phonon

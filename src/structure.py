@@ -66,7 +66,7 @@ class Perovskite:
     
     def set_atoms(self, atoms):
         """Set the atoms object for the perovskite structure."""
-        self.atoms = atoms
+        self.atoms = atoms.copy()
 
     def apply_strain(self, strain):
         """Apply a specified strain to the perovskite structure.
