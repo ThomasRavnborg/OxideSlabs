@@ -709,20 +709,22 @@ class ActiveLearningNEP:
             # Create directory for this chemical formula
             os.makedirs(label_dir, exist_ok=True)
 
+            # Take the first structure for this chemical formula as the initial structure for the MD simulations.
+            atoms = train_data_dict[label][0].copy()
+            bulk = check_if_bulk(atoms)
+            # Relax the structure with the NEP model
+            self.relax_atoms(atoms)
+
+            atoms_copy = copy_calc_results(atoms)
+
             for T in temperatures:
 
-                temp_dir = os.path.join(label_dir, f"{T} K")
+                temp_dir = os.path.join(label_dir, f"{T}K")
                 # Create directory for this temperature
                 os.makedirs(temp_dir, exist_ok=True)
-
-                # Take the first structure for this chemical formula as the initial structure for the MD simulations.
-                # This assumes that the first structure in the train_data_dict for each label is a reasonable initial structure for MD simulations.
-                # In practice, you may want to implement a more sophisticated selection of initial structures, or generate new initial structures by perturbing existing ones.
-                atoms = train_data_dict[label][0].copy()
-                bulk = check_if_bulk(atoms)
                 
                 # Write atoms object to temp_dir without calculator results
-                write(os.path.join(temp_dir, "model.xyz"), atoms)
+                write(os.path.join(temp_dir, "model.xyz"), atoms_copy)
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
                 save_run_in(dt, n_steps, n_dump, T, bulk, temp_dir)
 
@@ -939,7 +941,7 @@ class ActiveLearningNEP:
             f.write(str(self.iteration))
 
 
-    def relax_atoms(self, atoms, filt=True, fmax=0.0001, strained=False):
+    def relax_atoms(self, atoms, filt=True, fmax=0.1, strained=False):
 
         calc = CPUNEP(os.path.join(self.iter_dir, 'nep.txt'))
 

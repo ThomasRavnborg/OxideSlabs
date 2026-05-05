@@ -118,6 +118,8 @@ def get_modevectors(phonon, q, tol_deg=1e-4):
 
     return modes, stable
 
+
+
 def get_unstable_mode_groups(phonon, q, tol_neg=1e-5, tol_deg=1e-4):
 
     N_unit = len(phonon.unitcell.symbols)
@@ -150,6 +152,7 @@ def get_unstable_mode_groups(phonon, q, tol_neg=1e-5, tol_deg=1e-4):
         used.update(deg)
 
         subspace = []
+        modes = []
 
         for j in deg:
 
@@ -159,16 +162,18 @@ def get_unstable_mode_groups(phonon, q, tol_neg=1e-5, tol_deg=1e-4):
             phase = np.angle(vec[imax])
             vec = vec * np.exp(-1j * phase)
 
+            #modes.append(vec.real.reshape(N_unit, 3))
+
             subspace.append(vec.real)
 
+        
         subspace = np.array(subspace).T
 
         Q, _ = np.linalg.qr(subspace)
 
-        modes = []
-
         for k in range(Q.shape[1]):
             modes.append(Q[:, k].reshape(N_unit, 3))
+        
 
         groups.append({
             "frequency": frequencies[i],
