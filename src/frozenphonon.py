@@ -19,6 +19,7 @@ from phonopy import Phonopy
 # Custom modules
 from src.cleanfiles import cleanFiles
 from src.phononASE import phonon_to_atoms
+from src.structure import check_if_bulk
 from src.calculators import copy_calc_results
 
 # Try to import world from gpaw.mpi for parallel processing
@@ -231,7 +232,7 @@ def get_displacement(unitcell, q, modevec):
 def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                              EnergyShift=0.01, SplitNorm=0.15,
                              MeshCutoff=1000, kgrid=(10, 10, 10),
-                             mode='lcao', bulk=True, deg=True,
+                             mode='lcao', deg=True,
                              dir='resultsold/bulk/frozen', par=True):
     """Function to perform frozen phonon calculations for a given Phonopy object and a range of displacement amplitudes.
     Arguments:
@@ -254,6 +255,7 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
     cwd = os.getcwd()
     # Unitcell and formula from phonon object
     unitcell = phonon_to_atoms(phonon, cell='unit')
+    bulk = check_if_bulk(unitcell)
     formula = unitcell.symbols
     #symbols = phonon.unitcell.symbols
 

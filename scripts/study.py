@@ -7,7 +7,7 @@ from src.frozenphonon import calculate_frozen_phonons
 from src.utils import SiestaProject
 from src.structure import Perovskite, check_if_bulk
 from src.fdfcreate import generate_basis
-from src.structureoptimizer import relax_ase, relax_siesta
+from src.structureoptimizer import relax_ase
 from src.bandscalc import calculate_bands
 from src.phononcalc import calculate_phonons
 from src.frozenphonon import calculate_frozen_phonons
@@ -19,8 +19,8 @@ shifts =  [0.01]
 splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
-strains = [0.0]
-#strains = [0.0, 0.01, -0.01, 0.005, -0.005]
+#strains = [0.0]
+strains = [0.0, 0.01, -0.01, 0.005, -0.005]
 
 def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
@@ -40,7 +40,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
         })
 
     # Create atoms object for BaTiO3 and initialize project
-    perovskite = Perovskite(formula, N=2.5, bulk=False)
+    perovskite = Perovskite(formula, N=1.5, bulk=False)
     project = SiestaProject(perovskite)
 
     # Loop over parameter combinations and prepare calculations
@@ -124,10 +124,10 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             # Load phonon data from the specified directory and formula
             phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))
             # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
-            calculate_frozen_phonons(phonon, **params_calc, dir=dir_step, bulk=check_if_bulk(perovskite.atoms))
+            calculate_frozen_phonons(phonon, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
 
 
-for formula in ['BaTiO3', 'SrTiO3']:
+for formula in ['BaTiO3']:
     run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains)
