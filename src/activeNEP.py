@@ -49,8 +49,12 @@ class ActiveLearningNEP:
 
         # Attempt to load existing training and test datasets from the run directory, if they exist.
         try:
-            self.train_data = read(os.path.join(self.run_dir, "train.xyz"), ":")
-            self.test_data = read(os.path.join(self.run_dir, "test.xyz"), ":")
+            # Load train.xyz and test.xyz from run directory
+            train_data = read(os.path.join(self.run_dir, "train.xyz"), ":")
+            test_data = read(os.path.join(self.run_dir, "test.xyz"), ":")
+            # Sort atoms by alphabetical order of chemical symbols to ensure consistency in descriptor calculation and active set selection
+            self.train_data = [copy_calc_results(atoms, sort=True) for atoms in train_data]
+            self.test_data = [copy_calc_results(atoms, sort=True) for atoms in test_data]
             print(f"Loaded {len(self.train_data)} training structures and {len(self.test_data)} test structures", flush=True)
             
             self.data = self.train_data + self.test_data
@@ -188,8 +192,8 @@ class ActiveLearningNEP:
             write(os.path.join(self.run_dir, "train.xyz"), train_data)
             write(os.path.join(self.run_dir, "test.xyz"), test_data)
 
-            self.train_data = train_data
-            self.test_data = test_data
+            self.train_data = [copy_calc_results(atoms, sort=True) for atoms in train_data]
+            self.test_data = [copy_calc_results(atoms, sort=True) for atoms in test_data]
             self.data = self.train_data + self.test_data
             for atoms in self.data:
                 self.species.update(atoms.get_chemical_symbols())
@@ -287,8 +291,8 @@ class ActiveLearningNEP:
                     atoms.calc.results['energy'] -= sum(energies[element] for element in elements)
 
         # Sort atoms by alphabetical order of chemical symbols
-        nep_train_data = [copy_calc_results(atoms, sort=True) for atoms in nep_train_data]
-        nep_test_data = [copy_calc_results(atoms, sort=True) for atoms in nep_test_data]
+        #nep_train_data = [copy_calc_results(atoms, sort=True) for atoms in nep_train_data]
+        #nep_test_data = [copy_calc_results(atoms, sort=True) for atoms in nep_test_data]
 
         # Shift energies of nep train and test data
         _shift_energies(nep_train_data)
