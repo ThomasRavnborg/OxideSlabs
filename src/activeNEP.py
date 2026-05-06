@@ -33,16 +33,19 @@ class ActiveLearningNEP:
         if os.path.exists(iter_file):
             with open(iter_file) as f:
                 self.iteration = int(f.read().strip())
+            self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
         else:
             self.iteration = 1
             with open(iter_file, "w") as f:
                 f.write(str(self.iteration))
+            # Create iteration folder
+            self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
+            os.makedirs(self.iter_dir, exist_ok=True)
         
         print(f"Current iteration: {self.iteration}", flush=True)
-
         # Create iteration folder
-        self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
-        os.makedirs(self.iter_dir, exist_ok=True)
+        #self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
+        #os.makedirs(self.iter_dir, exist_ok=True)
 
         # Attempt to load existing training and test datasets from the run directory, if they exist.
         try:
@@ -70,7 +73,16 @@ class ActiveLearningNEP:
                     print("DFT calculations must be run with run_DFT(), or these will be omitted.", flush=True)
             else:
                 print("All structures have calculator results.", flush=True)
-        
+
+                asi_file = os.path.join(self.iter_dir, "active_set.asi")
+                xyz_file = os.path.join(self.iter_dir, "active_set.xyz")
+
+                if os.path.exists(asi_file) and os.path.exists(xyz_file):
+                    print("Existing active set inverse (.asi) and structures (.xyz) found. Loading...")
+                    active_set_inv = load_asi(asi_file)
+                    self.active_set_inv = dict(zip(self.species, active_set_inv.values()))
+                    self.active_set_struct = read(xyz_file, ":")
+
         except Exception:
             self.train_data = None
             self.test_data = None
@@ -230,8 +242,8 @@ class ActiveLearningNEP:
                 if struct.calc is None:
                     #generate_basis(struct, dir=os.path.join(self.run_dir, 'DFT'))
                     run_siesta(struct, **dft_params, dir=dft_dir)
-                data[i] = copy_calc_results(struct)
-                write(os.path.join(self.run_dir, f"{label}.xyz"), data)
+                    data[i] = copy_calc_results(struct)
+                    write(os.path.join(self.run_dir, f"{label}.xyz"), data)
 
         # Run DFT calculations on structures without calculator results and update the train and test datasets with the results
         _label_DFT(self.train_data, label='train')
@@ -523,7 +535,7 @@ class ActiveLearningNEP:
         return B_specie, struct_indicies, atom_indicies
 
 
-    def _calculate_active_set(self, structures, batch_size=None):
+    def _calculate_active_set(self, structures, gamma_tol, maxvol_iter, batch_size, n_refinement):
 
         self.assign_descriptors(structures)
         
@@ -535,7 +547,9 @@ class ActiveLearningNEP:
         for specie in self.species:
             print(f'Building active set for {specie}...')
             B_specie, struct_indicies, _ = self._collect_descriptors(structures, specie)
-            A_specie, select_indicies = calculate_maxvol(B_specie, struct_indicies, batch_size=batch_size)
+            A_specie, select_indicies = calculate_maxvol(B_specie, struct_indicies,
+                                                         gamma_tol, maxvol_iter,
+                                                         batch_size, n_refinement)
             active_set[specie] = A_specie
             active_set_index.extend(select_indicies)
         
@@ -552,7 +566,7 @@ class ActiveLearningNEP:
         return active_set_inv, active_set_index
 
 
-    def build_active_set(self, batch_size=None, overwrite=False):
+    def build_active_set(self, gamma_tol=1.001, maxvol_iter=1000, batch_size=None, n_refinement=10):
         """
         Wrapper for MaxVol active set selection.
 
@@ -577,7 +591,9 @@ class ActiveLearningNEP:
 
         else:
             print("Building active set...")
-            active_set_inv, active_set_index = self._calculate_active_set(self.train_data, batch_size=batch_size)
+            active_set_inv, active_set_index = self._calculate_active_set(self.train_data,
+                                                                          gamma_tol, maxvol_iter,
+                                                                          batch_size, n_refinement)
            
             self.active_set_inv = active_set_inv
             save_asi(self.active_set_inv, asi_file)
@@ -885,7 +901,7 @@ class ActiveLearningNEP:
         #return selected_structures
 
 
-    def select_structures(self, structures):
+    def select_structures(self, structures, gamma_tol=1.001, maxvol_iter=1000, batch_size=None, n_refinement=10):
 
         print("Performing diversity selection with MaxVol")
 
@@ -893,10 +909,19 @@ class ActiveLearningNEP:
         data = self.train_data + structures
 
         # Compute an active set for the combined set of structures
-        active_set_inv, active_set_index = self._calculate_active_set(data, batch_size=None)
+        active_set_inv, active_set_index = self._calculate_active_set(data,
+                                                                      gamma_tol, maxvol_iter,
+                                                                      batch_size, n_refinement)
 
         # Return new structures that are in the active set but not in the original training data
-        filtered_structures = [data[i] for i in active_set_index if i >= len(self.train_data)]
+        filtered_structures = []
+        for i in active_set_index:
+            if i >= len(self.train_data):
+                atoms = data[i].copy()
+                del atoms.arrays['descriptor']
+                del atoms.arrays['gamma']
+                filtered_structures.append(atoms)
+        #filtered_structures = [data[i] for i in active_set_index if i >= len(self.train_data)]
         
         print(f"Found {len(filtered_structures)} filtered structures.", flush=True)
 
@@ -936,6 +961,8 @@ class ActiveLearningNEP:
 
         # Update iteration number and overwrite iteration.txt
         self.iteration += 1
+        self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
+        os.makedirs(self.iter_dir, exist_ok=True)
         iter_file = os.path.join(self.run_dir, "iteration.txt")
         with open(iter_file, "w") as f:
             f.write(str(self.iteration))
