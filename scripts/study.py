@@ -40,7 +40,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
         })
 
     # Create atoms object for BaTiO3 and initialize project
-    perovskite = Perovskite(formula, N=1.5, bulk=False)
+    perovskite = Perovskite(formula, bulk=False, dslab=1.5)
     project = SiestaProject(perovskite)
 
     # Loop over parameter combinations and prepare calculations
