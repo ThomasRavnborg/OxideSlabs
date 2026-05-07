@@ -34,7 +34,7 @@ class SiestaProject:
 
         formula = perovskite.formula
         bulk = check_if_bulk(perovskite.atoms)
-        self.material = formula
+        self.material = perovskite.atoms.get_chemical_formula()
 
         if bulk:
             self.path = os.path.join(root, "bulk", formula)
