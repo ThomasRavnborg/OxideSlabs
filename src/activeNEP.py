@@ -27,37 +27,49 @@ from src.gpumdIO import save_run_in
 
 class ActiveLearningNEP:
 
-    def __init__(self, run_dir):
+    def __init__(self, run_dir, iteration=None):
 
         # Define run directory
         self.run_dir = run_dir
 
-        # Load iteration number if it exists, otherwise start at 1
-        iter_file = os.path.join(self.run_dir, "iteration.txt")
-        if os.path.exists(iter_file):
-            with open(iter_file) as f:
-                self.iteration = int(f.read().strip())
+        if iteration is not None:
+            self.iteration = iteration
             self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
+            if not os.path.exists(self.iter_dir):
+                raise RuntimeError(f"Iteration directory {self.iter_dir} does not exist.")
         else:
-            self.iteration = 1
-            with open(iter_file, "w") as f:
-                f.write(str(self.iteration))
-            # Create iteration folder
-            self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
-            os.makedirs(self.iter_dir, exist_ok=True)
+            # Load iteration number if it exists, otherwise start at 1
+            iter_file = os.path.join(self.run_dir, "iteration.txt")
+            if os.path.exists(iter_file):
+                with open(iter_file) as f:
+                    self.iteration = int(f.read().strip())
+                self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
+            else:
+                self.iteration = 1
+                with open(iter_file, "w") as f:
+                    f.write(str(self.iteration))
+                # Create iteration folder
+                self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
+                os.makedirs(self.iter_dir, exist_ok=False)
         
         print(f"Current iteration: {self.iteration}", flush=True)
-        # Create iteration folder
-        #self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
-        #os.makedirs(self.iter_dir, exist_ok=True)
+        
+        train_xyz = os.path.join(self.run_dir, "train.xyz")
+        test_xyz = os.path.join(self.run_dir, "test.xyz")
 
-        # Attempt to load existing training and test datasets from the run directory, if they exist.
-        try:
-            # Load train.xyz and test.xyz from run directory
-            self.train_data = read(os.path.join(self.run_dir, "train.xyz"), ":")
-            self.test_data = read(os.path.join(self.run_dir, "test.xyz"), ":")
+        if not os.path.exists(train_xyz) and not os.path.exists(test_xyz):
+            print("No train.xyz and test.xyz files found in run directory.")
+            print("Use prepare_dataset() to create the datasets based on .yaml files.", flush=True)
+            self.train_data = None
+            self.test_data = None
+            self.data = None
+            self.species = set()
+
+        else:
+            self.train_data = read(train_xyz, ":")
+            self.test_data = read(test_xyz, ":")
             print(f"Loaded {len(self.train_data)} training structures and {len(self.test_data)} test structures", flush=True)
-            
+
             self.data = self.train_data + self.test_data
             self.species = set()
             for atoms in self.data:
@@ -79,29 +91,28 @@ class ActiveLearningNEP:
             else:
                 print("All structures have calculator results.", flush=True)
 
-                nep_txt = os.path.join(self.iter_dir, "nep.txt")
-                
-                if os.path.exists(nep_txt):
-                    print("Existing NEP model found. Loading...")
-                    self.nep_txt = nep_txt
+        nep_txt = os.path.join(self.iter_dir, "nep.txt")
+        
+        if not os.path.exists(nep_txt):
+            print("No existing NEP model found.")
+            self.nep_txt = None
+        else:
+            print("Existing NEP model found. Loading...")
+            self.nep_txt = nep_txt
 
-                asi_file = os.path.join(self.iter_dir, "active_set.asi")
-                xyz_file = os.path.join(self.iter_dir, "active_set.xyz")
+        asi_file = os.path.join(self.iter_dir, "active_set.asi")
+        xyz_file = os.path.join(self.iter_dir, "active_set.xyz")
 
-                if os.path.exists(asi_file) and os.path.exists(xyz_file):
-                    print("Existing active set inverse (.asi) and structures (.xyz) found. Loading...")
-                    active_set_inv = load_asi(asi_file)
-                    self.active_set_inv = dict(zip(self.species, active_set_inv.values()))
-                    self.active_set_struct = read(xyz_file, ":")
-                
+        if not os.path.exists(asi_file) or not os.path.exists(xyz_file):
+            print("No existing active set inverse (.asi) or structures (.xyz) found.")
+            self.active_set_inv = None
+            self.active_set_struct = None
+        else:
+            print("Existing active set inverse (.asi) and structures (.xyz) found. Loading...")
+            active_set_inv = load_asi(asi_file)
+            self.active_set_inv = dict(zip(self.species, active_set_inv.values()))
+            self.active_set_struct = read(xyz_file, ":")
 
-        except Exception:
-            self.train_data = None
-            self.test_data = None
-            self.data = None
-            self.species = set()
-            print("No train.xyz and test.xyz files found.")
-            print("Use prepare_dataset() to create the datasets based on .yaml files.", flush=True)
 
     def _get_rattled_structures(self, atoms, fc, T, n_structures):
         # Produce phonon rattled structures using the force constants and the original structure
