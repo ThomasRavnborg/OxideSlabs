@@ -5,7 +5,7 @@ import phonopy as ph
 from itertools import product
 from src.frozenphonon import calculate_frozen_phonons
 from src.utils import SiestaProject
-from src.structure import Perovskite, check_if_bulk
+from src.structure import Perovskite
 from src.fdfcreate import generate_basis
 from src.structureoptimizer import relax_ase
 from src.bandscalc import calculate_bands
@@ -90,7 +90,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             # Run relaxation
             parprint(f"Running relaxation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'relax')
-            relax_ase(perovskite, **params_calc, strained=strained, dir=dir_step)
+            relax_ase(perovskite.atoms, **params_calc, strained=strained, dir=dir_step)
             # Update dataframe and move to next step
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
@@ -105,7 +105,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             # Run band structure calculation
             parprint(f"Running band structure calculation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'bands')
-            calculate_bands(perovskite, **params_calc, dir=dir_step)
+            calculate_bands(perovskite.atoms, **params_calc, dir=dir_step)
             # Update dataframe and move to next step
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
@@ -114,7 +114,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
         if next_step == "phonons" or runall:
             parprint(f"Running phonon calculation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'phonons')
-            calculate_phonons(perovskite, **params_calc, dir=dir_step)
+            calculate_phonons(perovskite.atoms, **params_calc, dir=dir_step)
             # Update dataframe
             project.update_summary(calc_id, params)
             next_step = project.what_to_run(calc_id)
@@ -132,4 +132,4 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
 
 
 for formula in ['BaTiO3']:
-    run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains)
+    run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=True)

@@ -26,14 +26,13 @@ try:
 except ImportError:
     from ase.parallel import world
 
-def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
+def calculate_bands(atoms, xcf='PBEsol', basis='DZP',
                     EnergyShift=0.01, SplitNorm=0.15,
                     MeshCutoff=1000, kgrid=(10, 10, 10),
                     mode='lcao', dir='results/bulk/bandstructure', par=True):
     """Function to calculate band structure and PDOS of a bulk structure using SIESTA.
     Parameters:
-    - perovskite: Custom object representing the relaxed bulk structure.
-    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+    - atoms: ASE Atoms object representing the relaxed structure.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to use for the calculation (default: 'DZP').
              If basis ends with (lower-case) p, a polarization orbital will be added to the A-site (Ba)
@@ -48,10 +47,9 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
     """
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
-    formula = perovskite.formula
-    atoms = perovskite.atoms
+    formula = atoms.get_chemical_formula()
     bulk = check_if_bulk(atoms)
-    ncells = perovskite.ncells
+    #ncells = perovskite.ncells
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
 
@@ -157,7 +155,7 @@ def calculate_bands(perovskite, xcf='PBEsol', basis='DZP',
             path = 'GXMG'
             npoints = 180
         BScalc = atoms.calc.fixed_density(
-            nbands=int(32*ncells),
+            nbands=int(32),
             symmetry='off',
             kpts={'path': path, 'npoints': npoints},
             convergence={'bands': 16},
@@ -214,7 +212,7 @@ def convert_labels(labels):
     return np.array(converted)
 
 # Define a function that plots the bandstructure and DOS together
-def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, width=1):
+def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1, width=1):
     """Function to plot bandstructure and DOS for a given formula.
     Requires that the bandstructure and PDOS have already been calculated and saved to files.
     Parameters:
@@ -222,7 +220,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     - ids: Numpy array of IDs to plot.
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
-    - Ncells: Number of unit cells
+    - dslab: Thickness of the slab (default is 1 u.c.).
     - width: Fraction of the target width for the figure (default is 1).
     Returns:
     - None. The function reads the bandstructure and PDOS data from files and plots the results.
@@ -238,7 +236,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     if bulk:
         struc = f'bulk/{formula}'
     else:
-        struc = f'slab/{formula}/{Ncells}uc'
+        struc = f'slab/{formula}/{dslab}uc'
 
     # Create 2 subplots for the band structure and DOS, with shared y-axis
     fig, axes = plt.subplots(1, 2, figsize=(9.6, 5),
@@ -384,7 +382,7 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1
     # Show figure
     plt.show()
 
-def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, width=1):
+def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1, width=1):
     """Function to plot bandstructures seperately
     Requires that the bandstructure has already been calculated and saved to files.
     Parameters:
@@ -392,7 +390,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
     - ids: Numpy array of IDs to plot.
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
-    - Ncells: Number of unit cells
+    - dslab: Thickness of the slab (default is 1 u.c.).
     - width: Fraction of the target width for the figure (default is 1).
     Returns:
     - None. The function reads the bandstructure data from files and plots the results.
@@ -407,7 +405,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
     if bulk:
         struc = f'bulk/{formula}'
     else:
-        struc = f'slab/{formula}/{Ncells}uc'
+        struc = f'slab/{formula}/{dslab}uc'
 
     # Create N subplots for the band structure along x
     fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')
@@ -505,7 +503,7 @@ def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=
 
 
 
-def plot_DOS(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
+def plot_DOS(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1):
     """Function to plot total DOS and pDOS for multiple calculations
     Requires that the DOS and pDOS has already been calculated and saved to files.
     Parameters:
@@ -513,7 +511,7 @@ def plot_DOS(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
     - ids: Numpy array of IDs to plot.
     - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
     - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
-    - Ncells: Number of unit cells
+    - dslab: Thickness of the slab (default is 1).
     Returns:
     - None. The function reads the DOS and pDOS data from files and plots the results.
     """
@@ -528,7 +526,7 @@ def plot_DOS(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1):
     if bulk:
         struc = f'bulk/{formula}'
     else:
-        struc = f'slab/{formula}/{Ncells}uc'
+        struc = f'slab/{formula}/{dslab}uc'
 
     # Create N subplots for the band structure along x
     fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')

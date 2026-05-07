@@ -25,13 +25,27 @@ from src.phononASE import ase_to_phonopy, phonopy_to_ase
 from src.plotsettings import PlotSettings
 PlotSettings().set_global_style()
 
-def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
+def is_phonon_bulk(phonon):
+    """Function to determine if the phonon calculation is for a bulk or slab system based on the supercell matrix.
+    Parameters:
+    - phonon: Phonopy object containing phonon data.
+    Returns:
+    - bulk: Boolean indicating if the system is bulk (True) or slab (False).
+    """
+    if phonon.supercell_matrix.diagonal()[-1] == 1:
+        return False
+    else:
+        return True
+
+
+
+def calculate_phonons(atoms, xcf='PBEsol', basis='DZP',
                       EnergyShift=0.01, SplitNorm=0.15,
                       MeshCutoff=1000, kgrid=(10, 10, 10),
                       mode='lcao', dir='results/bulk/phonons', par=True):
     """Function to calculate phonon properties of a structure using Phonopy and SIESTA.
     Parameters:
-    - perovskite: Custom object representing the relaxed structure.
+    - atoms: ASE Atoms object representing the relaxed structure.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to use for the calculation (default: 'DZP').
              If basis ends with (lower-case) p, a polarization orbital will be added to the A-site (Ba)
@@ -47,8 +61,7 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
     """
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
-    formula = perovskite.formula
-    atoms = perovskite.atoms
+    formula = atoms.get_chemical_formula()
     bulk = check_if_bulk(atoms)
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
@@ -135,12 +148,6 @@ def calculate_phonons(perovskite, xcf='PBEsol', basis='DZP',
         # Convert PhonopyAtoms to ASE Atoms for each supercell
         atoms_ase = phonopy_to_ase(sc, bulk)
         
-        """
-        if not bulk:
-            # Remove periodicity in the z-direction for slab calculations
-            atoms_ase.pbc = (True, True, False)
-        """
-
         # Set up the calculator based on the selected mode
         if mode == 'lcao':
             # Set up the Siesta calculator
@@ -189,17 +196,17 @@ def order_labels(symbols, handles, labels):
     return list(sorted_handles), list(sorted_labels)
 
 # Define a function that extracts the phonon dispersion data for plotting
-def get_phonon_dispersion(phonon, bulk=True):
+def get_phonon_dispersion(phonon):
     """Function to extract phonon dispersion data for plotting.
     Parameters:
     - phonon: Phonopy object containing phonon data.
-    - bulk: Boolean indicating if the system is bulk (True) or slab (False).
     Returns:
     - dist: Distances along the band path.
     - X: High symmetry point locations on the x-axis.
     - freq: Frequencies of the phonon modes.
     - labels: Labels for the high symmetry points.
     """
+    bulk = is_phonon_bulk(phonon)
     # Specify band path and labels depending on bulk or slab
     if bulk == True:
         path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
@@ -225,15 +232,15 @@ def get_phonon_dispersion(phonon, bulk=True):
     return (dist, X, freq, labels)
 
 # Define a function that extracts the DOS data for plotting
-def get_phonon_dos(phonon, bulk=True):
+def get_phonon_dos(phonon):
     """Function to extract phonon DOS data for plotting.
     Parameters:
     - phonon: Phonopy object containing phonon data.
-    - bulk: Boolean indicating if the system is bulk (True) or slab (False).
     Returns:
     - dos: Density of states values.
     - freq: Frequency points.
     """
+    bulk = is_phonon_bulk(phonon)
     # Load Phonopy object from YAML file
     if bulk == True:
         # Set mesh for bulk
@@ -250,16 +257,16 @@ def get_phonon_dos(phonon, bulk=True):
     return (dos, freq)
 
 # Define a function that extracts the PDOS data for plotting
-def get_phonon_pdos(phonon, bulk=True):
+def get_phonon_pdos(phonon):
     """Function to extract phonon PDOS data for plotting.
     Parameters:
     - phonon: Phonopy object containing phonon data.
-    - bulk: Boolean indicating if the system is bulk (True) or slab (False).
     Returns:
     - pdos: Projected density of states values.
     - freq: Frequency points.
     - symbols: List of atomic symbols in the unit cell.
     """
+    bulk = is_phonon_bulk(phonon)
     # Load Phonopy object from YAML file
     if bulk == True:
         symbols = phonon.unitcell.symbols
@@ -278,7 +285,7 @@ def get_phonon_pdos(phonon, bulk=True):
     return (pdos, freq, symbols)
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, pDOS=False, width=1):
+def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1, pDOS=False, width=1):
     """Function to plot the phonon dispersion and DOS together.
     Parameters:
     - phonon: Phonopy object containing phonon data.
@@ -301,7 +308,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     if bulk:
         struc = f'bulk/{formula}'
     else:
-        struc = f'slab/{formula}/{Ncells}uc'
+        struc = f'slab/{formula}/{dslab}uc'
 
     # Define tickmarks for the x- and y-axis
     dos_tickmarks = np.arange(0, 7, 1)
@@ -323,7 +330,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
     
     def _plot_disp(ax, phonon, val, col='k', vlines=True):
         # Extract phonon dispersion data
-        (dist, X, freq, labels) = get_phonon_dispersion(phonon, bulk)
+        (dist, X, freq, labels) = get_phonon_dispersion(phonon)
         dist = np.array(dist)
         dist /= dist[-1][-1]  # Normalize distances to the total length of the path
         X /= X[-1]  # Normalize high symmetry point locations to the total length of the path
@@ -351,7 +358,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
 
     def _plot_dos(ax, phonon, val, col='k'):
         # Extract total DOS data
-        (dosx, dosy) = get_phonon_dos(phonon, bulk)
+        (dosx, dosy) = get_phonon_dos(phonon)
         # Plot total DOS
         ax.plot(dosx, dosy, lw=1, color=col, label=f'{val}')
         if pDOS:
@@ -361,7 +368,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
         atom_colors = {'Ba': 'tab:blue', 'Sr': 'tab:purple',
                        'Ti': 'tab:orange', 'O': 'tab:red'}
         # Extract PDOS data
-        (pdosx, pdosy, symbols) = get_phonon_pdos(phonon, bulk)
+        (pdosx, pdosy, symbols) = get_phonon_pdos(phonon)
         # Plot PDOS
         for i in range(pdosx.shape[0]):
             ax.plot(pdosx[i], pdosy, lw=1, color=atom_colors[symbols[i]], label=f'{symbols[i]}')
@@ -419,7 +426,7 @@ def plot_dispersion(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nce
 
 
 # Define a function that plots the dispersion and DOS together
-def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Ncells=1, width=1):
+def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1, width=1):
     """Function to plot the phonon dispersion seperately
     Parameters:
     - formula: Chemical formula of the material.
@@ -446,7 +453,7 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
     if bulk:
         struc = f'bulk/{formula}'
     else:
-        struc = f'slab/{formula}/{Ncells}uc'
+        struc = f'slab/{formula}/{dslab}uc'
 
     # Create N subplots for the band structure along x
     fig, axes = plt.subplots(1, N, figsize=(2.5*N, 5), sharey='col')
@@ -455,7 +462,7 @@ def plot_dispersion2(formula, ids=np.array([]), vals=np.array([]), bulk=True, Nc
     
     def _plot_disp(ax, phonon, val, col='k'):
         # Extract phonon dispersion data
-        (dist, X, freq, labels) = get_phonon_dispersion(phonon, bulk)
+        (dist, X, freq, labels) = get_phonon_dispersion(phonon)
         dist = np.array(dist)
         dist /= dist[-1][-1]  # Normalize distances to the total length of the path
         X /= X[-1]  # Normalize high symmetry point locations to the total length of the path

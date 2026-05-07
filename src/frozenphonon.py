@@ -268,15 +268,15 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
     q_dict = {
         'G': [0.0, 0.0, 0.0],
         'X': [0.5, 0.0, 0.0],
-        'R': [0.5, 0.5, 0.5],
         'M': [0.5, 0.5, 0.0],
+        'R': [0.5, 0.5, 0.5]
     }
 
     dd_dict = {
         'G': 1/n_points,
         'X': 1.5/n_points,
-        'R': 5/n_points,
         'M': 3/n_points,
+        'R': 5/n_points
     }
 
     if not bulk:
@@ -306,6 +306,9 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
         if par:
             # Change diagonalization algorithm when running in parallel
             fdf_args['Diag.Algorithm'] = 'ELPA'
+        if not bulk:
+            # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+            fdf_args['Slab.DipoleCorrection'] = 'T'
     
     # In GPAW, calculations are performed with plane waves (PW)
     elif mode == 'pw':
@@ -317,6 +320,9 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
             'occupations': {'name': 'fermi-dirac','width': 0.05},
             'convergence': {'density': 1e-6}
         }
+        if not bulk:
+            # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+            calc_params["poissonsolver"] = {"dipolelayer": "xy"}
 
     # Loop over q-points and perform frozen phonon calculations for each q-point
     for qpoint in q_dict.keys():

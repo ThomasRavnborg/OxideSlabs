@@ -23,30 +23,6 @@ try:
 except ImportError:
     from ase.parallel import world
 
-# Function to generate perovskite structure
-def perovskite(formula):
-    """Function to create a perovskite structure.
-    Parameters:
-    - formula: Chemical formula of the perovskite ('ABX3').
-    Returns:
-    - ASE Atoms object representing the perovskite structure.
-    """
-    # Dictionary of lattice constants for different perovskites
-    a = {'BaTiO3': 4.01,
-         'SrTiO3': 3.905
-         }
-    if formula not in a:
-        raise ValueError(f"Lattice constant for {formula} not found in dictionary.")
-    
-    sca_pos = [[0, 0, 0],
-                [1/2, 1/2, 1/2],
-                [1/2, 0, 1/2],
-                [0, 1/2, 1/2],
-                [1/2, 1/2, 0]]
-    def unitCell(a):
-        return [[a, 0, 0], [0, a, 0], [0, 0, a]]
-    return Atoms(formula, cell=unitCell(a[formula]), pbc=True, scaled_positions=sca_pos)
-
 def opt_filter(atoms, strained=False):
     """Function to set up a filter for optimizing unit cell parameters and atomic positions.
     Parameters:
@@ -76,15 +52,14 @@ def opt_filter(atoms, strained=False):
     atoms_filt = FrechetCellFilter(atoms, mask=mask)
     return atoms_filt
 
-def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
+def relax_ase(atoms, xcf='PBEsol', basis='DZP',
               EnergyShift=0.01, SplitNorm=0.15,
               MeshCutoff=1000, kgrid=(10, 10, 10),
               mode='lcao', strained=False,
               dir='results/bulk/relax', par=False):
     """Function to relax a bulk structure using ASE BFGS optimizer with SIESTA or GPAW calculator.
     Parameters:
-    - perovskite: Custom object representing the structure to be relaxed.
-    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+    - atoms: ASE Atoms object representing the structure to be relaxed.
     - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
     - basis: Basis set to use for the calculation (default: 'DZP').
              If basis ends with (lower-case) p, a polarization orbital will be added to the A-site (Ba)
@@ -102,8 +77,7 @@ def relax_ase(perovskite, xcf='PBEsol', basis='DZP',
 
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
-    formula = perovskite.formula
-    atoms = perovskite.atoms
+    formula = atoms.get_chemical_formula()
     bulk = check_if_bulk(atoms)
 
     # Convert kgrid to a list to allow for modification
