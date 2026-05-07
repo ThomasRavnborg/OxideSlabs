@@ -42,7 +42,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
     # Create atoms object for BaTiO3 and initialize project
     perovskite = Perovskite(formula, bulk=False, dslab=1.5)
     project = SiestaProject(perovskite)
-    label = Perovskite.atoms.get_chemical_formula()
+    label = perovskite.atoms.get_chemical_formula()
 
     # Loop over parameter combinations and prepare calculations
     for params in param_dicts:
@@ -133,4 +133,4 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
 
 
 for formula in ['BaTiO3']:
-    run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=True)
+    run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains)
