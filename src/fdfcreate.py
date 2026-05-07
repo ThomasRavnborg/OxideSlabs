@@ -144,7 +144,8 @@ def generate_basis(atoms, xcf='PBEsol', basis='DZPp',
     os.environ["ASE_SIESTA_COMMAND"] = "siesta < PREFIX.fdf > PREFIX.out"
 
     if basis.endswith('p'):
-        targets = [cations[0]]
+        #targets = [cations[0]]
+        targets = ['Ba']   # temporary fix
         basis = basis[:-1]
         add_p = True
     elif basis.endswith('d'):
