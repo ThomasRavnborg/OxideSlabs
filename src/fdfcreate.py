@@ -1,12 +1,8 @@
 import os
 import re
-from unicodedata import lookup
-from ase import Atoms
 from ase.units import Ry
-from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
-from ase.calculators.siesta.parameters import Species, PAOBasisBlock
-from src.structure import Perovskite, get_cations
+from src.structure import get_cations
 from src.cleanfiles import cleanFiles
 
 def get_PAO_block(dir):
