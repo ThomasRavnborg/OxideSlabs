@@ -42,6 +42,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
     # Create atoms object for BaTiO3 and initialize project
     perovskite = Perovskite(formula, bulk=False, dslab=1.5)
     project = SiestaProject(perovskite)
+    label = Perovskite.atoms.get_chemical_formula()
 
     # Loop over parameter combinations and prepare calculations
     for params in param_dicts:
@@ -81,7 +82,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
                 ref_id = project.prepare_calculation(params_ref)
                 dir_ref = os.path.join(project.path, ref_id)
                 # Load the unstrained structure
-                perovskite.set_atoms(read(os.path.join(dir_ref, 'relax', f'{formula}.xyz')))
+                perovskite.set_atoms(read(os.path.join(dir_ref, 'relax', f'{label}.xyz')))
                 # Apply the specified strain
                 perovskite.apply_strain(params['strain'])
                 strained = True
@@ -98,7 +99,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
         # Set the atoms object for the next steps based on the relaxed structure
         dir_relax = os.path.join(dir, 'relax')
         #dir_relax = 'results/bulk/GPAW'
-        perovskite.set_atoms(read(os.path.join(dir_relax, f'{formula}.xyz')))
+        perovskite.set_atoms(read(os.path.join(dir_relax, f'{label}.xyz')))
         
         # If band structure calculation needs to be run, run it and update to the next step
         if next_step == "bands" or runall:
@@ -124,7 +125,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             parprint(f"Running frozen phonon calculation for calculation {calc_id} with SIESTA", flush=True)
             dir_step = os.path.join(dir, 'frozen')
             # Load phonon data from the specified directory and formula
-            phonon = ph.load(os.path.join(dir, 'phonons', f'{formula}.yaml'))
+            phonon = ph.load(os.path.join(dir, 'phonons', f'{label}.yaml'))
             # Calculate frozen phonons for the given phonon object and parameters, and save results in the specified directory
             calculate_frozen_phonons(phonon, **params_calc, dir=dir_step)
             # Update dataframe
