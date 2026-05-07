@@ -61,6 +61,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             parprint(f"All steps complete for calculation {calc_id}. Skipping.", flush=True)
             continue
 
+        
         # If basis generation needs to be run, run it and update the calculation ID and next step
         if next_step == "basis" or runall:
             # Generate basis.fdf file
@@ -69,6 +70,7 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             # Update to next step
             next_step = project.what_to_run(calc_id)
 
+        
         # If relaxation needs to be run, run it and update to the next step
         if next_step == "relax" or runall:
             # If strain is not 0, then load the unstrained structure, apply the specified strain

@@ -2,7 +2,7 @@ import math
 import numpy as np
 import re
 from ase import Atoms
-from ase.build import make_supercell
+from ase.build import make_supercell, sort
 
 class Perovskite:
     """Class to create a perovskite structure.
@@ -40,7 +40,7 @@ class Perovskite:
 
         if bulk:
             atoms_ucell.pbc = (True, True, True)
-            self.atoms = atoms_ucell
+            self.atoms = sort(atoms_ucell)
         else:
             # Create an asymmetric (if dslab is an int) or symmetric (if dslab is a float) slab
             if isinstance(dslab, int):
@@ -59,7 +59,7 @@ class Perovskite:
             slab.pbc = (True, True, False)
             # Center the slab in the cell and add vacuum in the z-direction
             slab.center(axis=2, vacuum=dvac)
-            self.atoms = slab
+            self.atoms = sort(slab)
     
     def __repr__(self):
         return f'Perovskite(formula={self.formula}, cell={self.atoms.cell}, positions={self.atoms.positions.tolist()}, pbc={self.atoms.pbc})'
@@ -81,33 +81,13 @@ class Perovskite:
         # Update the cell parameters of the atoms object
         self.atoms.set_cell(cell, scale_atoms=True)
 
-
-def get_reduced_formula(ase_atoms):
-    """Function to extract the reduced formula in the form of ABX3 from an ASE Atoms object.
-    Args:
-        ase_atoms (ase.Atoms): An ASE Atoms object representing the structure.
-    Returns:
-        str: The reduced formula in the form of ABX3 if found, otherwise the full formula."""
-    # Get the full chemical formula from the ASE Atoms object
-    formula = ase_atoms.get_chemical_formula(mode='reduce')
-    
-    """
-    # Use a regular expression to find the pattern of the form ABX3 or A4B4X12 in the full formula
-    pattern1 = r'([A-Z][a-z]?)([A-Z][a-z]?)([A-Z][a-z]?)3'
-    pattern2 = r'([A-Z][a-z]?)4([A-Z][a-z]?)4([A-Z][a-z]?)12'
-    match = re.search(pattern1, full_formula)
-    if not match:
-        match = re.search(pattern2, full_formula)
-    # If a match is found, return the matched pattern; otherwise, return the full formula
-    if match:
-        formula = match[0]
-    else:
-        #print("No match found for the ABX3 pattern in the formula.")
-        formula = full_formula
-    
-    """
-
-    return formula
+def get_cations(atoms):
+    symbols = atoms.get_chemical_symbols()
+    cations = set()
+    for sym in symbols:
+        if sym not in ['O', 'F', 'Cl', 'S', 'Se', 'Te']:
+            cations.add(sym)
+    return list(cations)
 
 
 def check_if_bulk(atoms):

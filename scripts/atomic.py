@@ -4,11 +4,10 @@ import json
 from ase import Atoms
 from ase.units import Ry
 from ase.calculators.siesta import Siesta
-from src.structure import Perovskite, get_reduced_formula
+from src.structure import Perovskite
 from src.parameterconv import run_siesta
 from src.cleanfiles import cleanFiles
 from src.fdfcreate import generate_basis
-
 
 def calculate_atomic_energies(formula, xcf='PBEsol', basis='DZPp',
                               EnergyShift=0.01, SplitNorm=0.15,

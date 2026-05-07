@@ -3,7 +3,7 @@ import numpy as np
 from ase.units import Ry
 from ase.calculators.siesta import Siesta
 from ase.calculators.singlepoint import SinglePointCalculator
-from src.structure import get_reduced_formula, check_if_bulk
+from src.structure import check_if_bulk
 from src.cleanfiles import cleanFiles
 
 def run_siesta(atoms, xcf='PBEsol', basis='DZPp',

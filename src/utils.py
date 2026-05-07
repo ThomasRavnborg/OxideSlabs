@@ -162,7 +162,7 @@ class SiestaProject:
     # -----------------------------
     # Completion checks
     # -----------------------------
-
+    
     def _basis_completed(self, calc_id):
         filepath = os.path.join(
             self.path, calc_id, "basis.fdf"
@@ -192,12 +192,6 @@ class SiestaProject:
             self.path, calc_id, "frozen", "complete.txt"
         )
         return os.path.exists(filepath)
-        """
-        dir_frozen = os.path.join(
-            self.path, calc_id, "frozen"
-        )
-        return os.path.exists(dir_frozen) and len(os.listdir(dir_frozen)) > 0
-        """
     
     # -----------------------------
     # CSV handling
@@ -288,25 +282,20 @@ class SiestaProject:
     # -----------------------------
 
     def what_to_run(self, calc_id):
-        
-        basis_done = self._basis_completed(calc_id)
-        relax_done = self._relax_completed(calc_id)
-        band_done = self._band_completed(calc_id)
-        phonon_done = self._phonon_completed(calc_id)
-        frozen_done = self._frozen_completed(calc_id)
-        if not basis_done:
+
+        if not self._basis_completed(calc_id):
             return "basis"
 
-        if not relax_done:
+        if not self._relax_completed(calc_id):
             return "relax"
 
-        if not band_done:
+        if not self._band_completed(calc_id):
             return "bands"
 
-        if not phonon_done:
+        if not self._phonon_completed(calc_id):
             return "phonons"
 
-        if not frozen_done:
+        if not self._frozen_completed(calc_id):
             return "frozen"
 
         return "complete"

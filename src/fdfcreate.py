@@ -6,7 +6,7 @@ from ase.units import Ry
 from ase.parallel import parprint
 from ase.calculators.siesta import Siesta
 from ase.calculators.siesta.parameters import Species, PAOBasisBlock
-from src.structure import Perovskite, get_reduced_formula
+from src.structure import Perovskite, get_cations
 from src.cleanfiles import cleanFiles
 
 def get_PAO_block(dir):
@@ -139,8 +139,8 @@ def generate_basis(atoms, xcf='PBEsol', basis='DZPp',
     """
     # Define current working directory and extract information from the atoms object
     cwd = os.getcwd()
-    formula = get_reduced_formula(atoms)
-    symbols = re.findall(r'[A-Z][a-z]*', formula)
+    #symbols = re.findall(r'[A-Z][a-z]*', formula)
+    cations = get_cations(atoms)
 
     # Save original ASE_SIESTA_COMMAND
     orig_command = os.environ.get("ASE_SIESTA_COMMAND")
@@ -148,11 +148,11 @@ def generate_basis(atoms, xcf='PBEsol', basis='DZPp',
     os.environ["ASE_SIESTA_COMMAND"] = "siesta < PREFIX.fdf > PREFIX.out"
 
     if basis.endswith('p'):
-        targets = [symbols[0]]
+        targets = [cations[0]]
         basis = basis[:-1]
         add_p = True
     elif basis.endswith('d'):
-        targets = [symbols[0], symbols[1]]
+        targets = cations
         basis = basis[:-1]
         add_p = True
     else:
