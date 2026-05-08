@@ -3,7 +3,7 @@ import numpy as np
 from ase.units import Ry
 from ase.calculators.siesta import Siesta
 from ase.calculators.singlepoint import SinglePointCalculator
-from src.structure import check_if_bulk
+from src.structure import is_atom_bulk
 from src.cleanfiles import cleanFiles
 
 def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
@@ -34,7 +34,7 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
         basis = basis[:-1]
 
     kgrid = list(kgrid)
-    if not check_if_bulk(atoms):
+    if not is_atom_bulk(atoms):
         # For slab calculations, set k-point sampling to 1 in the z-direction
         kgrid[2] = 1
 
@@ -59,7 +59,7 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
         'PAO.SplitNorm': SplitNorm,
         'SCF.DM.Tolerance': 1e-6
     }
-    if not check_if_bulk(atoms):
+    if not is_atom_bulk(atoms):
         # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
         fdf_args['Slab.DipoleCorrection'] = 'T'
     

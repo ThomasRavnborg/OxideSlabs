@@ -126,6 +126,9 @@ class LatexFigure:
         - axes: the created axes object(s)
         """
 
+        if width <= 0 or width > 1:
+            raise ValueError("Width fraction must be between 0 and 1")
+
         fig, axes = plt.subplots(*subplots,
                                  figsize=self._figsize(width, *subplots, aspect_ratio=AR),
                                  constrained_layout=True, **kwargs)

@@ -90,7 +90,7 @@ def get_cations(atoms):
     return list(cations)
 
 
-def check_if_bulk(atoms):
+def is_atom_bulk(atoms):
     pbc = atoms.get_pbc()
     if not all(pbc):
         return False

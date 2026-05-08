@@ -14,7 +14,7 @@ from ase.parallel import parprint
 from ase.io import write
 # Custom modules
 from src.cleanfiles import cleanFiles
-from src.structure import check_if_bulk
+from src.structure import is_atom_bulk
 
 # Try to import world from gpaw.mpi for parallel processing
 # If not available, fall back to ase.parallel.world
@@ -32,7 +32,7 @@ def opt_filter(atoms, strained=False):
     - ASE Atoms object with the appropriate filter applied for optimization.
     """
     # Check if atoms object is bulk or slab
-    bulk = check_if_bulk(atoms)
+    bulk = is_atom_bulk(atoms)
     # Mask for cell optimization: 1 means optimize that parameter, 0 means keep it fixed
     # Format: [εxx, εyy, εzz, εyz, εxz, εxy]
     mask = [1, 1, 1, 1, 1, 1]
@@ -78,7 +78,7 @@ def relax_ase(atoms, xcf='PBEsol', basis='DZP',
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = atoms.get_chemical_formula()
-    bulk = check_if_bulk(atoms)
+    bulk = is_atom_bulk(atoms)
 
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
@@ -205,7 +205,7 @@ def relax_siesta(perovskite, xcf='PBEsol', basis='DZP', EnergyShift=0.01, SplitN
     cwd = os.getcwd()
     formula = perovskite.formula
     atoms = perovskite.atoms
-    bulk = check_if_bulk(atoms)
+    bulk = is_atom_bulk(atoms)
     symbols = atoms.symbols
 
     # Convert kgrid to a list to allow for modification

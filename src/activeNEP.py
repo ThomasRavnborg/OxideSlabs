@@ -21,7 +21,7 @@ from src.phononASE import phonon_to_atoms, phonopy_to_ase
 from src.calculators import run_siesta, copy_calc_results
 from src.structureoptimizer import opt_filter
 from src.MaxVol import calculate_maxvol
-from src.structure import check_if_bulk
+from src.structure import is_atom_bulk
 from src.asiIO import save_asi, load_asi
 from src.gpumdIO import save_run_in
 
@@ -168,11 +168,11 @@ class ActiveLearningNEP:
                 # Convert the phonon object to an ASE Atoms object
                 atoms = phonon_to_atoms(phonon, cell='super')
                 structures.append(atoms)
-                bulk = check_if_bulk(atoms)
+                bulk = is_atom_bulk(atoms)
 
                 # Extract all displaced structures and convert them to ASE Atoms objects
                 for atoms_phonopy in phonon.supercells_with_displacements:
-                    bulk = check_if_bulk(atoms_phonopy)
+                    bulk = is_atom_bulk(atoms_phonopy)
                     # Convert the phonopy Atoms object to an ASE Atoms object and append
                     displaced_structures = phonopy_to_ase(atoms_phonopy, bulk=bulk)
                     structures.append(displaced_structures)
@@ -766,7 +766,7 @@ class ActiveLearningNEP:
 
             # Take the first structure for this chemical formula as the initial structure for the MD simulations.
             atoms = train_data_dict[label][0].copy()
-            bulk = check_if_bulk(atoms)
+            bulk = is_atom_bulk(atoms)
             # Relax the structure with the NEP model
             self.relax_atoms(atoms)
 
@@ -873,6 +873,11 @@ class ActiveLearningNEP:
 
         if self.active_set_inv is None:
             raise RuntimeError("Active set inverse not found. Build active set first.")
+
+        structures = [structure for structure in structures if 'gamma' not in structure.arrays]
+        if len(structures) == 0:
+            print("All structures already have gamma values.")
+            return
 
         for structure in structures:
             structure.arrays["gamma"] = np.zeros(len(structure))
@@ -1039,7 +1044,7 @@ class ActiveLearningNEP:
         calc = CPUNEP(self.nep_txt)
         atoms = atoms.copy()
         atoms.calc = calc
-        if check_if_bulk(atoms):
+        if is_atom_bulk(atoms):
             supercell = [Nc, Nc, Nc]
         else:
             supercell = [Nc, Nc, 1]

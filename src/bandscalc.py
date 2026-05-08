@@ -6,18 +6,13 @@ import sisl as si
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 # ASE
-from ase.io import read
 from ase.calculators.siesta import Siesta
-from ase.calculators.siesta.parameters import Species, PAOBasisBlock
-from ase import Atoms
 from ase.units import Ry
 from ase.dft.kpoints import bandpath
-from ase.parallel import parprint
 # Custom modules
 from src.cleanfiles import cleanFiles
-from src.structure import check_if_bulk
-from src.plotsettings import PlotSettings
-PlotSettings().set_global_style()
+from src.structure import is_atom_bulk
+from src.latexfig import LatexFigure
 
 # Try to import world from gpaw.mpi for parallel processing
 # If not available, fall back to ase.parallel.world
@@ -48,7 +43,7 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP',
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
     formula = atoms.get_chemical_formula()
-    bulk = check_if_bulk(atoms)
+    bulk = is_atom_bulk(atoms)
     #ncells = perovskite.ncells
     # Convert kgrid to a list to allow for modification
     kgrid = list(kgrid)
@@ -196,13 +191,16 @@ def calculate_bands(atoms, xcf='PBEsol', basis='DZP',
         # Remove unnecessary files generated from SIESTA
         cleanFiles(directory=dir, confirm=False)
 
-# Make a function that converts the texts 'Gamma' and 'G' into the actual symbols in the x-tick labels of the band structure plot
+
 def convert_labels(labels):
     """Convert labels such as 'Gamma' and 'G' into LaTeX symbols for the x-tick labels of the band structure plot.
+    
     Parameters:
-    - labels: Numpy array of labels to be converted.
+        - labels: Numpy array of labels to be converted.
+    
     Returns:
-    - converted: Numpy array of converted labels with 'Gamma' and 'G' replaced by LaTeX symbols."""
+        - converted: Numpy array of converted labels with 'Gamma' and 'G' replaced by LaTeX symbols.
+    """
     converted = []
     for label in labels:
         if label == 'Gamma' or label == 'G':
@@ -211,62 +209,83 @@ def convert_labels(labels):
             converted.append(label)
     return np.array(converted)
 
-# Define a function that plots the bandstructure and DOS together
-def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1, width=1):
+
+
+
+def plot_bandstructure(bands, densities, labels, width=1, multiple=False):
     """Function to plot bandstructure and DOS for a given formula.
     Requires that the bandstructure and PDOS have already been calculated and saved to files.
+    
     Parameters:
-    - formula: Chemical formula of the material.
-    - ids: Numpy array of IDs to plot.
-    - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
-    - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
-    - dslab: Thickness of the slab (default is 1 u.c.).
-    - width: Fraction of the target width for the figure (default is 1).
+        - formula: Chemical formula of the material.
+        - ids: Numpy array of IDs to plot.
+        - vals: Numpy array corresponding to the IDs (e.g., different functionals or parameters).
+        - bulk: Boolean indicating whether the structure is bulk (True) or slab (False) (default is True).
+        - dslab: Thickness of the slab (default is 1 u.c.).
+        - width: Fraction of the target width for the figure (default is 1).
+    
     Returns:
-    - None. The function reads the bandstructure and PDOS data from files and plots the results.
+        - None. The function reads the bandstructure and PDOS data from files and plots the results.
     """
 
+    def _ensure_list(obj):
+        if isinstance(obj, list):
+            return obj
+        else:
+            return [obj]
+
+    # Ensure that bands, densities and labels are lists
+    bands = _ensure_list(bands)
+    densities = _ensure_list(densities)
+    labels = _ensure_list(labels)
+    N_bands = len(bands)
+
+    # Check that the number of band structures matches the number of density of states
+    if N_bands != len(densities):
+        print("Number of band structures is not the same as the number of density of states.")
+        print("Defaulting to multiple=True where only band structures are plotted.")
+        multiple = True
+    # Check that the number of labels matches the number of band structures
+    if N_bands != len(labels):
+        raise ValueError("Number of labels must match number of bands.")
+    
     # Define tickmarks for the x- and y-axis
     E_tickmarks = np.arange(-6, 8, 2)
     dos_tickmarks = np.arange(0, 7, 1)
-
-    # Define a list of colors for the plots (if needed)
+    # Define colors for the different phonon objects (up to 6)
     colors = ["black", "blue", "red", "purple", "orange", "green"]
-    
-    if bulk:
-        struc = f'bulk/{formula}'
+
+    # Make a simple figure where graphs are plotted
+    lf = LatexFigure()
+    if multiple:
+        fig, axes = lf.create(width=width, AR=1.8, subplots=(1, N_bands), minor=False, sharey='col')
     else:
-        struc = f'slab/{formula}/{dslab}uc'
+        fig, axes = lf.create(width=width, AR=1, subplots=(1, 2), style='bands', minor=False,
+                              sharey='col', gridspec_kw={'width_ratios': [1, 0.4]})
+    
 
-    # Create 2 subplots for the band structure and DOS, with shared y-axis
-    fig, axes = plt.subplots(1, 2, figsize=(9.6, 5),
-                             sharey='col', gridspec_kw={'width_ratios': [1, 0.4]})
-    ax1, ax2 = axes
-    # Adjust spacing between subplots and set figure size using the custom PlotSettings class
-    plt.subplots_adjust(wspace=0.08)
-    #PlotSettings().set_size(fig)
+    def _plot_bandstructure(ax, band, label, col='k'):
 
-    def _plot_bandstructure(ax, dir, val, col='k', mode='lcao'):
-        if mode == 'lcao':
-            # Read the bandstructure data from the file generated by Siesta using SISL
-            sile_bands = si.get_sile(os.path.join(dir, f"{formula}.bands"))
-            (X, labels), x, bands = sile_bands.read_data()
-            bands = np.squeeze(bands).T
+        # Check if band object is a sisl.io.siesta.bandsSileSiesta or a NpzFile
+        if isinstance(band, si.io.siesta.bandsSileSiesta):
+            # Unpack data from the bandsSileSiesta object
+            (X, labels), x, bands_data = band.read_data()
+            bands_data = np.squeeze(bands_data).T
+        elif isinstance(band, np.lib.npyio.NpzFile):
+            # Unpack data from the NpzFile object
+            (X, labels) = band['X']
+            x = band['x']
+            bands_data = band['bands']
+        else:
+            raise ValueError("Band object must be either a .bands or a .npz file.")
 
-        elif mode == 'pw':
-            # Read the bandstructure data from the file generated by GPAW
-            data = np.load(os.path.join(dir, f"{formula}_BS.npz"), allow_pickle=True)
-            (X, labels) = data['X']
-            x = data['x']
-            bands = data['bands']
-        
         # Convert labels to use LaTeX symbols for Gamma point
         labels = convert_labels(labels)
         # Convert X, x and bands to numpy arrays of type float (if they are not already)
         X = np.array(X, dtype=float)
         labels = np.array(labels)
         x = np.array(x, dtype=float)
-        bands = np.array(bands, dtype=float)
+        bands_data = np.array(bands_data, dtype=float)
         # Shorten path to end with G
         indx = np.where(labels == r'$\Gamma$')[0][-1]
         labels = labels[:indx+1]
@@ -275,112 +294,124 @@ def plot_bands(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1,
         x /= X[-1]
         X /= X[-1]
         # Find lowest energy (VBM) and highest energy (CBM)
-        VBM = bands[bands <= 0].max()
-        CBM = bands[bands > 0].min()
+        VBM = bands_data[bands_data <= 0].max()
+        CBM = bands_data[bands_data > 0].min()
         Eg = CBM - VBM
+        shift = VBM + Eg/2
         print(f'Bandgap: {Eg:.3f} eV')
         # Shift bands to ensure Fermi level is in the center of the gap
-        bands -= VBM
-        bands -= Eg/2
+        bands_data -= shift
 
         # Plot vertical lines at symmetry points
         ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
 
         # Plot band-structures
-        for j, e_k in enumerate(bands):
+        for j, e_k in enumerate(bands_data):
             if j == 0:
-                ax.plot(x, e_k, color=col, label=f"{val}", lw=1)
+                ax.plot(x, e_k, color=col, label=f"{label}", lw=1)
             else:
                 ax.plot(x, e_k, color=col, lw=1)
 
-        #if mode == 'pw':
-            # Remove last X point and label
-            #X = X[:-1]
-            #labels = labels[:-1]
         # Set x-ticks to the symmetry points and label them
-        ax.xaxis.set_ticks(X)
-        ax.set_xticklabels(labels)
-        ax.set_xlim(0, 1)
 
-        return CBM, VBM
+        # Set x- and y-ticks
+        if multiple:
+            ax.set_xticks(X[0:-1], labels[0:-1])
+        else:
+            ax.set_xticks(X, labels)
+        ax.set_yticks(E_tickmarks, E_tickmarks.astype(str))
+        # Set x- and y-limits
+        ax.set_xlim(0, 1)
+        ax.set_ylim(E_tickmarks[0], E_tickmarks[-1])
+
+        return shift
     
-    def _plot_dos(ax, dir, val, col='k', mode='lcao', shift=0, pDOS=False):
-        atom_colors = {'Ba': 'tab:blue', 'Sr': 'tab:purple',
-                       'Ti': 'tab:orange', 'O': 'tab:red'}
-        if mode == 'lcao':
-            # Read the PDOS data from the file generated by Siesta using SISL
-            sile_PDOS = si.get_sile(os.path.join(dir, f"{formula}.PDOS"))
-            geom, E, PDOS = sile_PDOS.read_data()
-            orbits = geom.atoms.orbitals
+    def _plot_dos(ax, density, label, col='k', shift=0):
+
+        # Check if density object is a sisl.io.siesta.pdosSileSiesta or a NpzFile
+        if isinstance(density, si.io.siesta.pdosSileSiesta):
+            # Unpack data from pdosSileSiesta object
+            geom, E, PDOS = density.read_data()
+            #orbits = geom.atoms.orbitals
             PDOS = np.squeeze(PDOS)
             DOS = PDOS.sum(axis=0)
-            idx = np.cumsum(np.r_[0, orbits[:-1]])
-            PDOS_atom = np.add.reduceat(PDOS, idx, axis=0)
-
-        elif mode == 'pw':
-            # Read the DOS data from the file generated by GPAW
-            data = np.load(os.path.join(dir, f"{formula}_DOS.npz"), allow_pickle=True)
-            E = np.array(data['E'], dtype=float)
-            DOS = np.array(data['DOS'], dtype=float)
+            #idx = np.cumsum(np.r_[0, orbits[:-1]])
+        elif isinstance(density, np.lib.npyio.NpzFile):
+            E = np.array(density['E'], dtype=float)
+            DOS = np.array(density['DOS'], dtype=float)
+        else:
+            raise ValueError("Density of states object must be either a .PDOS or a .npz File.")
+            
         # Plot total density of states (DOS)
-        ax.plot(DOS, E - shift, color=col, label=f"{val}")
-        if pDOS:
-            # Plot PDOS for each atom
-            for i in range(PDOS_atom.shape[0]):
-                symbol = geom.atoms[i].symbol
-                ax.plot(PDOS_atom[i], E - shift, color=atom_colors[symbol], alpha=0.5, lw=1)
-
-    # Plot dashed line at Fermi level for both subplots
-    ax1.axhline(y=0, color='k', linestyle=':', lw=0.8)
-    ax2.axhline(y=0, color='k', linestyle=':', lw=0.8)
-
-    dir = f'results/{struc}/GPAW/0.0/bands'
-    CBM, VBM = _plot_bandstructure(ax1, dir, 'PW', mode='pw', col=colors[0])
-    shift = VBM + (CBM - VBM)/2
-    _plot_dos(ax2, dir, 'PW', mode='pw', shift=shift, col=colors[0])
-
-    #dir = 'results/bulk/test_bands'
-    #CBM, VBM = _plot_bandstructure(ax1, dir, 'test', col='orange')
-    #shift = VBM + (CBM - VBM)/2
-    #_plot_dos(ax2, dir, 'test', shift=shift, col='orange')
+        ax.plot(DOS, E - shift, color=col, label=f"{label}", lw=1)
+        
+        # Force x- and y-ticks
+        ax2.set_xticks(dos_tickmarks, dos_tickmarks.astype(str))
+        ax2.set_yticks(E_tickmarks, E_tickmarks.astype(str))
+        # Set limits to match
+        ax2.set_xlim(dos_tickmarks[0], dos_tickmarks[-1])
+        ax2.set_ylim(E_tickmarks[0], E_tickmarks[-1])
+        # Hide y-tick labels
+        ax2.set_yticklabels([])
     
-    # Cycle through the list of IDs and plot the bandstructure and DOS for each ID
-    for i in range(len(ids)):
-        dir = os.path.join('results', struc, ids[i], 'bands')
 
-        # Subplot 1 - Band structure
-        CBM, VBM = _plot_bandstructure(ax1, dir, vals[i], col=colors[i+1])
-        shift = VBM + (CBM - VBM)/2
-        # Subplot 2 - Density of states (DOS)
-        _plot_dos(ax2, dir, vals[i], col=colors[i+1], shift=shift)
-    
-    # Set x- and y-label
-    #ax1.set_xlabel('k-points')
-    ax1.set_ylabel('Energy, $E-E_F$ (eV)')
-    # Set x- and y-limits
-    ax1.set_ylim(E_tickmarks[0], E_tickmarks[-1])
-    # Add minor tickmarks to the y-axis
-    ax1.yaxis.set_minor_locator(AutoMinorLocator())
-    # Apply custom plot settings to the axes
-    PlotSettings().set_style_ax(ax1, style='bands', minor=False)
+    if multiple:
+        # Plot bandstructure for each bands object in a separate subplot
+        axes[0].set_ylabel('Energy, $E-E_F$ (eV)')
+        # Cycle through the bands objects
+        for i in range(N_bands):
+            # Plot dashed line at Fermi level for all subplots
+            axes[i].axhline(y=0, color='k', linestyle=':', lw=0.8)
+            # Plot bandstructure
+            _plot_bandstructure(axes[i], bands[i], labels[i], col=colors[i])
+            # Add title
+            axes[i].set_title(labels[i])
+            # Add minor tickmarks to the y-axis
+            axes[i].yaxis.set_minor_locator(AutoMinorLocator())
+            # Remove y-tick labels for all but the first and last subplot
+            if i < N_bands-1 and i > 0:
+                axes[i].set_yticklabels([])
+        
+        # Move y-axis of the last subplot to the right but maintain the y-tickmarks on the left
+        axes[-1].tick_params(axis='y', labelright=True, labelleft=False)
+        # Remove vertical spacing between subplots
+        fig.set_constrained_layout_pads(wspace=0.0, w_pad=0.0)
 
-    ax2.legend(loc='upper right')
-    # Customize y-axis label and other parameters if needed
-    ax2.set_xlabel('DOS (1/eV)')
-    # Force x- and y-ticks
-    ax2.set_xticks(dos_tickmarks, dos_tickmarks)
-    ax2.set_yticks(E_tickmarks, E_tickmarks)
-    # Set limits to match
-    ax2.set_xlim(dos_tickmarks[0], dos_tickmarks[-1])
-    ax2.set_ylim(E_tickmarks[0], E_tickmarks[-1])
-    # Hide y-tick labels
-    ax2.set_yticklabels([])
-    # Apply custom plot settings to the axes
-    PlotSettings().set_style_ax(ax2, style='bands')
-    # Set figure size using the custom PlotSettings class
-    PlotSettings().set_size(fig, width)
+    else:
+        # Plot all band objects in the same subplot and plot the DOS in the second subplot
+        
+        # Define two axes, one for the band structure and one for the DOS
+        ax1, ax2 = axes
+
+        # Plot dashed line at Fermi level for both subplots
+        ax1.axhline(y=0, color='k', linestyle=':', lw=0.8)
+        ax2.axhline(y=0, color='k', linestyle=':', lw=0.8)
+
+        # Cycle through the bands objects
+        for i in range(N_bands):
+            # Plot bandstructure and DOS
+            shift = _plot_bandstructure(ax1, bands[i], labels[i], col=colors[i])
+            _plot_dos(ax2, densities[i], labels[i], col=colors[i], shift=shift)
+
+        # Set x- and y-label
+        ax1.set_xlabel('k-points')
+        ax1.set_ylabel('Energy, $E-E_F$ (eV)')
+        # Add minor tickmarks to the y-axis
+        ax1.yaxis.set_minor_locator(AutoMinorLocator())
+
+        # Set x-label
+        ax2.set_xlabel('DOS (1/eV)')
+        # Add legend to the DOS plot
+        ax2.legend(loc='upper right')
+        # Add minor tickmarks to the y-axis
+        ax2.yaxis.set_minor_locator(AutoMinorLocator())
+ 
+
     # Show figure
     plt.show()
+
+
+
 
 def plot_bands2(formula, ids=np.array([]), vals=np.array([]), bulk=True, dslab=1, width=1):
     """Function to plot bandstructures seperately

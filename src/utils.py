@@ -4,7 +4,7 @@ import pandas as pd
 from glob import glob
 import shutil
 
-from src.structure import check_if_bulk
+from src.structure import is_atom_bulk
 
 class SiestaProject:
     """A class to manage Siesta calculations for a given material.
@@ -33,7 +33,7 @@ class SiestaProject:
         """
 
         formula = perovskite.formula
-        bulk = check_if_bulk(perovskite.atoms)
+        bulk = is_atom_bulk(perovskite.atoms)
         self.material = perovskite.atoms.get_chemical_formula()
 
         if bulk:

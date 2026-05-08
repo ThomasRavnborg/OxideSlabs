@@ -1,6 +1,7 @@
 
 from ase import Atoms
 from phonopy.structure.atoms import PhonopyAtoms
+from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
 
 
 def ase_to_phonopy(atoms_ase):
@@ -14,6 +15,7 @@ def ase_to_phonopy(atoms_ase):
     return PhonopyAtoms(cell=atoms_ase.get_cell(),
                         positions=atoms_ase.get_positions(),
                         symbols=atoms_ase.get_chemical_symbols())
+
 
 def phonopy_to_ase(atoms_phonopy, bulk=True):
     """Function to convert PhonopyAtoms object to ASE Atoms object.
@@ -33,6 +35,7 @@ def phonopy_to_ase(atoms_phonopy, bulk=True):
                  positions=atoms_phonopy.positions,
                  symbols=atoms_phonopy.symbols,
                  pbc=pbc)
+
 
 def phonon_to_atoms(phonon, cell='unit'):
     """Function to convert a Phonopy object to an ASE Atoms object.
@@ -56,3 +59,40 @@ def phonon_to_atoms(phonon, cell='unit'):
         bulk = True
     # Convert PhonopyAtoms to ASE Atoms
     return phonopy_to_ase(cell, bulk)
+
+
+def is_phonon_bulk(phonon):
+    """Function to determine if the phonon calculation is for a bulk or slab system based on the supercell matrix.
+    Parameters:
+        - phonon: Phonopy object containing phonon data.
+    Returns:
+        - bulk: Boolean indicating if the system is bulk (True) or slab (False).
+    """
+    if phonon.supercell_matrix.diagonal()[-1] == 1:
+        return False
+    else:
+        return True
+
+
+def write_dispersion_yaml(phonon, filename):
+
+    if is_phonon_bulk(phonon):
+        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
+                 [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
+        labels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$"]
+    else:
+        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
+                 [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
+        labels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
+
+    qpoints, connections = get_band_qpoints_and_path_connections(path, npoints=100)
+
+    # --- Band structure ---
+    phonon.run_band_structure(
+        qpoints,
+        path_connections=connections,
+        labels=labels,
+        with_eigenvectors=True
+    )
+
+    phonon.write_yaml_band_structure(filename=filename)
