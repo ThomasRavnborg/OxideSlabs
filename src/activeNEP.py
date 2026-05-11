@@ -722,19 +722,22 @@ class ActiveLearningNEP:
         write(os.path.join(md_dir, "md_structures.xyz"), trajs)
     """
 
-    def setup_MD(self, dt=1, n_steps=1*1e6, n_dump=1000, temperatures=[300, 500, 700]):
+    def setup_MD(self, dt=1, n_steps=1*1e6, n_dump=1000,
+                 temperatures=[100, 200, 300, 400, 500, 600]):
         """Function to set up MD simulations with GPUMD using the trained NEP model.
         It creates a directory for each trajectory and saves the initial structure and run.in file for GPUMD.
-        - Args:
-            dt (float): time step in fs
-            n_steps (int): number of MD steps
-            n_dump (int): total number of dumps to save during MD
-            temperatures (list): list of temperatures for the MD simulations
-        - Returns:
+        
+        Args:
+            - dt (float): time step in fs
+            - n_steps (int): number of MD steps
+            - n_dump (int): total number of dumps to save during MD
+            - temperatures (list of float): list of temperatures in K to run the MD simulations at.
+        
+        Returns:
              None: The function saves the initial structures and run.in files for GPUMD in the iteration directory under "md/label/temperature/".
              The MD simulations can then be run with the run_MD() method, and the resulting trajectories can be collected with the collect_MD_structures() method.
         """
-
+        
         # Check if there is any data loaded
         if self.data is None or len(self.data) == 0:
             raise RuntimeError("No structures available for MD")
@@ -772,16 +775,24 @@ class ActiveLearningNEP:
 
             atoms_copy = copy_calc_results(atoms)
 
-            for T in temperatures:
+            # Create directory for exploration trajectories
+            exp_dir = os.path.join(label_dir, f"exploration")
+            os.makedirs(exp_dir, exist_ok=True)
+            # Write atoms object to exploration directory without calculator results
+            write(os.path.join(exp_dir, "model.xyz"), atoms_copy)
+            # Create run.in file for GPUMD to run MD exploration simulations with the trained NEP model
+            # The temperature will ramp up from 20K to the maximum temperature and then back down to 20K
+            save_run_in(dt, n_steps, n_dump, 20, max(temperatures), bulk, exp_dir)
 
-                temp_dir = os.path.join(label_dir, f"{T}K")
+            # Then, loop over temperatures and perform MD simulations at each (constant) temperature
+            for T in temperatures:
                 # Create directory for this temperature
+                temp_dir = os.path.join(label_dir, f"{T}K")
                 os.makedirs(temp_dir, exist_ok=True)
-                
                 # Write atoms object to temp_dir without calculator results
                 write(os.path.join(temp_dir, "model.xyz"), atoms_copy)
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
-                save_run_in(dt, n_steps, n_dump, T, bulk, temp_dir)
+                save_run_in(dt, n_steps, n_dump, T, T, bulk, temp_dir)
 
     def run_MD(self):
         """Function to run MD simulations with GPUMD using the initial structures and run.in files set up by the setup_MD() method.
@@ -801,6 +812,10 @@ class ActiveLearningNEP:
             temp_folders = [d for d in os.listdir(label_dir) if os.path.isdir(os.path.join(label_dir, d))]
             for temp in temp_folders:
                 temp_dir = os.path.join(label_dir, temp)
+                # List files in temp_dir to check for .out files
+                if any(file.endswith(".out") for file in os.listdir(temp_dir)):
+                    print(f"GPUMD simulation already run for {temp_dir}. Skipping...")
+                    continue
                 # Run GPUMD in the temp_dir, which should contain the model.xyz and run.in files for this trajectory
                 subprocess.run(["gpumd"], cwd=temp_dir, check=True, text=True)
 
@@ -1079,7 +1094,7 @@ class ActiveLearningNEP:
 
         #fig.subplots_adjust(hspace=0)
         fig.set_constrained_layout_pads(hspace=0.0, h_pad=0.0)
-        plt.show()
+        return fig
 
 
 
@@ -1114,4 +1129,4 @@ class ActiveLearningNEP:
             mod_unit = unit.replace('eV', 'meV').replace('GPa', 'MPa')
             ax.text(0.1, 0.75, f'{1e3*rmse:.1f} {mod_unit}\n' + '$R^2= $' + f' {R2:.5f}', transform=ax.transAxes)
         fig.align_labels()
-        plt.show()
+        return fig

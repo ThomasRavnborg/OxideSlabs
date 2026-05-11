@@ -1,7 +1,7 @@
 
 import os
 
-def save_run_in_old(dt, n_steps, n_dump, T, bulk, dir):
+def save_run_in(dt, n_steps, n_dump, T0, T1, bulk, dir):
 
     n_steps = int(n_steps)
     n_dump = int(n_dump)
@@ -12,29 +12,39 @@ def save_run_in_old(dt, n_steps, n_dump, T, bulk, dir):
     else:
         direction = 'x 0 0 y 0 0 xy 0 0'
 
-    # Create run.in file for GPUMD
-    run_in = f"""# --- system ---
+    if T1 != T0:
+         run_in = ""
+         n_steps = n_steps // 2
+         delta_dump = delta_dump // 2
+    else:
+         run_in = "replicate 5 5 5"
+
+    run_in += f"""
         potential ../../../nep.txt
 
-        # --- initialization ---
-        velocity {T}
+        velocity {T0}
         time_step {dt}
 
-        # --- output ---
-        dump_thermo {delta_dump}
         dump_exyz {delta_dump} 0 1
-
-        # --- md ---
-        ensemble npt_mttk temp {T} {T} {direction}
+        dump_thermo {delta_dump}
+        ensemble npt_mttk temp {T0} {T1} {direction}
         run {n_steps}
     """
+    if T1 != T0:
+        run_in += f"""
+        dump_exyz {delta_dump} 0 1
+        dump_thermo {delta_dump}
+        ensemble npt_mttk temp {T1} {T0} {direction}
+        run {n_steps}
+        """
+
 
     with open(os.path.join(dir, "run.in"), "w") as f:
         text = "\n".join(line.strip() for line in run_in.splitlines())
         f.write(text)
 
 
-def save_run_in(dt, n_steps, n_dump, T, bulk, dir):
+def save_run_in_old(dt, n_steps, n_dump, T, bulk, dir):
 
     n_steps = int(n_steps)
     n_dump = int(n_dump)
