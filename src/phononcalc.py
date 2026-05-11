@@ -324,7 +324,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
     # Make a simple figure where graphs are plotted
     lf = LatexFigure()
     if multiple:
-        fig, axes = lf.create(width=width, AR=1.8, subplots=(1, N_bands), minor=False, sharey='col')
+        fig, axes = lf.create(width=width, AR=2, subplots=(1, N_bands), minor=False, sharey='col')
     else:
         fig, axes = lf.create(width=width, AR=1, subplots=(1, 2), style='bands', minor=False,
                               sharey='col', gridspec_kw={'width_ratios': [1, 0.4]})
@@ -408,8 +408,6 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         
         # Move y-axis of the last subplot to the right but maintain the y-tickmarks on the left
         axes[-1].tick_params(axis='y', labelright=True, labelleft=False)
-        # Remove vertical spacing between subplots
-        fig.set_constrained_layout_pads(wspace=0.0, w_pad=0.0)
 
     else:
         # Plot all phonon objects in the same subplot and plot the DOS in the second subplot
@@ -446,6 +444,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         # Add minor tickmarks to the y-axis
         ax2.yaxis.set_minor_locator(AutoMinorLocator())
 
-    
+    # Remove vertical spacing between subplots
+    fig.set_constrained_layout_pads(wspace=0.0, w_pad=0.0)
     # Show figure
     plt.show()
