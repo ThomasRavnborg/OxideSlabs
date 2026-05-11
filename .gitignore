@@ -20,6 +20,7 @@ results/
 resultsold/
 tools/
 mount/
+figures/
 *.log
 *.out
 MLtest/
