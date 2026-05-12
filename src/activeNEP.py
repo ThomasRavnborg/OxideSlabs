@@ -792,7 +792,7 @@ class ActiveLearningNEP:
                 # Write atoms object to temp_dir without calculator results
                 write(os.path.join(temp_dir, "model.xyz"), atoms_copy)
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
-                save_run_in(dt, n_steps, n_dump, T, T, bulk, temp_dir)
+                save_run_in(dt, n_steps, n_dump//10, T, T, bulk, temp_dir)
 
     def run_MD(self):
         """Function to run MD simulations with GPUMD using the initial structures and run.in files set up by the setup_MD() method.
@@ -814,7 +814,7 @@ class ActiveLearningNEP:
                 temp_dir = os.path.join(label_dir, temp)
                 # List files in temp_dir to check for .out files
                 if any(file.endswith(".out") for file in os.listdir(temp_dir)):
-                    print(f"GPUMD simulation already run for {temp_dir}. Skipping...")
+                    print(f"GPUMD simulation already run for {temp_dir}. Skipping...", flush=True)
                     continue
                 # Run GPUMD in the temp_dir, which should contain the model.xyz and run.in files for this trajectory
                 subprocess.run(["gpumd"], cwd=temp_dir, check=True, text=True)

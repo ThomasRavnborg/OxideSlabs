@@ -13,11 +13,14 @@ def save_run_in(dt, n_steps, n_dump, T0, T1, bulk, dir):
         direction = 'x 0 0 y 0 0 xy 0 0'
 
     if T1 != T0:
-         run_in = ""
-         n_steps = n_steps // 2
-         delta_dump = delta_dump // 2
+        run_in = ""
+        n_steps = n_steps // 2
+        delta_dump = delta_dump // 2
     else:
-         run_in = "replicate 5 5 5"
+        if bulk:
+            run_in = "replicate 5 5 5"
+        else:
+            run_in = "replicate 5 5 1"
 
     run_in += f"""
         potential ../../../nep.txt
