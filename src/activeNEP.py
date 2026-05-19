@@ -3,6 +3,7 @@ import json
 import random
 import shutil
 import subprocess
+import math
 import numpy as np
 import phonopy as ph
 import pandas as pd
@@ -44,6 +45,7 @@ class ActiveLearningNEP:
                 with open(iter_file) as f:
                     self.iteration = int(f.read().strip())
                 self.iter_dir = os.path.join(self.run_dir, f"iteration_{self.iteration}")
+                os.makedirs(self.iter_dir, exist_ok=True)
             else:
                 self.iteration = 1
                 with open(iter_file, "w") as f:
@@ -54,8 +56,8 @@ class ActiveLearningNEP:
         
         print(f"Current iteration: {self.iteration}", flush=True)
         
-        train_xyz = os.path.join(self.iter_dir, "train.xyz")
-        test_xyz = os.path.join(self.iter_dir, "test.xyz")
+        train_xyz = os.path.join(self.run_dir, "train.xyz")
+        test_xyz = os.path.join(self.run_dir, "test.xyz")
 
         if not os.path.exists(train_xyz) and not os.path.exists(test_xyz):
             print("No train.xyz and test.xyz files found in run directory.")
@@ -331,6 +333,10 @@ class ActiveLearningNEP:
         #_shift_energies(nep_train_data)
         #_shift_energies(nep_test_data)
         #print(f"Shifted energies for {len(nep_train_data)} training structures and {len(nep_test_data)} testing structures.")
+
+        # Save copy of train.xyz and test.xyz in the iteration directory for NEP training
+        write(os.path.join(self.iter_dir, "train.xyz"), self.train_data)
+        write(os.path.join(self.iter_dir, "test.xyz"), self.test_data)
 
         # Create symbolic links to the train.xyz and test.xyz files in the iteration directory for NEP training
         os.symlink(os.path.join(self.iter_dir, "train.xyz"), os.path.join(nep_dir, "train.xyz"))
@@ -1129,4 +1135,40 @@ class ActiveLearningNEP:
             mod_unit = unit.replace('eV', 'meV').replace('GPa', 'MPa')
             ax.text(0.1, 0.75, f'{1e3*rmse:.1f} {mod_unit}\n' + '$R^2= $' + f' {R2:.5f}', transform=ax.transAxes)
         fig.align_labels()
+        return fig
+    
+
+    def plot_gamma_model(structures, per_struct=True, width=1):
+
+        if per_struct:
+            gammas = np.array([max(structures[i].arrays["gamma"]) for i in range(len(structures))])
+        else:
+            gammas = np.array([gamma for struct in structures for gamma in struct.arrays["gamma"]])
+        # Round gamma values to 5 decimals
+        gammas = np.round(gammas, 5)
+        
+        print(f"Gamma range: {gammas.min()} - {gammas.max()}")
+
+        g_min = math.floor(np.min(gammas) * 2) / 2
+        g_max = math.ceil(np.max(gammas) * 2) / 2
+
+        lf = LatexFigure()
+        fig, axes = lf.create(width=width, AR=0.6, style='bands')
+
+        for ax in axes:
+            #ax.set_title('Distribution of Extrapolation Grade (gamma)')
+
+            ax.hist(gammas, range=(g_min, g_max), bins=100,
+                    color='steelblue', edgecolor='black', lw=0.8, alpha=1, density=False)
+
+            ax.set_xlabel('Extrapolation Grade ($\\gamma$)')
+            if per_struct:
+                ax.set_ylabel('Structures')
+            else:
+                ax.set_ylabel('Environments')
+
+            ax.set_xlim(g_min, g_max)
+
+            ax.set_yscale('log')
+
         return fig
