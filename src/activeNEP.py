@@ -848,21 +848,20 @@ class ActiveLearningNEP:
         for label in labels:
             
             label_dir = os.path.join(md_dir, label)
-            # Create directory for this chemical formula
-            os.makedirs(label_dir, exist_ok=True)
 
             # Take the first structure for this chemical formula as the initial structure for the MD simulations.
             atoms = train_data_dict[label][0].copy()
             bulk = is_atom_bulk(atoms)
             # Relax the structure with the NEP model
-            self.relax_atoms(atoms)
-
-            atoms_copy = copy_calc_results(atoms)
+            #self.relax_atoms(atoms)
+            #atoms_copy = copy_calc_results(atoms)
 
             temp_dir = os.path.join(label_dir, f"{Tmax}K")
 
+            # Create directory for this temperature and chemical formula
+            os.makedirs(temp_dir, exist_ok=True)
             # Write atoms object to temp directory without calculator results
-            write(os.path.join(temp_dir, "model.xyz"), atoms_copy)
+            write(os.path.join(temp_dir, "model.xyz"), atoms)
             # Create run.in file for GPUMD to run MD exploration simulations with the trained NEP model
             # The temperature will ramp up from 20K to Tmax and then back down to 20K
             save_run_in(dt, n_steps, n_dump, 20, Tmax, bulk, temp_dir)
@@ -1229,7 +1228,7 @@ class ActiveLearningNEP:
     
 
     def plot_loss(self, width=1, AR=0.25):
-        loss = read_loss(os.path.join(self.iter_dir, 'loss.out'))
+        loss = read_loss(os.path.join(self.iter_dir, 'nep/loss.out'))
 
         lf = LatexFigure()
         fig, axes = lf.create(AR=AR, width=width, subplots=(2, 1), sharex=True)
@@ -1259,7 +1258,7 @@ class ActiveLearningNEP:
 
 
     def plot_parity(self, width=0.8, AR=0.9):
-        training_structures, _ = read_structures(self.iter_dir)
+        training_structures, _ = read_structures(os.path.join(self.iter_dir, 'nep'))
 
         units = dict(
             energy='eV/atom',
