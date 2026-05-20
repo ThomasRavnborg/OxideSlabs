@@ -23,19 +23,22 @@ try:
 except ImportError:
     from ase.parallel import world
 
-def opt_filter(atoms, strained=False):
+def opt_filter(atoms, mask=None, strained=False):
     """Function to set up a filter for optimizing unit cell parameters and atomic positions.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be optimized.
+    - mask: List of integers (0 or 1) indicating which cell parameters to optimize.
+            Format is [εxx, εyy, εzz, εyz, εxz, εxy]. By default, all parameters are optimized.
+            If the structure is a slab, the out-of-plane cell parameters (εzz, εyz, εxz) are set to 0 to keep them fixed.
     - strained: Boolean indicating whether the structure is strained (True) or not (False)
     Returns:
     - ASE Atoms object with the appropriate filter applied for optimization.
     """
     # Check if atoms object is bulk or slab
     bulk = is_atom_bulk(atoms)
-    # Mask for cell optimization: 1 means optimize that parameter, 0 means keep it fixed
-    # Format: [εxx, εyy, εzz, εyz, εxz, εxy]
-    mask = [1, 1, 1, 1, 1, 1]
+    if mask is None:
+        # By default, optimize all cell parameters
+        mask = [1, 1, 1, 1, 1, 1]
     if not bulk:
         # For slab calculations, keep the out-of-plane cell parameter fixed
         mask[2] = 0

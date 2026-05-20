@@ -97,6 +97,20 @@ def is_atom_bulk(atoms):
     return True
 
 
+def orthogonalize_cell(atoms):
+    cell = atoms.cell.array
+    Lx = np.linalg.norm(cell[0])
+    Ly = np.linalg.norm(cell[1])
+    Lz = np.linalg.norm(cell[2])
+    atoms.set_cell([
+        [Lx, 0, 0],
+        [0, Ly, 0],
+        [0, 0, Lz]
+    ], scale_atoms=False)
+
+
+
+
 def wrap_to_reference(unwrapped_traj, ref_atoms):
     wrapped_traj = []
 

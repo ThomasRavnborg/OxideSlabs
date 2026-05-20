@@ -22,7 +22,7 @@ from src.phononASE import phonon_to_atoms, phonopy_to_ase
 from src.calculators import run_siesta, copy_calc_results
 from src.structureoptimizer import opt_filter
 from src.MaxVol import calculate_maxvol
-from src.structure import is_atom_bulk
+from src.structure import is_atom_bulk, orthogonalize_cell
 from src.asiIO import save_asi, load_asi
 from src.gpumdIO import save_run_in, create_run_in
 
@@ -730,20 +730,9 @@ class ActiveLearningNEP:
 
     def setup_MD(self, dt=1, n_steps=1*1e6, n_dump=1000,
                  temperatures=[100, 200, 300, 400, 500, 600]):
-        """Function to set up MD simulations with GPUMD using the trained NEP model.
-        It creates a directory for each trajectory and saves the initial structure and run.in file for GPUMD.
+        """Old function. Not funtional."""
         
-        Args:
-            - dt (float): time step in fs
-            - n_steps (int): number of MD steps
-            - n_dump (int): total number of dumps to save during MD
-            - temperatures (list of float): list of temperatures in K to run the MD simulations at.
-        
-        Returns:
-             None: The function saves the initial structures and run.in files for GPUMD in the iteration directory under "md/label/temperature/".
-             The MD simulations can then be run with the run_MD() method, and the resulting trajectories can be collected with the collect_MD_structures() method.
         """
-        
         # Check if there is any data loaded
         if self.data is None or len(self.data) == 0:
             raise RuntimeError("No structures available for MD")
@@ -799,6 +788,7 @@ class ActiveLearningNEP:
                 write(os.path.join(temp_dir, "model.xyz"), atoms_copy)
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
                 save_run_in(dt, n_steps, n_dump//10, T, T, bulk, temp_dir)
+        """
 
 
 
@@ -926,12 +916,13 @@ class ActiveLearningNEP:
 
             # Take the first structure for this chemical formula as the initial structure for the MD simulations.
             atoms = train_data_dict[label][0].copy()
-            bulk = is_atom_bulk(atoms)
-            # Relax the structure with the NEP model
-            self.relax_atoms(atoms)
+            # Orthogonalize the cell and relax only xx, yy and zz cell components with NEP model
+            orthogonalize_cell(atoms)
+            self.relax_atoms(atoms, mask=[1, 1, 1, 0, 0, 0])
 
-            atoms_copy = copy_calc_results(atoms)
-
+            # Make copy without calculator results for writing
+            atoms_copy = atoms.copy()
+            bulk = is_atom_bulk(atoms_copy)
             # Loop over temperatures and setup MD simulations at each (constant) temperature
             for T in temperatures:
                 # Create directory for this temperature
@@ -1192,7 +1183,7 @@ class ActiveLearningNEP:
             f.write(str(self.iteration))
 
 
-    def relax_atoms(self, atoms, filt=True, fmax=1, strained=False):
+    def relax_atoms(self, atoms, filt=True, fmax=1, mask=None, strained=False):
 
         calc = CPUNEP(self.nep_txt)
 
@@ -1202,7 +1193,7 @@ class ActiveLearningNEP:
         # Apply filter to optimize unit cell parameters and atomic positions if filt is True
         # Otherwise only optimize atomic positions
         if filt:
-            atoms_filt = opt_filter(atoms, strained)
+            atoms_filt = opt_filter(atoms, mask, strained)
         else:
             atoms_filt = atoms
         
