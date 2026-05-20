@@ -1192,7 +1192,7 @@ class ActiveLearningNEP:
             f.write(str(self.iteration))
 
 
-    def relax_atoms(self, atoms, filt=True, fmax=0.1, strained=False):
+    def relax_atoms(self, atoms, filt=True, fmax=1, strained=False):
 
         calc = CPUNEP(self.nep_txt)
 
