@@ -178,14 +178,10 @@ class ActiveLearningNEP:
                     # Convert the phonopy Atoms object to an ASE Atoms object and append
                     displaced_structures = phonopy_to_ase(atoms_phonopy, bulk=bulk)
                     structures.append(displaced_structures)
-            
-                #print(f"Extracted {len(structures)} structures from phonon calculation (including original and displaced)", flush=True)
-
+                
                 for T in temperatures:
                     augmented_structures.extend(self._get_rattled_structures(atoms, fc, T, n_rattle))
-                
-                #print(f"Generated {n_rattle*len(temperatures)} rattled structures", flush=True)
-                
+
                 # Randomly pick out a fraction of the augmented structures to apply random strains to
                 n_strain = int(len(augmented_structures) * frac_strain)
                 idx = np.random.choice(len(augmented_structures), size=n_strain, replace=False)
@@ -194,9 +190,6 @@ class ActiveLearningNEP:
                     strain = np.random.choice(strains)
                     self._strain_structure(augmented_structures[i], strain)
 
-                #print(f"Strained {n_strain*len(strains)} of the rattled structures", flush=True)
-
-                #print(f"{len(structures)} total structures", flush=True)
                 train_data.extend(structures)
 
                 n_train = int(len(augmented_structures) * train_fraction)
@@ -204,8 +197,6 @@ class ActiveLearningNEP:
 
                 train_data.extend(augmented_structures[:n_train])
                 test_data.extend(augmented_structures[n_train:])
-
-                #print(f"{len(data)} structures in the dataset", flush=True)
             
             print(f"Total dataset prepared: {len(train_data) + len(test_data)} structures")
             print(f"Training set: {len(train_data)} structures, Test set: {len(test_data)} structures", flush=True)
@@ -282,7 +273,7 @@ class ActiveLearningNEP:
                     elements = data[i].get_chemical_symbols()
                     if energies is not None:
                         data[i].calc.results['energy'] -= sum(energies[element] for element in elements)
-                    write(os.path.join(self.iter_dir, f"{label}.xyz"), data)
+                    write(os.path.join(self.run_dir, f"{label}.xyz"), data)
 
         # Run DFT calculations on structures without calculator results and update the train and test datasets with the results
         _label_DFT(self.train_data, label='train')
@@ -294,20 +285,9 @@ class ActiveLearningNEP:
 
     def setup_nep(self, cutoff=[8, 4], neuron=30, generation=100000, batch=1000000):
         # Check if data is available and has calculator results before setting up NEP training
-        
-        #try:
-            # Load train.xyz and test.xyz from run directory to modify them for NEP training
-            #nep_train_data = read(os.path.join(self.run_dir, "train.xyz"), ":")
-            #nep_test_data = read(os.path.join(self.run_dir, "test.xyz"), ":")
-        
-        #except Exception:
-        #    print(f"Missing train.xyz and/or test.xyz. Cannot setup NEP training.", flush=True)
-        #    return
-
         if self.data is None:
             print("No data available to set up NEP training. Please prepare the dataset and run DFT calculations first.", flush=True)
             return
-
         if self.count > 0:
             print(f"Warning! {self.count} structures have no calculator results.", flush=True)
             return
@@ -324,15 +304,6 @@ class ActiveLearningNEP:
             print(f"NEP training has already been set up.")
             return
         
-        # Sort atoms by alphabetical order of chemical symbols
-        #nep_train_data = [copy_calc_results(atoms, sort=True) for atoms in nep_train_data]
-        #nep_test_data = [copy_calc_results(atoms, sort=True) for atoms in nep_test_data]
-
-        # Shift energies of nep train and test data
-        #_shift_energies(nep_train_data)
-        #_shift_energies(nep_test_data)
-        #print(f"Shifted energies for {len(nep_train_data)} training structures and {len(nep_test_data)} testing structures.")
-
         # Save copy of train.xyz and test.xyz in the iteration directory for NEP training
         write(os.path.join(self.iter_dir, "train.xyz"), self.train_data)
         write(os.path.join(self.iter_dir, "test.xyz"), self.test_data)
@@ -340,9 +311,6 @@ class ActiveLearningNEP:
         # Create symbolic links to the train.xyz and test.xyz files in the iteration directory for NEP training
         os.symlink("../train.xyz", os.path.join(nep_dir, "train.xyz"))
         os.symlink("../test.xyz", os.path.join(nep_dir, "test.xyz"))
-
-        #write(os.path.join(nep_dir, "train.xyz"), nep_train_data)
-        #write(os.path.join(nep_dir, "test.xyz"), nep_test_data)
 
         # Set up the input files for NEP training
         params = dict(version=4, type=[len(self.species), ' '.join(self.species)])
@@ -366,74 +334,10 @@ class ActiveLearningNEP:
         nep_txt = os.path.join(self.iter_dir, "nep.txt")
         subprocess.run(["nep"], cwd=nep_dir, check=True, text=True)
         # Copy nep.txt to iteration directory for later use in descriptor calculation
-        #nep_txt_target = os.path.join(self.iter_dir, "nep.txt")
         shutil.copy(os.path.join(nep_dir, "nep.txt"), nep_txt)
         self.nep_txt = nep_txt
     
 
-    """
-    def _set_prediction_mode(self, nep_in, dataset=None):
-        with open(nep_in, "r") as f:
-            lines = f.readlines()
-
-        lines = [l for l in lines if not l.strip().startswith(("prediction", 'output_descriptor', "dataset"))]
-
-        lines.append("prediction 1\n")          # Set prediction mode
-        lines.append("output_descriptor 2\n")   # Output per-atom descriptors
-        if dataset is not None:
-            lines.append(f"dataset {dataset}\n")
-
-        with open(nep_in, "w") as f:
-            f.writelines(lines)
-    
-    def _unset_prediction_mode(self, nep_in):
-        with open(nep_in, "r") as f:
-            lines = f.readlines()
-
-        lines = [l for l in lines if not l.strip().startswith(("prediction", 'output_descriptor', "dataset"))]
-
-        with open(nep_in, "w") as f:
-            f.writelines(lines)
-
-
-    def run_prediction_mode(self):
-        #nep_dir = os.path.join(self.iter_dir, "nepmodel_split1")
-        nep_in = os.path.join(self.iter_dir, "nep.in")
-
-        # Check if there is an existing descriptor.out file and remove it
-        desc_file = os.path.join(self.iter_dir, "descriptor.out")
-        if os.path.exists(desc_file):
-            print("Existing descriptor.out file found. Was removed.", flush=True)
-            os.remove(desc_file)
-
-        self._set_prediction_mode(nep_in)
-
-        print("Running NEP in prediction mode...", flush=True)
-        subprocess.run(["nep"], cwd=self.iter_dir,
-                       check=True, text=True)
-        
-        self._unset_prediction_mode(nep_in)
-    """
-
-    """
-    def _extract_descriptors(self, desc_file):
-
-        B = np.loadtxt(desc_file)
-        print(f"Loaded descriptor matrix: {B.shape}", flush=True)
-
-        return B
-
-
-    def _calculate_descriptors(self, structures):
-        B = []
-        for structure in structures:
-            B.append(self._calculate_descriptor(structure))
-        B = np.vstack(B)
-
-        print(f"Computed descriptor matrix: {B.shape}", flush=True)
-
-        return B
-    """
 
     def _calculate_descriptors(self, structure):
         B = get_descriptors(structure, self.nep_txt)
@@ -453,106 +357,7 @@ class ActiveLearningNEP:
             if 'descriptor' not in structure.arrays:
                 self._calculate_descriptors(structure)
 
-    """
 
-    def compute_descriptors(self, get_out=True, write_out=True):
-        
-        desc_file = os.path.join(self.iter_dir, "descriptor.out")
-        nep_file = os.path.join(self.iter_dir, "nep.txt")
-
-        if os.path.exists(desc_file) and get_out:
-            B = self._extract_descriptors(desc_file)
-
-        elif os.path.exists(nep_file):
-            print("Descriptor file not found, but nep.txt exists. Computing descriptors with Calorine.", flush=True)
-            B = self._calculate_descriptors(self.train_data)
-            # Save to descriptor.out for future use
-            if write_out:
-                np.savetxt(os.path.join(self.iter_dir, "descriptor.out"), B)
-
-        else:
-            raise RuntimeError("Neither descriptor.out nor nep.txt found. Cannot compute descriptors.")
-
-        self.descriptors = B
-
-
-    def _map_descriptors_to_type(self, structures, descriptors):
-
-        type_map = {elem: i for i, elem in enumerate(self.unique_elements)}
-
-        type_index = []
-        struct_index = []
-        atom_index = []
-
-        for i, atoms in enumerate(structures):
-            for j, atom in enumerate(atoms):
-                type_index.append(type_map[atom.symbol])
-                struct_index.append(i)
-                atom_index.append(j)
-
-        type_index = np.array(type_index)
-        struct_index = np.array(struct_index)
-        atom_index = np.array(atom_index)
-
-        descriptors_by_type = {}
-        struct_index_by_type = {}
-        atom_index_by_type = {}
-
-        for t in np.unique(type_index):
-            mask = (type_index == t)
-            descriptors_by_type[t] = descriptors[mask]
-            struct_index_by_type[t] = struct_index[mask]
-            atom_index_by_type[t] = atom_index[mask]
-
-        return descriptors_by_type, struct_index_by_type, atom_index_by_type
-
-
-
-    def _extract_active_set(self, asi_file):
-
-        def find_inverse(m):
-            return np.linalg.pinv(m, rcond=1e-8)
-
-        active_set_inv = load_asi(asi_file)
-        #A_active = find_inverse(A_inv)
-
-        return active_set_inv
-
-    def _calculate_active_set(self, structures, descriptors, batch_size=None):
-
-        from src.MaxVol import calculate_maxvol
-
-        B_type, struct_index_type, atom_index_type = self._map_descriptors_to_type(structures, descriptors)
-
-        active_set = {}
-        active_set_struct = []  # the index of structure
-
-        for t in B_type:
-            print(f"Performing MaxVol for type {t}...")
-
-            A_t = B_type[t]
-            struct_t = struct_index_type[t]
-
-            A_active_t, selected_index = calculate_maxvol(
-                A_t,
-                struct_t,
-                batch_size=batch_size
-            )
-
-            active_set[t] = A_active_t
-            active_set_struct.extend(selected_index)
-        
-        active_set_struct = list(set(active_set_struct))
-        active_set_struct.sort()
-        
-        active_set_inv = {
-            t: np.linalg.inv(A).astype(np.float32)
-            for t, A in active_set.items()
-        }
-        
-        return active_set_inv, active_set_struct
-
-    """
 
     def _collect_descriptors(self, structures, specie):
 
@@ -652,142 +457,6 @@ class ActiveLearningNEP:
 
         write(xyz_file, active_set_struct_copy)
         print(f"Active set structure saved to {xyz_file}", flush=True)
-
-
-    """
-    def setup_MD(self, n_traj=1, n_steps=10000, T0=20, T1=700):
-
-        # Check if there is any data loaded
-        if self.data is None or len(self.data) == 0:
-            raise RuntimeError("No structures available for MD")
-
-        # Look for a NEP model in the iteration directory
-        nep_src = os.path.join(self.iter_dir, "nep.txt")
-        if not os.path.exists(nep_src):
-            raise RuntimeError("nep.txt not found. Train NEP first.")
-        
-        # Create directory for MD results
-        md_dir = os.path.join(self.iter_dir, "md")
-        os.makedirs(md_dir, exist_ok=True)
-        
-        # Split up structures by chemical formula
-        labels = set()
-        train_data_dict = {}
-        for atoms in self.train_data:
-            label = atoms.get_chemical_formula()
-            labels.add(label)
-            if label not in train_data_dict:
-                train_data_dict[label] = []
-            train_data_dict[label].append(atoms)
-        labels = list(labels)
-
-        for i, label in enumerate(labels):
-
-            for j in range(n_traj):
-                run = i*n_traj + j + 1
-
-                if j == 0:
-                    atoms = train_data_dict[label][0].copy()
-                else:
-                    atoms = random.choice(train_data_dict[label]).copy()
-
-                md_run_dir = os.path.join(md_dir, f"run_{run:03d}")
-                os.makedirs(md_run_dir, exist_ok=True)
-                # Write atoms object to md_run_dir without calculator results
-
-                write(os.path.join(md_run_dir, "model.xyz"), atoms)
-                # Create run.in file for GPUMD to run MD simulations with the trained NEP model
-                save_run_in(n_steps, T0, T1, md_run_dir)
-    
-    def run_MD(self):
-        md_dir = os.path.join(self.iter_dir, "md")
-        # List all folders in md_dir
-        folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
-        print(f"Running {len(folders)} MD simulations with GPUMD ...", flush=True)
-
-        for folder in folders:
-            md_run_dir = os.path.join(md_dir, folder)
-            subprocess.run(["gpumd"], cwd=md_run_dir, check=True, text=True)
-    
-            def collect_MD_structures(self):
-        md_dir = os.path.join(self.iter_dir, "md")
-        # List all folders in md_dir
-        folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
-        trajs = []
-        for folder in folders:
-            md_run_dir = os.path.join(md_dir, folder)
-            model = read(os.path.join(md_run_dir, "model.xyz"))
-            traj = read(os.path.join(md_run_dir, "dump.xyz"), index=":")
-            # Wrap trajectory to reference structure
-            #traj = wrap_to_reference(traj, model)
-            # Append the wrapped trajectory to the trajs list
-            trajs.extend(traj)
-
-        # Save all trajectories to a single file
-        write(os.path.join(md_dir, "md_structures.xyz"), trajs)
-    """
-
-    def setup_MD(self, dt=1, n_steps=1*1e6, n_dump=1000,
-                 temperatures=[100, 200, 300, 400, 500, 600]):
-        """Old function. Not funtional."""
-        
-        """
-        # Check if there is any data loaded
-        if self.data is None or len(self.data) == 0:
-            raise RuntimeError("No structures available for MD")
-
-        # Look for a NEP model in the iteration directory
-        if not os.path.exists(self.nep_txt):
-            raise RuntimeError("nep.txt not found. Train NEP first.")
-        
-        # Create directory for MD results
-        md_dir = os.path.join(self.iter_dir, "md")
-        os.makedirs(md_dir, exist_ok=True)
-        
-        # Split up structures by chemical formula
-        labels = set()
-        train_data_dict = {}
-        for atoms in self.train_data:
-            label = atoms.get_chemical_formula()
-            labels.add(label)
-            if label not in train_data_dict:
-                train_data_dict[label] = []
-            train_data_dict[label].append(atoms)
-        labels = list(labels)
-
-        for label in labels:
-            
-            label_dir = os.path.join(md_dir, label)
-            # Create directory for this chemical formula
-            os.makedirs(label_dir, exist_ok=True)
-
-            # Take the first structure for this chemical formula as the initial structure for the MD simulations.
-            atoms = train_data_dict[label][0].copy()
-            bulk = is_atom_bulk(atoms)
-            # Relax the structure with the NEP model
-            self.relax_atoms(atoms)
-
-            atoms_copy = copy_calc_results(atoms)
-
-            # Create directory for exploration trajectories
-            exp_dir = os.path.join(label_dir, f"exploration")
-            os.makedirs(exp_dir, exist_ok=True)
-            # Write atoms object to exploration directory without calculator results
-            write(os.path.join(exp_dir, "model.xyz"), atoms_copy)
-            # Create run.in file for GPUMD to run MD exploration simulations with the trained NEP model
-            # The temperature will ramp up from 20K to the maximum temperature and then back down to 20K
-            save_run_in(dt, n_steps, n_dump, 20, max(temperatures), bulk, exp_dir)
-
-            # Then, loop over temperatures and perform MD simulations at each (constant) temperature
-            for T in temperatures:
-                # Create directory for this temperature
-                temp_dir = os.path.join(label_dir, f"{T}K")
-                os.makedirs(temp_dir, exist_ok=True)
-                # Write atoms object to temp_dir without calculator results
-                write(os.path.join(temp_dir, "model.xyz"), atoms_copy)
-                # Create run.in file for GPUMD to run MD simulations with the trained NEP model
-                save_run_in(dt, n_steps, n_dump//10, T, T, bulk, temp_dir)
-        """
 
 
 
@@ -1007,36 +676,7 @@ class ActiveLearningNEP:
         # Save all trajectories to a single file
         write(os.path.join(md_dir, "md_structures.xyz"), trajs)
 
-    """
-    def extract_md_descriptors(self):
 
-        md_dir = os.path.join(self.iter_dir, "md")
-        nep_dir = os.path.join(self.iter_dir, "nep.txt")
-
-        dump_file = os.path.join(md_dir, "dump.xyz")
-        if not os.path.exists(dump_file):
-            raise RuntimeError("dump.xyz not found")
-
-        structures = read(dump_file, ":")
-
-        tmp_file = os.path.join(nep_dir, "md_structures.xyz")
-        write(tmp_file, structures)
-
-        nep_in = os.path.join(nep_dir, "nep.in")
-        self._set_prediction_mode(nep_in, dataset=tmp_file)
-
-        print("Extracting descriptors for MD structures...")
-        subprocess.run(["nep"], cwd=nep_dir, check=True)
-
-        desc_file = os.path.join(nep_dir, "descriptor.out")
-        A = np.loadtxt(desc_file)
-
-        #A = (A - A.mean(axis=0)) / (A.std(axis=0) + 1e-12)
-
-        self.md_descriptors = A
-
-        print(f"MD descriptor matrix: {A.shape}", flush=True)
-    """
 
     def assign_gamma(self, structures):
 
@@ -1066,35 +706,6 @@ class ActiveLearningNEP:
             for val, s_idx, a_idx in zip(gamma, struct_indicies, atom_indicies):
                 structures[s_idx].arrays["gamma"][a_idx] = val
     
-
-    """
-    def assign_gamma(self, structures, descriptors):
-        
-        # initialize gamma arrays
-        for structure in structures:
-            structure.arrays["gamma"] = np.zeros(len(structure))
-
-        #B = self._calculate_descriptors(structures)   # (N, D) descriptor matrix for all environments
-        B_type, struct_index_by_type, atom_index_by_type = self._map_descriptors_to_type(structures, descriptors)
-        #A_inv, active_set_struct = self._calculate_active_set(structures, B, batch_size=None)
-        
-        # loop over atom types
-        for t, Ainv in self.active_inv.items():
-
-            B_t = B_type[t]
-            struct_t = struct_index_by_type[t]
-            atom_t = atom_index_by_type[t]
-
-            # compute gamma
-            g = B_t @ Ainv
-            g = np.max(np.abs(g), axis=1)
-
-            # map back to structures
-            for val, s_idx, a_idx in zip(g, struct_t, atom_t):
-                structures[s_idx].arrays["gamma"][a_idx] = val
-
-        #return structures
-    """
 
     def filter_structures(self, structures, gamma_th=5.0):
 
@@ -1140,23 +751,9 @@ class ActiveLearningNEP:
                 del atoms.arrays['descriptor']
                 del atoms.arrays['gamma']
                 filtered_structures.append(atoms)
-        #filtered_structures = [data[i] for i in active_set_index if i >= len(self.train_data)]
-        
         print(f"Found {len(filtered_structures)} filtered structures.", flush=True)
 
         write(os.path.join(self.iter_dir, "newdata.xyz"), filtered_structures)
-        #return filtered_structures
-
-
-    def _map_env_to_struct(self, structures):
-
-        counts = [len(s) for s in structures]
-
-        mapping = []
-        for i, n in enumerate(counts):
-            mapping.extend([i] * n)
-
-        return np.array(mapping)
 
 
 
@@ -1246,7 +843,6 @@ class ActiveLearningNEP:
         ax.set_ylabel('RMSE')
         ax.legend()
 
-        #fig.subplots_adjust(hspace=0)
         fig.set_constrained_layout_pads(hspace=0.0, h_pad=0.0)
         return fig
 

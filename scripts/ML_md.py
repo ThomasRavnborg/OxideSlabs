@@ -1,4 +1,4 @@
 from src.activeNEP import ActiveLearningNEP
 
 NEP = ActiveLearningNEP('results/ALnep')
-NEP.run_MD('md_production')
+NEP.run_MD('pimd_production')
