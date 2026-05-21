@@ -276,7 +276,6 @@ class ActiveLearningNEP:
             for i in range(len(data)):
                 struct = data[i]
                 if struct.calc is None:
-                    #generate_basis(struct, dir=os.path.join(self.run_dir, 'DFT'))
                     run_siesta(struct, **dft_params, dir=dft_dir)
                     data[i] = copy_calc_results(struct)
                     # Shift the energy of the structure by the sum of the energies of the constituent atoms, if energies are available
@@ -978,6 +977,11 @@ class ActiveLearningNEP:
         - Returns:
             None: The function collects the trajectories from the dump.xyz files in each trajectory directory and saves all trajectories to a single file called md_structures.xyz in the md directory of the current iteration.
         """
+
+        if os.path.exists(os.path.join(md_dir, "md_structures.xyz")):
+            print("md_structures.xyz already exists. Trajectory collection skipped.")
+            return
+
         trajs = []
         # List all folders in md_dir
         md_dir = os.path.join(self.iter_dir, "md_exploration")
@@ -1163,7 +1167,7 @@ class ActiveLearningNEP:
         if not os.path.exists(new_file):
             raise RuntimeError("newdata.xyz not found")
 
-        new_structs = read(new_file, ":")
+        new_structs = read(new_file, index=":")
 
         self.train_data.extend(new_structs)
 
@@ -1282,7 +1286,7 @@ class ActiveLearningNEP:
         return fig
     
 
-    def plot_gamma_model(structures, per_struct=True, width=1):
+    def plot_gamma_model(self, structures, per_struct=True, width=1):
 
         if per_struct:
             gammas = np.array([max(structures[i].arrays["gamma"]) for i in range(len(structures))])

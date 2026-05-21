@@ -65,14 +65,17 @@ def save_run_in(dt, n_steps, n_dump, T0, T1, bulk, dir):
     delta_dump = n_steps // n_dump
 
     if bulk:
-        direction = 'tri 0 0'
+        directions = ['tri']
     else:
-        direction = 'x 0 0 y 0 0 xy 0 0'
+        directions = ['x', 'y', 'xy']
+
+    direction_p1_p2 = ' '.join([f'{dir} 0 0' for dir in directions])
+
 
     if T1 != T0:
         run_in = ""
         n_steps = n_steps // 2
-        delta_dump = delta_dump // 20
+        delta_dump = delta_dump
     else:
         if bulk:
             run_in = "replicate 10 10 10"
@@ -87,14 +90,14 @@ def save_run_in(dt, n_steps, n_dump, T0, T1, bulk, dir):
 
         dump_exyz {delta_dump} 0 1
         dump_thermo {delta_dump}
-        ensemble npt_mttk temp {T0} {T1} {direction}
+        ensemble npt_mttk temp {T0} {T1} tperiod {T_coup} {direction_p1_p2} pperiod {p_coup}
         run {n_steps}
     """
     if T1 != T0:
         run_in += f"""
         dump_exyz {delta_dump} 0 1
         dump_thermo {delta_dump}
-        ensemble npt_mttk temp {T1} {T0} {direction}
+        ensemble npt_mttk temp {T1} {T0} tperiod {T_coup} {direction_p1_p2} pperiod {p_coup}
         run {n_steps}
         """
 

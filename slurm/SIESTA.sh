@@ -2,7 +2,7 @@
 #SBATCH --partition=xeon24el8
 #SBATCH -N 1
 #SBATCH -n 24
-#SBATCH --time=48:00:00
+#SBATCH --time=50:00:00
 #SBATCH --job-name=siesta
 #SBATCH --output=results/logs/slurm-%j.out
 
@@ -10,7 +10,7 @@ set -e
 
 # Change to the directory where the job was submitted from
 cd "$SLURM_SUBMIT_DIR"
-# Set up environment variables for Python and GPAW
+# Set up environment variables for Python and SIESTA
 export PYTHONPATH="$PWD:$PYTHONPATH"
 export ASE_SIESTA_COMMAND="mpirun siesta < PREFIX.fdf > PREFIX.out"
 
