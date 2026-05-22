@@ -202,25 +202,26 @@ def get_phonon_dispersion(phonon):
     if bulk == True:
         path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
                 [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
-        labels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$"]
+        pathlabels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$"]
     else:
         path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
                  [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
-        labels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
+        pathlabels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
     # Get the band q-points and connections
     qpoints, connections = get_band_qpoints_and_path_connections(path, npoints=300)
     # Run band structure and total DOS calculation
     phonon.run_band_structure(qpoints, path_connections=connections,
-                              labels=labels, with_eigenvectors=True)
+                              labels=pathlabels, with_eigenvectors=True)
     # Get the band structure data
     band_structure = phonon.get_band_structure_dict()
     # Extract frequencies and distances (x-values) for BS plot
-    freq = band_structure['frequencies']
-    dist = band_structure['distances']
+    frequencies = band_structure['frequencies']
+    paths = band_structure['qpoints']
+    distances = band_structure['distances']
     # Determine the high symmetry point locations on the x-axis
-    X = np.append(np.array([arr[0] for arr in dist]), np.array(dist[-1][-1]))
+    #X = np.append(np.array([arr[0] for arr in dist]), np.array(dist[-1][-1]))
     # Returns distances, symmetry point locations, frequencies and labels
-    return (dist, X, freq, labels)
+    return distances, frequencies, paths, pathlabels
 
 
 def get_phonon_dos(phonon):
@@ -245,7 +246,7 @@ def get_phonon_dos(phonon):
     dos = DOS['total_dos']
     freq = DOS['frequency_points']
     # Returns DOS (states/THz) and frequencies (THz)
-    return (dos, freq)
+    return dos, freq
 
 
 def get_phonon_pdos(phonon):
@@ -275,7 +276,7 @@ def get_phonon_pdos(phonon):
     pdos = PDOS['projected_dos']
     freq = PDOS['frequency_points']
     # Returns PDOS (states/THz) and frequencies (THz)
-    return (pdos, freq, symbols)
+    return pdos, freq, symbols
 
 
 def plot_dispersion(phonons, labels, width=1, multiple=False):
@@ -331,12 +332,18 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
     
     def _plot_disp(ax, phonon, label, col='k'):
         # Extract phonon dispersion data
-        (dist, X, freq, labels) = get_phonon_dispersion(phonon)
-        dist = np.array(dist)
-        dist /= dist[-1][-1]  # Normalize distances to the total length of the path
-        X /= X[-1]  # Normalize high symmetry point locations to the total length of the path
+        distances, freqencies, paths, pathlabels = get_phonon_dispersion(phonon)
+        xticks = np.array([dist[0] for dist in distances] + [distances[-1][-1]])
+        distances = np.array(distances)
+        distances /= distances[-1][-1]  # Normalize distances to the total length of the path
+        xticks /= xticks[-1]  # Normalize high symmetry point locations to the total length of the path
         # Plot vertical lines at symmetry points
-        ax.vlines(X, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
+        ax.vlines(xticks, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
+        # Plot phonon dispersion for all modes and segments
+        ax.plot(np.hstack(distances), np.vstack(freqencies),
+                color=col, lw=1, label=f'{label}', alpha=0.5)
+
+        """
         # Determine the number of segments between symmetry points and the number of modes
         n_segments = len(freq)
         n_modes = freq[0].shape[1]
@@ -347,19 +354,21 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
                     ax.plot(dist[i], freq[i][:, j], color=col, lw=1, label=f'{label}')
                 else:
                     ax.plot(dist[i], freq[i][:, j], color=col, lw=1)
+        """
+
         # Set x- and y-ticks
         if multiple:
-            ax.set_xticks(X[0:-1], labels[0:-1])
+            ax.set_xticks(xticks[0:-1], pathlabels[0:-1])
         else:
-            ax.set_xticks(X, labels)
+            ax.set_xticks(xticks, pathlabels)
         ax.set_yticks(E_tickmarks, E_ticklabels)
         # Set x- and y-limits
-        ax.set_xlim(X[0], X[-1])
+        ax.set_xlim(xticks[0], xticks[-1])
         ax.set_ylim(E_tickmarks[0], E_tickmarks[-1])
 
     def _plot_dos(ax, phonon, label='DOS', col='k', pDOS=False):
         # Extract total DOS data
-        (dosx, dosy) = get_phonon_dos(phonon)
+        dosx, dosy = get_phonon_dos(phonon)
         # Plot total DOS
         ax.plot(dosx, dosy, lw=1, color=col, label=f'{label}')
         if pDOS:
@@ -378,7 +387,8 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         atom_colors = {'Ba': 'tab:blue', 'Sr': 'tab:purple',
                        'Ti': 'tab:orange', 'O': 'tab:red'}
         # Extract PDOS data
-        (pdosx, pdosy, symbols) = get_phonon_pdos(phonon)
+        pdosx, pdosy, symbols = get_phonon_pdos(phonon)
+        #symbols = phonon.unitcell.symbols
         # Plot PDOS
         for i in range(pdosx.shape[0]):
             ax.plot(pdosx[i], pdosy, lw=1, color=atom_colors[symbols[i]], label=f'{symbols[i]}')

@@ -64,6 +64,10 @@ def save_run_in(dt, n_steps, n_dump, T0, T1, bulk, dir):
     n_dump = int(n_dump)
     delta_dump = n_steps // n_dump
 
+    # Thermostat and barostat parameters
+    T_coup = 100
+    p_coup = 1000
+
     if bulk:
         directions = ['tri']
     else:
