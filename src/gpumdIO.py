@@ -20,6 +20,13 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
     C_yy = 150
     C_zz = 150
 
+    if bulk:
+        directions = ['tri']
+    else:
+        directions = ['x', 'y', 'xy']
+
+    direction_p1_p2 = ' '.join([f'{dir} 0 0' for dir in directions])
+
     if T1 != T0:
         run_in = ""
         n_steps = n_steps // 2
@@ -41,20 +48,57 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
 
         velocity {T0}
         time_step {dt}
+        """
+    
+    def _setup_single_run(run_in, ensemble, T0, T1):
 
-        dump_exyz {delta_dump} 0 1
-        dump_thermo {delta_dump}
-        ensemble {ensemble} {T0} {T1} {T_coup} {p_xx} {p_yy} {p_zz} {C_xx} {C_yy} {C_zz} {p_coup}
-        run {n_steps}
-        """
-    if T1 != T0:
+
+        if ensemble == 'nve':
+            #delta_dump = 20
+            #n_steps = int(1*1e4)
+            # equilibration
+            print(f'Maximum frequency that can be resolved is {500.0 / (dt * delta_dump)} THz.')
+            run_in += f"""
+                ensemble nvt_lan {T0} {T1} {T_coup}
+                run {n_steps//10}
+            """
+            # production
+            run_in += f"""
+                dump_exyz {delta_dump} 1
+                ensemble nve
+                run {n_steps}
+            """
+            return run_in
+
         run_in += f"""
-        dump_exyz {delta_dump} 0 1
-        dump_thermo {delta_dump}
-        ensemble {ensemble} {T1} {T0} {T_coup} {p_xx} {p_yy} {p_zz} {C_xx} {C_yy} {C_zz} {p_coup}
-        run {n_steps}
-        """
-    return run_in
+            dump_exyz {delta_dump} 0 1
+            dump_thermo {delta_dump}"""
+
+        if ensemble.split('_')[0] == 'nvt':
+            run_in += f"""
+            ensemble {ensemble} {T0} {T1} {T_coup}"""
+
+        elif ensemble == 'npt_mttk':
+            run_in += f"""
+            ensemble {ensemble} temp {T0} {T1} tperiod {T_coup} {direction_p1_p2} pperiod {p_coup}"""
+
+        elif ensemble.split('_')[0] == 'npt' or ensemble == 'pimd':
+            run_in += f"""
+            ensemble {ensemble} {T0} {T1} {T_coup} {p_xx} {p_yy} {p_zz} {C_xx} {C_yy} {C_zz} {p_coup}"""
+        
+        run_in += f"""
+            run {n_steps}"""
+        return run_in
+
+    run_in = _setup_single_run(run_in, ensemble, T0, T1)
+
+    if T1 != T0:
+        run_in = _setup_single_run(run_in, ensemble, T1, T0)
+
+
+    run_in_text = "\n".join(line.strip() for line in run_in.splitlines())
+
+    return run_in_text
 
 
 

@@ -521,9 +521,12 @@ class ActiveLearningNEP:
             os.makedirs(temp_dir, exist_ok=True)
             # Write atoms object to temp directory without calculator results
             write(os.path.join(temp_dir, "model.xyz"), atoms)
-            # Create run.in file for GPUMD to run MD exploration simulations with the trained NEP model
-            # The temperature will ramp up from 20K to Tmax and then back down to 20K
-            save_run_in(dt, n_steps, n_dump, 20, Tmax, bulk, temp_dir)
+            
+            # Create run.in file for GPUMD to run MD simulations with the trained NEP model
+            run_in = create_run_in('npt_mttk', dt, n_steps, n_dump, 20, Tmax, bulk)
+            # Save the run.in file in the temp_dir for this label and temperature
+            with open(os.path.join(temp_dir, "run.in"), "w") as f:
+                f.write(run_in)
 
 
     def setup_MD_production(self, ensemble='npt_ber', dt=1, n_steps=1*1e6, n_dump=1000,
@@ -551,19 +554,19 @@ class ActiveLearningNEP:
         if not os.path.exists(self.nep_txt):
             raise RuntimeError("nep.txt not found. Train NEP first.")
         
-        if ensemble not in ['npt_ber', 'pimd']:
-            raise ValueError("Invalid ensemble. Use 'npt_ber' for npt_ber and 'pimd' for pimd simulations.")
+        #if ensemble not in ['nve', 'npt_ber', 'pimd']:
+        #    raise ValueError("Invalid ensemble. Use 'npt_ber' for npt_ber and 'pimd' for pimd simulations.")
 
         # Attempt to create directory for MD results
-        if ensemble == 'npt_ber':
-            type = 'md'
-        elif ensemble == 'pimd':
-            type = 'pimd'
-        md_dir = os.path.join(self.iter_dir, f"{type}_production")
+        #if ensemble == 'npt_ber':
+        #    type = 'md'
+        #elif ensemble == 'pimd':
+        #    type = 'pimd'
+        md_dir = os.path.join(self.iter_dir, f"{ensemble}_production")
         try:
             os.makedirs(md_dir, exist_ok=False)
         except FileExistsError:
-            print(f"MD production already set up.")
+            print(f"MD production already set up for ensemble {ensemble}.")
             return
 
         # Split up structures by chemical formula
@@ -603,8 +606,7 @@ class ActiveLearningNEP:
                 run_in = create_run_in(ensemble, dt, n_steps, n_dump, T, T, bulk)
                 # Save the run.in file in the temp_dir for this label and temperature
                 with open(os.path.join(temp_dir, "run.in"), "w") as f:
-                    text = "\n".join(line.strip() for line in run_in.splitlines())
-                    f.write(text)
+                    f.write(run_in)
 
 
 
@@ -618,10 +620,10 @@ class ActiveLearningNEP:
             None: The function runs GPUMD in each trajectory directory, which will generate the MD trajectories and save them in the same directories.
             The resulting trajectories can then be collected with the collect_MD_structures() method.
         """
-
-        if type not in ['md_exploration', 'md_production', 'pimd_production']:
-            raise ValueError("Invalid type. Use 'md_exploration' for exploration MD, 'md_production' for npt_ber production MD, and 'pimd_production' for pimd production MD simulations.")
-
+        # Check if type is a folder in the iteration directory
+        if not os.path.exists(os.path.join(self.iter_dir, type)):
+            raise RuntimeError(f"{type} directory not found. Set up MD simulations first with setup_MD_exploration() or setup_MD_production().")
+        
         # List all folders in md_dir
         md_dir = os.path.join(self.iter_dir, type)
         md_folders = [d for d in os.listdir(md_dir) if os.path.isdir(os.path.join(md_dir, d))]
