@@ -30,7 +30,6 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
     if T1 != T0:
         run_in = ""
         n_steps = n_steps // 2
-        delta_dump = delta_dump // 2
     else:
         if bulk:
             run_in = "replicate 10 10 10"
@@ -87,7 +86,8 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
             ensemble {ensemble} {T0} {T1} {T_coup} {p_xx} {p_yy} {p_zz} {C_xx} {C_yy} {C_zz} {p_coup}"""
         
         run_in += f"""
-            run {n_steps}"""
+            run {n_steps}
+        """
         return run_in
 
     run_in = _setup_single_run(run_in, ensemble, T0, T1)

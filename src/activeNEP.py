@@ -505,22 +505,21 @@ class ActiveLearningNEP:
         labels = list(labels)
 
         for label in labels:
-            
+            # Create directory for this chemical formula
             label_dir = os.path.join(md_dir, label)
+            os.makedirs(label_dir, exist_ok=True)
 
             # Take the first structure for this chemical formula as the initial structure for the MD simulations.
             atoms = train_data_dict[label][0].copy()
             bulk = is_atom_bulk(atoms)
-            # Relax the structure with the NEP model
-            #self.relax_atoms(atoms)
-            #atoms_copy = copy_calc_results(atoms)
-
+            # Write atoms object to label directory without calculator results
+            write(os.path.join(label_dir, "model.xyz"), atoms)
+            
+            # Create directory for the maximum temperature
             temp_dir = os.path.join(label_dir, f"{Tmax}K")
-
-            # Create directory for this temperature and chemical formula
             os.makedirs(temp_dir, exist_ok=True)
-            # Write atoms object to temp directory without calculator results
-            write(os.path.join(temp_dir, "model.xyz"), atoms)
+            # Create symbolic link to the model.xyz file in the label_dir for this temperature directory
+            os.symlink("../model.xyz", os.path.join(temp_dir, "model.xyz"))
             
             # Create run.in file for GPUMD to run MD simulations with the trained NEP model
             run_in = create_run_in('npt_mttk', dt, n_steps, n_dump, 20, Tmax, bulk)
@@ -595,13 +594,17 @@ class ActiveLearningNEP:
             # Make copy without calculator results for writing
             atoms_copy = atoms.copy()
             bulk = is_atom_bulk(atoms_copy)
+            # Write atoms object to label_dir without calculator results
+            write(os.path.join(label_dir, "model.xyz"), atoms_copy)
+
             # Loop over temperatures and setup MD simulations at each (constant) temperature
             for T in temperatures:
                 # Create directory for this temperature
                 temp_dir = os.path.join(label_dir, f"{T}K")
                 os.makedirs(temp_dir, exist_ok=True)
-                # Write atoms object to temp_dir without calculator results
-                write(os.path.join(temp_dir, "model.xyz"), atoms_copy)
+                # Create symbolic link to the model.xyz file in the label_dir for this temperature directory
+                os.symlink("../model.xyz", os.path.join(temp_dir, "model.xyz"))
+                
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
                 run_in = create_run_in(ensemble, dt, n_steps, n_dump, T, T, bulk)
                 # Save the run.in file in the temp_dir for this label and temperature
