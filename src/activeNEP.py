@@ -18,6 +18,7 @@ from calorine.calculators import CPUNEP
 from calorine.tools import get_force_constants
 from hiphive.structure_generation import generate_phonon_rattled_structures
 from src.latexfig import LatexFigure
+from src.structure import Perovskite
 from src.phononASE import phonon_to_atoms, phonopy_to_ase
 from src.calculators import run_siesta, copy_calc_results
 from src.structureoptimizer import opt_filter
@@ -585,10 +586,18 @@ class ActiveLearningNEP:
             # Create directory for this chemical formula
             os.makedirs(label_dir, exist_ok=True)
 
-            # Take the first structure for this chemical formula as the initial structure for the MD simulations.
-            atoms = train_data_dict[label][0].copy()
-            # Orthogonalize the cell and relax only xx, yy and zz cell components with NEP model
-            orthogonalize_cell(atoms)
+
+            if label == 'Ba8O24Ti8':
+                atoms = Perovskite('BaTiO3').atoms.copy()
+            elif label == 'Ba4O20Ti8':
+                atoms = Perovskite('BaTiO3', bulk=False, dslab=1.5).atoms.copy()
+            elif label == 'Ba8O32Ti12':
+                atoms = Perovskite('BaTiO3', bulk=False, dslab=2.5).atoms.copy()
+            else:
+                atoms = train_data_dict[label][0].copy()
+                orthogonalize_cell(atoms)
+
+            # Relax only xx, yy and zz cell components with NEP model
             self.relax_atoms(atoms, mask=[1, 1, 1, 0, 0, 0])
 
             # Make copy without calculator results for writing
