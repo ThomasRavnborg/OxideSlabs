@@ -23,9 +23,9 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
     # Number of replications
     #N_rep = 10
 
-    if ensemble == 'nve':
+    #if ensemble == 'nve':
         # Reduce number of replications
-        N_rep = 5
+        #N_rep = 5
 
     if bulk:
         directions = ['tri']

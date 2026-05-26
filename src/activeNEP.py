@@ -841,6 +841,13 @@ class ActiveLearningNEP:
 
 
     def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K', dim=(10, 10, 10)):
+
+        # Check if SED data already exists for this path
+        sed_file = os.path.join(self.iter_dir, path, 'sed.npz')
+        if os.path.exists(sed_file):
+            print(f"SED data already exists for {path}. Skipping ...)", flush=True)
+            return
+        
         
         unitcell = read(os.path.join(self.iter_dir, os.path.dirname(path), 'unitcell.xyz'))
         
@@ -877,14 +884,14 @@ class ActiveLearningNEP:
         #replicate = np.array(re.findall(r'replicate\s+(\d+)\s+(\d+)\s+(\d+)', run_in)[0], dtype=int)
         dt = np.sum(np.array(re.findall(r'time_step\s+(\d+\.?\d*)', run_in), dtype=float))
         ddump = np.sum(np.array(re.findall(r'dump_exyz\s+(\d+)', run_in), dtype=int))
-        #n_steps = np.sum(np.array(re.findall(r'run\s+(\d+)', run_in), dtype=int)[-1])
 
 
         from dynasor import Trajectory, compute_spectral_energy_density
         from dynasor.units import radians_per_fs_to_THz
 
-        traj = Trajectory(f'results/ALnep/iteration_2/nve_production_old3/Ba8O24Ti8/600K/dump.xyz',
-                        trajectory_format='extxyz', atomic_indices='read_from_trajectory')
+        traj = Trajectory(os.path.join(self.iter_dir, path, 'dump.xyz'),
+                          trajectory_format='extxyz', atomic_indices='read_from_trajectory',
+                          length_unit='Angstrom', time_unit='fs')
 
         w, sed = compute_spectral_energy_density(
                 traj,
@@ -895,7 +902,9 @@ class ActiveLearningNEP:
 
         dyna_freqs = w * radians_per_fs_to_THz
 
-        return dyna_dists, dyna_freqs, sed
+        np.savez(sed_file, dists=dyna_dists, freqs=dyna_freqs, sed=sed)
+
+        #return dyna_dists, dyna_freqs, sed
 
 
 
