@@ -21,7 +21,7 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
     C_zz = 150
 
     # Number of replications
-    N_rep = 10
+    #N_rep = 10
 
     if ensemble == 'nve':
         # Reduce number of replications
@@ -38,10 +38,13 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
         run_in = ""
         n_steps = n_steps // 2
     else:
+        run_in = ""
+        """
         if bulk:
             run_in = f"replicate {N_rep} {N_rep} {N_rep}"
         else:
             run_in = f"replicate {N_rep} {N_rep} 1"
+        """
     
     if ensemble == 'npt_ber':
         pass

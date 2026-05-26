@@ -20,6 +20,7 @@ from hiphive.structure_generation import generate_phonon_rattled_structures
 from src.latexfig import LatexFigure
 from src.structure import Perovskite
 from src.phononASE import phonon_to_atoms, phonopy_to_ase
+from src.phononcalc import get_phonon_dispersion
 from src.calculators import run_siesta, copy_calc_results
 from src.structureoptimizer import opt_filter
 from src.MaxVol import calculate_maxvol
@@ -600,11 +601,16 @@ class ActiveLearningNEP:
             # Relax only xx, yy and zz cell components with NEP model
             self.relax_atoms(atoms, mask=[1, 1, 1, 0, 0, 0])
 
-            # Make copy without calculator results for writing
-            atoms_copy = atoms.copy()
-            bulk = is_atom_bulk(atoms_copy)
-            # Write atoms object to label_dir without calculator results
-            write(os.path.join(label_dir, "model.xyz"), atoms_copy)
+            bulk = is_atom_bulk(atoms)
+
+            # Create supercell without calculator results
+            if bulk:
+                dim = (20, 20, 20)
+            else:
+                dim = (20, 20, 1)
+            supercell = atoms.copy().repeat(dim)
+            # Write supercell object to label_dir without calculator results
+            write(os.path.join(label_dir, "model.xyz"), supercell)
 
             # Loop over temperatures and setup MD simulations at each (constant) temperature
             for T in temperatures:
@@ -832,6 +838,66 @@ class ActiveLearningNEP:
             supercell = [Nc, Nc, 1]
         phonon = get_force_constants(atoms, calc, supercell)
         return phonon
+
+
+    def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K', dim=(10, 10, 10)):
+        
+        unitcell = read(os.path.join(self.iter_dir, os.path.dirname(path), 'unitcell.xyz'))
+        
+        #dim = (10, 10, 10)
+        supercell = unitcell.repeat(dim)
+        phonon = self.calculate_phonon(unitcell)
+        phonopy_dists, phonopy_freqs, phonopy_paths, pathlabels = get_phonon_dispersion(phonon)
+
+        from dynasor.qpoints.lattice import Lattice
+
+        lat = Lattice(unitcell.cell, supercell.cell)
+
+        dyna_paths, dyna_dists = [], []
+        for p, d in zip(phonopy_paths, phonopy_dists):
+            p0, p1 = p[[0, -1]]
+
+            dyna_path, dyna_dist = lat.make_path(p0, p1)
+            dyna_paths.append(dyna_path)
+
+            d0, d1 = d[[0, -1]]
+            dyna_dists.append(d0 + (d1 - d0) * dyna_dist)
+        
+        #phonopy_path = lat.reduced_to_cartesian(np.vstack(phonopy_paths))
+        dynasor_path = np.vstack(dyna_paths)
+
+
+        import re
+
+        run_file = os.path.join(self.iter_dir, path, 'run.in')
+
+        with open(run_file, 'r') as f:
+            run_in = f.read()
+
+        #replicate = np.array(re.findall(r'replicate\s+(\d+)\s+(\d+)\s+(\d+)', run_in)[0], dtype=int)
+        dt = np.sum(np.array(re.findall(r'time_step\s+(\d+\.?\d*)', run_in), dtype=float))
+        ddump = np.sum(np.array(re.findall(r'dump_exyz\s+(\d+)', run_in), dtype=int))
+        #n_steps = np.sum(np.array(re.findall(r'run\s+(\d+)', run_in), dtype=int)[-1])
+
+
+        from dynasor import Trajectory, compute_spectral_energy_density
+        from dynasor.units import radians_per_fs_to_THz
+
+        traj = Trajectory(f'results/ALnep/iteration_2/nve_production_old3/Ba8O24Ti8/600K/dump.xyz',
+                        trajectory_format='extxyz', atomic_indices='read_from_trajectory')
+
+        w, sed = compute_spectral_energy_density(
+                traj,
+                ideal_supercell=supercell,
+                primitive_cell=unitcell,
+                q_points=dynasor_path,
+                dt=dt*ddump)
+
+        dyna_freqs = w * radians_per_fs_to_THz
+
+        return dyna_dists, dyna_freqs, sed
+
+
 
     
 
