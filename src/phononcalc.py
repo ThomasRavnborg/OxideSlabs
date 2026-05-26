@@ -192,10 +192,10 @@ def get_phonon_dispersion(phonon):
     Parameters:
         - phonon: Phonopy object containing phonon data.
     Returns:
-        - dist: Distances along the band path.
-        - X: High symmetry point locations on the x-axis.
-        - freq: Frequencies of the phonon modes.
-        - labels: Labels for the high symmetry points.
+        - distances: Distances along the band path.
+        - frequencies: Frequencies of the phonon modes.
+        - paths: Paths for the high symmetry points.
+        - pathlabels: Labels for the high symmetry points.
     """
     bulk = is_phonon_bulk(phonon)
     # Specify band path and labels depending on bulk or slab
@@ -393,11 +393,12 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         for i in range(pdosx.shape[0]):
             ax.plot(pdosx[i], pdosy, lw=1, color=atom_colors[symbols[i]], label=f'{symbols[i]}')
         # Get all handles and labels
-        handles, labels = ax.get_legend_handles_labels()
+        #handles, labels = ax.get_legend_handles_labels()
         # Remove duplicates and sort for the legend
-        sorted_handles, sorted_labels = order_labels(symbols, handles, labels)
+        #sorted_handles, sorted_labels = order_labels(symbols, handles, labels)
         # Add legend with duplicates removed and sorted labels
-        ax.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
+        #ax.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
+        ax.legend()
 
     if multiple:
         # Plot dispersion for each phonon object in a separate subplot
