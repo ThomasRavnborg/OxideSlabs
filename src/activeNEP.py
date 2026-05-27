@@ -595,7 +595,6 @@ class ActiveLearningNEP:
             # Create directory for this chemical formula
             os.makedirs(label_dir, exist_ok=True)
 
-
             if label == 'Ba8O24Ti8':
                 atoms = Perovskite('BaTiO3').atoms.copy()
             elif label == 'Ba4O20Ti8':
@@ -608,20 +607,19 @@ class ActiveLearningNEP:
 
             # Relax only xx, yy and zz cell components with NEP model
             self.relax_atoms(atoms, mask=[1, 1, 1, 0, 0, 0])
-
             bulk = is_atom_bulk(atoms)
 
-            """
+            write(os.path.join(label_dir, "unitcell.xyz"), atoms.copy())
+
             # Create supercell without calculator results
+            N_rep = 20
             if bulk:
-                dim = (20, 20, 20)
+                dim = np.array([N_rep, N_rep, N_rep])
             else:
-                dim = (20, 20, 1)
+                dim = np.array([N_rep, N_rep, 1])
             supercell = atoms.copy().repeat(dim)
             # Write supercell object to label_dir without calculator results
-            write(os.path.join(label_dir, "model.xyz"), supercell)
-            """
-            write(os.path.join(label_dir, "unitcell.xyz"), atoms.copy())
+            write(os.path.join(label_dir, "supercell.xyz"), supercell)
 
             # Loop over temperatures and setup MD simulations at each (constant) temperature
             for T in temperatures:
@@ -629,7 +627,7 @@ class ActiveLearningNEP:
                 temp_dir = os.path.join(label_dir, f"{T}K")
                 os.makedirs(temp_dir, exist_ok=True)
                 # Create symbolic link to the model.xyz file in the label_dir for this temperature directory
-                os.symlink("../unitcell.xyz", os.path.join(temp_dir, "model.xyz"))
+                os.symlink("../supercell.xyz", os.path.join(temp_dir, "model.xyz"))
                 
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
                 run_in = create_run_in(ensemble, dt, n_steps, n_dump, T, T, bulk)
@@ -858,26 +856,25 @@ class ActiveLearningNEP:
         if not os.path.exists(path_dir):
             raise RuntimeError(f"{path} directory not found in iteration directory. Prepare MD simulations with setup_MD_production.")
 
-        if not os.path.exists(os.path.join(path_dir, 'dump.xyz')):
-            raise RuntimeError(f"dump.xyz not found in {path_dir}. Run MD simulations first with run_MD().")
-
         if os.path.exists(os.path.join(path_dir, 'sed.npz')):
             print(f"SED data already exists for {path}. Skipping ...)", flush=True)
             return
+
+        if not os.path.exists(os.path.join(path_dir, 'dump.xyz')):
+            raise RuntimeError(f"dump.xyz not found in {path_dir}. Run MD simulations first with run_MD().")
 
         run_file = os.path.join(self.iter_dir, path, 'run.in')
         
         with open(run_file, 'r') as f:
             run_in = f.read()
 
-        replicate = np.array(re.findall(r'replicate\s+(\d+)\s+(\d+)\s+(\d+)', run_in)[0], dtype=int)
         dt = np.sum(np.array(re.findall(r'time_step\s+(\d+\.?\d*)', run_in), dtype=float))
         ddump = np.sum(np.array(re.findall(r'dump_exyz\s+(\d+)', run_in), dtype=int))
         
         
-        unitcell = read(os.path.join(self.iter_dir, path, 'model.xyz'))
-        
-        supercell = unitcell.repeat(replicate)
+        unitcell = read(os.path.join(self.iter_dir, os.path.dirname(path), 'unitcell.xyz'))
+        supercell = read(os.path.join(self.iter_dir, os.path.dirname(path), 'supercell.xyz'))
+
         phonon = self.calculate_phonon(unitcell)
         phonopy_dists, phonopy_freqs, phonopy_paths, pathlabels = get_phonon_dispersion(phonon)
 
