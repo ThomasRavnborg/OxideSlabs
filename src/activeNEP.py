@@ -900,6 +900,10 @@ class ActiveLearningNEP:
                           trajectory_format='extxyz', atomic_indices='read_from_trajectory',
                           length_unit='Angstrom', time_unit='fs')
 
+        import numba
+        print("Numba threads:", numba.get_num_threads())
+        print("Thread layer:", numba.threading_layer())
+
         w, sed = compute_spectral_energy_density(
                 traj,
                 ideal_supercell=supercell,

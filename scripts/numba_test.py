@@ -3,9 +3,6 @@ import numba
 from numba import njit, prange
 import time
 
-print(numba.threading_layer())
-print(numba.get_num_threads())
-
 @njit(parallel=True)
 def prange_test(A):
     s = 0.0
@@ -16,7 +13,8 @@ def prange_test(A):
 N = 100_000_000
 A = np.random.rand(N)
 
-print("Numba threads:", numba.get_num_threads())
+print("Threads:", numba.get_num_threads())
+print("Layer:", numba.threading_layer())
 
 # Warmup compilation
 prange_test(A[:10])

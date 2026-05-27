@@ -1,7 +1,8 @@
 #!/bin/bash
 #SBATCH --partition=xeon24el8
 #SBATCH -N 1
-#SBATCH -n 24
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=24
 #SBATCH --time=50:00:00
 #SBATCH --job-name=numba
 #SBATCH --output=results/logs/slurm-%j.out
@@ -13,6 +14,10 @@ cd "$SLURM_SUBMIT_DIR"
 # Set up environment variables for Python
 export PYTHONPATH="$PWD:$PYTHONPATH"
 export NUMBA_NUM_THREADS=$SLURM_CPUS_PER_TASK
+# Avoid oversubscription of threads by setting these to 1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
 
 # Purge existing modules
 module purge
