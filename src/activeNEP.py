@@ -544,7 +544,7 @@ class ActiveLearningNEP:
         It creates a directory for each trajectory and saves the initial structure and run.in file for GPUMD.
         
         Args:
-            - ensemble (str): ensemble type for MD simulations. Use 'npt_ber' for MD and 'pimd' for PIMD. Both use Langevin thermostat and Brendsen barostat.
+            - ensemble (str): ensemble type for MD simulations. Use 'npt_ber' for MD and 'pimd_16' for PIMD.
             - dt (float): time step in fs
             - n_steps (int): number of MD steps
             - n_dump (int): total number of dumps to save during MD
@@ -662,8 +662,8 @@ class ActiveLearningNEP:
             temp_folders = [d for d in os.listdir(label_dir) if os.path.isdir(os.path.join(label_dir, d))]
             for temp in temp_folders:
                 temp_dir = os.path.join(label_dir, temp)
-                # List files in temp_dir to check for .out files
-                if any(file.endswith(".out") for file in os.listdir(temp_dir)):
+                # List files in temp_dir to check for dump.xyz file
+                if os.path.exists(os.path.join(temp_dir, "dump.xyz")):
                     print(f"GPUMD simulation already run for {temp_dir}. Skipping...", flush=True)
                     continue
                 # Run GPUMD in the temp_dir, which should contain the model.xyz and run.in files for this trajectory
@@ -902,7 +902,7 @@ class ActiveLearningNEP:
 
         import numba
         print("Numba threads:", numba.get_num_threads())
-        print("Thread layer:", numba.threading_layer())
+        print("Thread layer:", numba.threading_layer(), flush=True)
 
         w, sed = compute_spectral_energy_density(
                 traj,
