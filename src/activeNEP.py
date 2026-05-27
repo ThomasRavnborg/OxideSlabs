@@ -1,22 +1,30 @@
+# Imports
 import os
 import json
 import random
 import shutil
 import subprocess
 import math
+import re
 import numpy as np
 import phonopy as ph
 import pandas as pd
-from matplotlib import pyplot as plt
-from sklearn.metrics import r2_score, mean_squared_error
+# ASE
 from ase.io import read, write
 from ase.optimize import BFGS
 from ase.build import sort
+# Calorine
 from calorine.nep import get_descriptors, get_parity_data, read_loss, read_structures
-from ase.filters import FrechetCellFilter
 from calorine.calculators import CPUNEP
 from calorine.tools import get_force_constants
 from hiphive.structure_generation import generate_phonon_rattled_structures
+# Sklearn
+from sklearn.metrics import r2_score, mean_squared_error
+# Dynasor
+from dynasor import Trajectory, compute_spectral_energy_density
+from dynasor.qpoints.lattice import Lattice
+from dynasor.units import radians_per_fs_to_THz
+# Custom modules
 from src.latexfig import LatexFigure
 from src.structure import Perovskite
 from src.phononASE import phonon_to_atoms, phonopy_to_ase
@@ -26,7 +34,7 @@ from src.structureoptimizer import opt_filter
 from src.MaxVol import calculate_maxvol
 from src.structure import is_atom_bulk, orthogonalize_cell
 from src.asiIO import save_asi, load_asi
-from src.gpumdIO import save_run_in, create_run_in
+from src.gpumdIO import create_run_in
 
 class ActiveLearningNEP:
 
@@ -603,6 +611,7 @@ class ActiveLearningNEP:
 
             bulk = is_atom_bulk(atoms)
 
+            """
             # Create supercell without calculator results
             if bulk:
                 dim = (20, 20, 20)
@@ -611,6 +620,8 @@ class ActiveLearningNEP:
             supercell = atoms.copy().repeat(dim)
             # Write supercell object to label_dir without calculator results
             write(os.path.join(label_dir, "model.xyz"), supercell)
+            """
+            write(os.path.join(label_dir, "unitcell.xyz"), atoms.copy())
 
             # Loop over temperatures and setup MD simulations at each (constant) temperature
             for T in temperatures:
@@ -618,7 +629,7 @@ class ActiveLearningNEP:
                 temp_dir = os.path.join(label_dir, f"{T}K")
                 os.makedirs(temp_dir, exist_ok=True)
                 # Create symbolic link to the model.xyz file in the label_dir for this temperature directory
-                os.symlink("../model.xyz", os.path.join(temp_dir, "model.xyz"))
+                os.symlink("../unitcell.xyz", os.path.join(temp_dir, "model.xyz"))
                 
                 # Create run.in file for GPUMD to run MD simulations with the trained NEP model
                 run_in = create_run_in(ensemble, dt, n_steps, n_dump, T, T, bulk)
@@ -840,23 +851,35 @@ class ActiveLearningNEP:
         return phonon
 
 
-    def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K', dim=(10, 10, 10)):
+    def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K'):
 
-        # Check if SED data already exists for this path
-        sed_file = os.path.join(self.iter_dir, path, 'sed.npz')
-        if os.path.exists(sed_file):
+        path_dir = os.path.join(self.iter_dir, path)
+        
+        if not os.path.exists(path_dir):
+            raise RuntimeError(f"{path} directory not found in iteration directory. Prepare MD simulations with setup_MD_production.")
+
+        if not os.path.exists(os.path.join(path_dir, 'dump.xyz')):
+            raise RuntimeError(f"dump.xyz not found in {path_dir}. Run MD simulations first with run_MD().")
+
+        if os.path.exists(os.path.join(path_dir, 'sed.npz')):
             print(f"SED data already exists for {path}. Skipping ...)", flush=True)
             return
+
+        run_file = os.path.join(self.iter_dir, path, 'run.in')
+        
+        with open(run_file, 'r') as f:
+            run_in = f.read()
+
+        replicate = np.array(re.findall(r'replicate\s+(\d+)\s+(\d+)\s+(\d+)', run_in)[0], dtype=int)
+        dt = np.sum(np.array(re.findall(r'time_step\s+(\d+\.?\d*)', run_in), dtype=float))
+        ddump = np.sum(np.array(re.findall(r'dump_exyz\s+(\d+)', run_in), dtype=int))
         
         
-        unitcell = read(os.path.join(self.iter_dir, os.path.dirname(path), 'unitcell.xyz'))
+        unitcell = read(os.path.join(self.iter_dir, path, 'model.xyz'))
         
-        #dim = (10, 10, 10)
-        supercell = unitcell.repeat(dim)
+        supercell = unitcell.repeat(replicate)
         phonon = self.calculate_phonon(unitcell)
         phonopy_dists, phonopy_freqs, phonopy_paths, pathlabels = get_phonon_dispersion(phonon)
-
-        from dynasor.qpoints.lattice import Lattice
 
         lat = Lattice(unitcell.cell, supercell.cell)
 
@@ -873,23 +896,7 @@ class ActiveLearningNEP:
         #phonopy_path = lat.reduced_to_cartesian(np.vstack(phonopy_paths))
         dynasor_path = np.vstack(dyna_paths)
 
-
-        import re
-
-        run_file = os.path.join(self.iter_dir, path, 'run.in')
-
-        with open(run_file, 'r') as f:
-            run_in = f.read()
-
-        #replicate = np.array(re.findall(r'replicate\s+(\d+)\s+(\d+)\s+(\d+)', run_in)[0], dtype=int)
-        dt = np.sum(np.array(re.findall(r'time_step\s+(\d+\.?\d*)', run_in), dtype=float))
-        ddump = np.sum(np.array(re.findall(r'dump_exyz\s+(\d+)', run_in), dtype=int))
-
-
-        from dynasor import Trajectory, compute_spectral_energy_density
-        from dynasor.units import radians_per_fs_to_THz
-
-        traj = Trajectory(os.path.join(self.iter_dir, path, 'dump.xyz'),
+        traj = Trajectory(os.path.join(path_dir, 'dump.xyz'),
                           trajectory_format='extxyz', atomic_indices='read_from_trajectory',
                           length_unit='Angstrom', time_unit='fs')
 
@@ -902,7 +909,10 @@ class ActiveLearningNEP:
 
         dyna_freqs = w * radians_per_fs_to_THz
 
-        np.savez(sed_file, dists=dyna_dists, freqs=dyna_freqs, sed=sed)
+        np.savez(os.path.join(path_dir, 'sed.npz'), dists=dyna_dists, freqs=dyna_freqs, sed=sed)
+
+        # Remove dump.xyz file to save space after calculating SED
+        os.remove(os.path.join(path_dir, 'dump.xyz'))
 
         #return dyna_dists, dyna_freqs, sed
 

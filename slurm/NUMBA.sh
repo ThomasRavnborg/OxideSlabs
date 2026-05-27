@@ -1,25 +1,21 @@
 #!/bin/bash
-#SBATCH --partition=a100
-#SBATCH -N 1-1
-#SBATCH -n 32
-#SBATCH --gres=gpu:1
+#SBATCH --partition=xeon24el8
+#SBATCH -N 1
+#SBATCH -n 24
 #SBATCH --time=50:00:00
-#SBATCH --job-name=gpujob
+#SBATCH --job-name=numba
 #SBATCH --output=results/logs/slurm-%j.out
 
 set -e
 
 # Change to the directory where the job was submitted from
 cd "$SLURM_SUBMIT_DIR"
-
-# Set up environment variable for Python
+# Set up environment variables for Python
 export PYTHONPATH="$PWD:$PYTHONPATH"
+export NUMBA_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-# Purge existing modules and load the GPUMD module
+# Purge existing modules
 module purge
-module load GPUMD/v5.0-A100
-# Check GPU status
-nvidia-smi
 
 # Get the script path from the command line argument
 SCRIPT_PATH="scripts/$1"

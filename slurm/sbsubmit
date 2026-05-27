@@ -31,9 +31,12 @@ case "$MODE" in
     H200)
         RUN_SCRIPT="$SCRIPT_DIR/H200.sh"
         ;;
+    NUMBA)
+        RUN_SCRIPT="$SCRIPT_DIR/NUMBA.sh"
+        ;;
     *)
         echo "Unknown mode: $MODE"
-        echo "Allowed modes: SIESTA, GPAW, A100, H200"
+        echo "Allowed modes: SIESTA, GPAW, A100, H200, NUMBA"
         exit 1
         ;;
 esac
