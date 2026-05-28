@@ -563,14 +563,13 @@ class ActiveLearningNEP:
         if not os.path.exists(self.nep_txt):
             raise RuntimeError("nep.txt not found. Train NEP first.")
         
-        #if ensemble not in ['nve', 'npt_ber', 'pimd']:
-        #    raise ValueError("Invalid ensemble. Use 'npt_ber' for npt_ber and 'pimd' for pimd simulations.")
-
-        # Attempt to create directory for MD results
-        #if ensemble == 'npt_ber':
-        #    type = 'md'
-        #elif ensemble == 'pimd':
-        #    type = 'pimd'
+        split = ensemble.split('_')
+        if split[0] == 'pimd':
+            if len(split) != 2 or not split[1].isdigit():
+                raise ValueError("Invalid ensemble format for PIMD. Use 'pimd_N' where N is the number of beads (e.g. 'pimd_16').")
+            elif int(split[1]) < 2 or int(split[1]) % 2 != 0 or int(split[1]) > 128:
+                raise ValueError("Number of beads for PIMD must be a positive even integer no larger than 128.")
+        
         md_dir = os.path.join(self.iter_dir, f"{ensemble}_production")
         try:
             os.makedirs(md_dir, exist_ok=False)
@@ -796,7 +795,7 @@ class ActiveLearningNEP:
             raise RuntimeError("newdata.xyz not found")
 
         new_structs = read(new_file, index=":")
-
+        self.train_data = read(os.path.join(self.iter_dir, "train.xyz"), index=":")
         self.train_data.extend(new_structs)
 
         write(os.path.join(self.run_dir, "train.xyz"), self.train_data)
@@ -913,13 +912,9 @@ class ActiveLearningNEP:
         np.savez(os.path.join(path_dir, 'sed.npz'), dists=dyna_dists, freqs=dyna_freqs, sed=sed)
 
         # Remove dump.xyz file to save space after calculating SED
-        os.remove(os.path.join(path_dir, 'dump.xyz'))
-
-        #return dyna_dists, dyna_freqs, sed
+        #os.remove(os.path.join(path_dir, 'dump.xyz'))
 
 
-
-    
 
     def plot_loss(self, width=1, AR=0.25):
         loss = read_loss(os.path.join(self.iter_dir, 'nep/loss.out'))
