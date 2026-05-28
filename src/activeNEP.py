@@ -610,13 +610,15 @@ class ActiveLearningNEP:
 
             write(os.path.join(label_dir, "unitcell.xyz"), atoms.copy())
 
-            # Create supercell without calculator results
+            # Create supercell
             N_rep = 20
             if bulk:
                 dim = np.array([N_rep, N_rep, N_rep])
             else:
                 dim = np.array([N_rep, N_rep, 1])
             supercell = atoms.copy().repeat(dim)
+            # Set periodic bondary conditions for GPUMD
+            supercell.pbc = True
             # Write supercell object to label_dir without calculator results
             write(os.path.join(label_dir, "supercell.xyz"), supercell)
 

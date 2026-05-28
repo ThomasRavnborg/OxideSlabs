@@ -15,8 +15,7 @@ from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
 # Custom modules
 from src.cleanfiles import cleanFiles
 from src.structure import is_atom_bulk
-from src.phononASE import is_phonon_bulk
-from src.phononASE import ase_to_phonopy, phonopy_to_ase
+from src.phononASE import ase_to_phonopy, phonopy_to_ase, is_phonon_bulk, phonon_to_atoms
 from src.latexfig import LatexFigure
 
 
@@ -197,6 +196,7 @@ def get_phonon_dispersion(phonon):
         - paths: Paths for the high symmetry points.
         - pathlabels: Labels for the high symmetry points.
     """
+    """
     bulk = is_phonon_bulk(phonon)
     # Specify band path and labels depending on bulk or slab
     if bulk == True:
@@ -207,11 +207,24 @@ def get_phonon_dispersion(phonon):
         path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
                  [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
         pathlabels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
+    """
+    # Get atoms object from phonon object
+    atoms = phonon_to_atoms(phonon)
+    # Generate the symmetry path
+    bandpath = atoms.cell.bandpath()
+    path = bandpath.path.split(',')[0]
+
+    path_points = []
+    path_labels = []
+    for i in range(len(path)):
+        path_points.append(bandpath.special_points[path[i]].tolist())
+        path_labels.append(path[i])
+
     # Get the band q-points and connections
-    qpoints, connections = get_band_qpoints_and_path_connections(path, npoints=300)
+    qpoints, connections = get_band_qpoints_and_path_connections([path_points], npoints=300)
     # Run band structure and total DOS calculation
     phonon.run_band_structure(qpoints, path_connections=connections,
-                              labels=pathlabels, with_eigenvectors=True)
+                              labels=path_labels, with_eigenvectors=True)
     # Get the band structure data
     band_structure = phonon.get_band_structure_dict()
     # Extract frequencies and distances (x-values) for BS plot
@@ -221,7 +234,7 @@ def get_phonon_dispersion(phonon):
     # Determine the high symmetry point locations on the x-axis
     #X = np.append(np.array([arr[0] for arr in dist]), np.array(dist[-1][-1]))
     # Returns distances, symmetry point locations, frequencies and labels
-    return distances, frequencies, paths, pathlabels
+    return distances, frequencies, paths, path_labels
 
 
 def get_phonon_dos(phonon):
@@ -328,11 +341,11 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         fig, axes = lf.create(width=width, AR=1.8, subplots=(1, N_bands), minor=False, sharey='col')
     else:
         fig, axes = lf.create(width=width, AR=1, subplots=(1, 2), style='bands', minor=False,
-                              sharey='col', gridspec_kw={'width_ratios': [1, 0.4]})
+                              sharey='col', gridspec_kw={'width_ratios': [1, 0.3]})
     
     def _plot_disp(ax, phonon, label, col='k'):
         # Extract phonon dispersion data
-        distances, freqencies, paths, pathlabels = get_phonon_dispersion(phonon)
+        distances, freqencies, _, path_labels = get_phonon_dispersion(phonon)
         xticks = np.array([dist[0] for dist in distances] + [distances[-1][-1]])
         distances = np.array(distances)
         distances /= distances[-1][-1]  # Normalize distances to the total length of the path
@@ -341,7 +354,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         ax.vlines(xticks, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
         # Plot phonon dispersion for all modes and segments
         ax.plot(np.hstack(distances), np.vstack(freqencies),
-                color=col, lw=1, label=f'{label}', alpha=0.5)
+                color=col, lw=1, label=f'{label}', alpha=0.8)
 
         """
         # Determine the number of segments between symmetry points and the number of modes
@@ -358,9 +371,9 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
 
         # Set x- and y-ticks
         if multiple:
-            ax.set_xticks(xticks[0:-1], pathlabels[0:-1])
+            ax.set_xticks(xticks[0:-1], path_labels[0:-1])
         else:
-            ax.set_xticks(xticks, pathlabels)
+            ax.set_xticks(xticks, path_labels)
         ax.set_yticks(E_tickmarks, E_ticklabels)
         # Set x- and y-limits
         ax.set_xlim(xticks[0], xticks[-1])
