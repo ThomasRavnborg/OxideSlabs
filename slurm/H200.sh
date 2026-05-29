@@ -17,7 +17,8 @@ export PYTHONPATH="$PWD:$PYTHONPATH"
 
 # Purge existing modules and load the GPUMD module
 module purge
-module load GPUMD/v5.0-H200
+#module load GPUMD/v5.0-H200
+module load GPUMD/v5.0-H200-netcdf
 # Check GPU status
 nvidia-smi
 

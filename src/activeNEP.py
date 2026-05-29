@@ -850,16 +850,18 @@ class ActiveLearningNEP:
         return phonon
 
 
-    def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K'):
+    def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K', frame0=0):
 
         path_dir = os.path.join(self.iter_dir, path)
         
         if not os.path.exists(path_dir):
             raise RuntimeError(f"{path} directory not found in iteration directory. Prepare MD simulations with setup_MD_production.")
 
+        """
         if os.path.exists(os.path.join(path_dir, 'sed.npz')):
             print(f"SED data already exists for {path}. Skipping ...)", flush=True)
             return
+        """
 
         if not os.path.exists(os.path.join(path_dir, 'dump.xyz')):
             raise RuntimeError(f"dump.xyz not found in {path_dir}. Run MD simulations first with run_MD().")
@@ -896,18 +898,18 @@ class ActiveLearningNEP:
 
         traj = Trajectory(os.path.join(path_dir, 'dump.xyz'),
                           trajectory_format='extxyz', atomic_indices='read_from_trajectory',
-                          length_unit='Angstrom', time_unit='fs')
+                          length_unit='Angstrom', time_unit='fs', frame_start=frame0)
 
         import numba
         print("Numba threads:", numba.get_num_threads())
         print("Thread layer:", numba.threading_layer(), flush=True)
 
-        w, sed = compute_spectral_energy_density(
-                traj,
+        w, sed = compute_spectral_energy_density(traj,
                 ideal_supercell=supercell,
                 primitive_cell=unitcell,
                 q_points=dynasor_path,
-                dt=dt*ddump)
+                dt=dt*ddump,
+                partial=True)
 
         dyna_freqs = w * radians_per_fs_to_THz
 
