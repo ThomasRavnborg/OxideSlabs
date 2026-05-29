@@ -539,7 +539,7 @@ class ActiveLearningNEP:
 
 
     def setup_MD_production(self, ensemble='npt_ber', dt=1, n_steps=1*1e6, n_dump=1000,
-                            temperatures=[100, 200, 300, 400, 500, 600]):
+                            temperatures=[100, 200, 300, 400, 500, 600], N_rep=20):
         """Function to set up MD simulations with GPUMD using the trained NEP model.
         It creates a directory for each trajectory and saves the initial structure and run.in file for GPUMD.
         
@@ -549,6 +549,7 @@ class ActiveLearningNEP:
             - n_steps (int): number of MD steps
             - n_dump (int): total number of dumps to save during MD
             - temperatures (list of float): list of temperatures in K to run the MD simulations at.
+            - N_rep (int): number of repetions for the supercell
         
         Returns:
              None: The function saves the initial structures and run.in files for GPUMD in the iteration directory under "md/label/temperature/".
@@ -611,7 +612,6 @@ class ActiveLearningNEP:
             write(os.path.join(label_dir, "unitcell.xyz"), atoms.copy())
 
             # Create supercell
-            N_rep = 20
             if bulk:
                 dim = np.array([N_rep, N_rep, N_rep])
             else:
