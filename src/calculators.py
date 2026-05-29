@@ -72,7 +72,7 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     cleanFiles(directory=dir, confirm=False)
 
 
-def opt_filter(atoms, mask=None, strained=False):
+def opt_filter(atoms, strained=False, mask=None):
     """Function to set up a filter for optimizing unit cell parameters and atomic positions.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be optimized.
