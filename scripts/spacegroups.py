@@ -10,7 +10,7 @@ with open('results/spacegroups/dft_params.json', 'r') as f:
 
 for structure in structures:
     if structure.calc is None:
-        run_siesta(structure, **dft_params, dir='ROTC_structures')
+        run_siesta(structure, **dft_params, dir='results/spacegroups')
         copy_calc_results(structure)
 
 write('results/spacegroups/structures.xyz', structures)
