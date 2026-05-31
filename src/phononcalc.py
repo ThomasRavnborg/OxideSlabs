@@ -186,42 +186,49 @@ def order_labels(symbols, handles, labels):
     return list(sorted_handles), list(sorted_labels)
 
 
-def get_phonon_dispersion(phonon):
+def get_phonon_dispersion(phonon, custom=False):
     """Function to extract phonon dispersion data for plotting.
     Parameters:
         - phonon: Phonopy object containing phonon data.
+        - custom: Boolean indicating whether to use a custom band path.
     Returns:
         - distances: Distances along the band path.
         - frequencies: Frequencies of the phonon modes.
         - paths: Paths for the high symmetry points.
         - pathlabels: Labels for the high symmetry points.
     """
-    """
-    bulk = is_phonon_bulk(phonon)
-    # Specify band path and labels depending on bulk or slab
-    if bulk == True:
-        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
-                [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
-        pathlabels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$"]
-    else:
-        path = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
-                 [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
-        pathlabels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
-    """
-    # Get atoms object from phonon object
-    atoms = phonon_to_atoms(phonon)
-    # Generate the symmetry path
-    bandpath = atoms.cell.bandpath()
-    path = bandpath.path.split(',')[0]
 
-    path_points = []
-    path_labels = []
-    for i in range(len(path)):
-        path_points.append(bandpath.special_points[path[i]].tolist())
-        path_labels.append(path[i])
+    if custom:
+        bulk = is_phonon_bulk(phonon)
+        # Specify band path and labels depending on bulk or slab
+        if bulk == True:
+            path_points = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],[0.5, 0.5, 0.5],
+                            [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
+            path_labels = ["$\\Gamma$", "X", "R", "M", "$\\Gamma$"]
+        else:
+            path_points = [[[0.0, 0.0, 0.0],[0.5, 0.0, 0.0],
+                            [0.5, 0.5, 0.0],[0.0, 0.0, 0.0]]]
+            path_labels = ["$\\Gamma$", "X", "M", "$\\Gamma$"]
+    
+    else:
+        # Get atoms object from phonon object
+        atoms = phonon_to_atoms(phonon)
+        # Generate the symmetry path
+        bandpath = atoms.cell.bandpath()
+        path = bandpath.path.split(',')[0]
+
+        path_points = []
+        path_labels = []
+        for p in path:
+            path_points.append(bandpath.special_points[p].tolist())
+            if p == 'G':
+                path_labels.append('$\\Gamma$')
+            else:
+                path_labels.append(p)
+        path_points = [path_points]
 
     # Get the band q-points and connections
-    qpoints, connections = get_band_qpoints_and_path_connections([path_points], npoints=300)
+    qpoints, connections = get_band_qpoints_and_path_connections(path_points, npoints=300)
     # Run band structure and total DOS calculation
     phonon.run_band_structure(qpoints, path_connections=connections,
                               labels=path_labels, with_eigenvectors=True)
@@ -269,9 +276,8 @@ def get_phonon_pdos(phonon):
         - phonon: Phonopy object containing phonon data.
     
     Returns:
-        - pdos: Projected density of states values.
-        - freq: Frequency points.
-        - symbols: List of atomic symbols in the unit cell.
+        - pdos (dict): Projected density of states values for each element.
+        - freq (array): Frequency points.
     """
     bulk = is_phonon_bulk(phonon)
     # Load Phonopy object from YAML file
@@ -288,11 +294,18 @@ def get_phonon_pdos(phonon):
     PDOS = phonon.get_projected_dos_dict()
     pdos = PDOS['projected_dos']
     freq = PDOS['frequency_points']
+    # Group PDOS by element (symbol) and sum over all atoms of the same element
+    pdos_grouped = {}
+    unique_symbols = list(set(symbols))
+    unique_symbols.sort()  # Sort symbols alphabetically
+    for symbol in unique_symbols:
+        indices = [i for i, s in enumerate(symbols) if s == symbol]
+        pdos_grouped[symbol] = np.sum(pdos[indices], axis=0)
     # Returns PDOS (states/THz) and frequencies (THz)
-    return pdos, freq, symbols
+    return pdos_grouped, freq
 
 
-def plot_dispersion(phonons, labels, width=1, multiple=False):
+def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS=False):
     """Function to plot the phonon dispersion and DOS together.
     
     Parameters:
@@ -300,7 +313,9 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         - labels: Label or list of labels for each phonon object.
         - width: Width of the figure as a fraction of the total width.
         - multiple: If True, plot each phonon object in a separate subplot. If False, plot all phonon objects in the same subplot.
-    
+        - custom: If True, use a custom band path for the dispersion plot. If False, use the default band path generated from the structure.
+        - pDOS: If True, plot the projected density of states (PDOS) along with the total DOS in the DOS subplot. Requires multiple to be False.
+        
     Returns:
         - None. The function creates a plot of the phonon dispersion and DOS.
     """
@@ -321,7 +336,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         raise ValueError("Number of labels must match number of phonons.")
 
     # Define tickmarks for the x- and y-axis
-    E_tickmarks = np.arange(-10, 26, 5)
+    E_tickmarks = np.arange(-10, 31, 5)
     # Convert tickmarks to strings with i for negative numbers
     E_ticklabels = []
     for tick in E_tickmarks:
@@ -331,7 +346,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
             E_ticklabels.append(f'{tick}')
 
     # Define tickmarks for the x- and y-axis
-    dos_tickmarks = np.arange(0, 7, 1)
+    dos_tickmarks = np.arange(0, 6, 1)
     # Define colors for the different phonon objects (up to 6)
     colors = ["black", "blue", "red", "purple", "orange", "green"]
 
@@ -343,19 +358,21 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         fig, axes = lf.create(width=width, AR=1, subplots=(1, 2), style='bands', minor=False,
                               sharey='col', gridspec_kw={'width_ratios': [1, 0.3]})
     
-    def _plot_disp(ax, phonon, label, col='k'):
+    def _plot_disp(ax, phonon, label, col='k', lines=True, custom=False):
         # Extract phonon dispersion data
-        distances, freqencies, _, path_labels = get_phonon_dispersion(phonon)
+        distances, freqencies, _, path_labels = get_phonon_dispersion(phonon, custom)
         xticks = np.array([dist[0] for dist in distances] + [distances[-1][-1]])
         distances = np.array(distances)
         distances /= distances[-1][-1]  # Normalize distances to the total length of the path
         xticks /= xticks[-1]  # Normalize high symmetry point locations to the total length of the path
-        # Plot vertical lines at symmetry points
-        ax.vlines(xticks, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
+        if lines:
+            # Plot vertical lines at symmetry points
+            ax.vlines(xticks, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
         # Plot phonon dispersion for all modes and segments
-        ax.plot(np.hstack(distances), np.vstack(freqencies),
+        ax.plot(np.hstack(distances), np.vstack(freqencies)[:, 0],
                 color=col, lw=1, label=f'{label}', alpha=0.8)
-
+        ax.plot(np.hstack(distances), np.vstack(freqencies)[:, 1:],
+                color=col, lw=1, alpha=0.8)
         """
         # Determine the number of segments between symmetry points and the number of modes
         n_segments = len(freq)
@@ -400,28 +417,23 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         atom_colors = {'Ba': 'tab:blue', 'Sr': 'tab:purple',
                        'Ti': 'tab:orange', 'O': 'tab:red'}
         # Extract PDOS data
-        pdosx, pdosy, symbols = get_phonon_pdos(phonon)
-        #symbols = phonon.unitcell.symbols
+        pdosx, pdosy = get_phonon_pdos(phonon)
+        symbols = list(pdosx.keys())
         # Plot PDOS
-        for i in range(pdosx.shape[0]):
-            ax.plot(pdosx[i], pdosy, lw=1, color=atom_colors[symbols[i]], label=f'{symbols[i]}')
-        # Get all handles and labels
-        #handles, labels = ax.get_legend_handles_labels()
-        # Remove duplicates and sort for the legend
-        #sorted_handles, sorted_labels = order_labels(symbols, handles, labels)
-        # Add legend with duplicates removed and sorted labels
-        #ax.legend(sorted_handles, sorted_labels, loc='best', fontsize=14)
+        for symbol in symbols:
+            ax.plot(pdosx[symbol], pdosy, lw=1, color=atom_colors[symbol], label=f'{symbol}')
+        # Add legend to the PDOS plot
         ax.legend()
 
     if multiple:
         # Plot dispersion for each phonon object in a separate subplot
         axes[0].set_ylabel('Frequency (THz)')
-        # Cycle through the 
+        # Cycle through the bands
         for i in range(N_bands):
             # Plot dashed line at Fermi level for all subplots
             axes[i].axhline(y=0, color='k', linestyle=':', lw=0.8)
             # Plot phonon dispersion for all subplots
-            _plot_disp(axes[i], phonons[i], labels[i], col=colors[i])
+            _plot_disp(axes[i], phonons[i], labels[i], col=colors[i], custom=custom)
             # Add title
             axes[i].set_title(labels[i])
             # Add minor tickmarks to the y-axis
@@ -444,17 +456,25 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         # Plot dashed line at Fermi level for both subplots
         ax1.axhline(y=0, color='k', linestyle=':', lw=0.8)
         ax2.axhline(y=0, color='k', linestyle=':', lw=0.8)
+        
+        # Plot phonon dispersion for all phonon objects on ax1
         for i in range(N_bands):
-            # If a single phonon object is provided, also plot pDOS along with DOS
-            if len(phonons) == 1:
-                # Plot phonon dispersion, DOS and pDOS
-                _plot_disp(ax1, phonons[i], label=labels[i])
-                _plot_dos(ax2, phonons[i], pDOS=True)
-                _plot_pdos(ax2, phonons[i])
-            # If multiple phonon objects are provided, only plot the total DOS for each object
+            if i == 0:
+                # Only add lines at high symmetry points for the first phonon object to avoid overcrowding the plot
+                _plot_disp(ax1, phonons[i], label=labels[i], col=colors[i], custom=custom)
             else:
-                # Plot phonon dispersion and DOS
-                _plot_disp(ax1, phonons[i], label=labels[i], col=colors[i])
+                _plot_disp(ax1, phonons[i], label=labels[i], col=colors[i], custom=custom, lines=False)
+        
+        # If pDOS is set to true, plot the projected density of states (PDOS) along with the total DOS in the DOS subplot
+        # This is done only for the first phonon object to avoid overcrowding the plot, while the total DOS is plotted for all phonon objects
+        if pDOS:
+            ax1.legend(loc='upper left')
+            # Plot total DOS and pDOS for the first phonon object on ax2
+            _plot_dos(ax2, phonons[0], pDOS=True)
+            _plot_pdos(ax2, phonons[0])
+        else:
+            # Plot DOS for all phonon objects on ax2
+            for i in range(N_bands):
                 _plot_dos(ax2, phonons[i], label=labels[i], col=colors[i])
 
         # Set x- and y-label
@@ -467,7 +487,8 @@ def plot_dispersion(phonons, labels, width=1, multiple=False):
         ax2.set_xlabel('DOS (1/THz)')
         # Add legend to the DOS plot
         ax2.legend(loc='upper right')
-        # Add minor tickmarks to the y-axis
+        # Add minor tickmarks to the x- and y-axis
+        ax2.xaxis.set_minor_locator(AutoMinorLocator())
         ax2.yaxis.set_minor_locator(AutoMinorLocator())
 
     # Show figure

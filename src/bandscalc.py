@@ -261,7 +261,7 @@ def plot_bandstructure(bands, densities, labels, width=1, multiple=False):
         fig, axes = lf.create(width=width, AR=1.8, subplots=(1, N_bands), minor=False, sharey='col')
     else:
         fig, axes = lf.create(width=width, AR=1, subplots=(1, 2), style='bands', minor=False,
-                              sharey='col', gridspec_kw={'width_ratios': [1, 0.4]})
+                              sharey='col', gridspec_kw={'width_ratios': [1, 0.3]})
     
 
     def _plot_bandstructure(ax, band, label, col='k'):
@@ -308,9 +308,9 @@ def plot_bandstructure(bands, densities, labels, width=1, multiple=False):
         # Plot band-structures
         for j, e_k in enumerate(bands_data):
             if j == 0:
-                ax.plot(x, e_k, color=col, label=f"{label}", lw=1)
+                ax.plot(x, e_k, color=col, label=f"{label}", lw=1, alpha=0.8)
             else:
-                ax.plot(x, e_k, color=col, lw=1)
+                ax.plot(x, e_k, color=col, lw=1, alpha=0.8)
 
         # Set x-ticks to the symmetry points and label them
 
