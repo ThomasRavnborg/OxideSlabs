@@ -65,62 +65,81 @@ class ActiveLearningNEP:
                 os.makedirs(self.iter_dir, exist_ok=False)
         
         print(f"Current iteration: {self.iteration}", flush=True)
-        
-        train_xyz = os.path.join(self.run_dir, "train.xyz")
-        test_xyz = os.path.join(self.run_dir, "test.xyz")
 
-        if not os.path.exists(train_xyz) and not os.path.exists(test_xyz):
+        # First attempt to load global train.xyz and test.xyz from run directory
+        train_run = os.path.join(self.run_dir, "train.xyz")
+        test_run = os.path.join(self.run_dir, "test.xyz")
+
+        # If these are not present, then dataset needs to be prepared with prepare_dataset()
+        if not os.path.exists(train_run) and not os.path.exists(test_run):
             print("No train.xyz and test.xyz files found in run directory.")
             print("Use prepare_dataset() to create the datasets based on .yaml files.", flush=True)
-            self.train_data = None
-            self.test_data = None
-            self.data = None
+            self.train_run = None
+            self.test_run = None
+            self.data_run = None
             self.species = set()
-
+        # Otherwise, load them and determine if DFT needs to be run
         else:
-            self.train_data = read(train_xyz, ":")
-            self.test_data = read(test_xyz, ":")
-            print(f"Loaded {len(self.train_data)} training structures and {len(self.test_data)} test structures", flush=True)
+            self.train_run = read(train_run, ":")
+            self.test_run = read(test_run, ":")
+            print(f"Loaded {len(self.train_run)} training structures and {len(self.test_run)} test structures from run directory.", flush=True)
 
-            self.data = self.train_data + self.test_data
+            self.data_run = self.train_run + self.test_run
             self.species = set()
-            for atoms in self.data:
+            for atoms in self.data_run:
                 self.species.update(atoms.get_chemical_symbols())
 
             self.species = sorted(self.species)
-            self.count = len([s for s in self.data if s.calc is None])
+            self.count = len([s for s in self.data_run if s.calc is None])
 
             if self.count > 0:
-                if self.count == len(self.data):
+                if self.count == len(self.data_run):
                     print("Warning! No structures have calculator results.")
                     print("DFT calculations must be runwith run_DFT(), or the dataset will be empty.", flush=True)
-                elif self.count == len(self.data) - 1:
+                elif self.count == len(self.data_run) - 1:
                     print("Warning! 1 structure has no calculator results.")
                     print("DFT calculations must be runwith run_DFT(), or this structure will be omitted.", flush=True)
                 else:
-                    print(f"Warning! {self.count}/{len(self.data)} structures have no calculator results.")
+                    print(f"Warning! {self.count}/{len(self.data_run)} structures have no calculator results.")
                     print("DFT calculations must be run with run_DFT(), or these will be omitted.", flush=True)
             else:
                 print("All structures have calculator results.", flush=True)
 
+        # Next, attempt to load local train.xyz and test.xyz from iteration directory
+        train_iter = os.path.join(self.iter_dir, "train.xyz")
+        test_iter = os.path.join(self.iter_dir, "test.xyz")
+
+        # If these are not present, then nep setup needs to be performed with setup_nep()
+        if not os.path.exists(train_iter) and not os.path.exists(test_iter):
+            print("No train.xyz and test.xyz files found in iteration directory.")
+            print("Use setup_nep() to prepare data for nep training.", flush=True)
+            self.train_iter = None
+            self.test_iter = None
+            self.data_iter = None
+        # Otherwise, load them
+        else:
+            self.train_iter = read(train_iter, ":")
+            self.test_iter = read(test_iter, ":")
+            print(f"Loaded {len(self.train_iter)} training structures and {len(self.test_iter)} test structures from iteration directory.", flush=True)
+
         nep_txt = os.path.join(self.iter_dir, "nep.txt")
         
         if not os.path.exists(nep_txt):
-            print("No existing NEP model found.")
+            print("No existing NEP model found.", flush=True)
             self.nep_txt = None
         else:
-            print("Existing NEP model found. Loading...")
+            print("Existing NEP model found. Loading...", flush=True)
             self.nep_txt = nep_txt
 
         asi_file = os.path.join(self.iter_dir, "active_set.asi")
         xyz_file = os.path.join(self.iter_dir, "active_set.xyz")
 
         if not os.path.exists(asi_file) or not os.path.exists(xyz_file):
-            print("No existing active set inverse (.asi) or structures (.xyz) found.")
+            print("No existing active set inverse (.asi) or structures (.xyz) found.", flush=True)
             self.active_set_inv = None
             self.active_set_struct = None
         else:
-            print("Existing active set inverse (.asi) and structures (.xyz) found. Loading...")
+            print("Existing active set inverse (.asi) and structures (.xyz) found. Loading...", flush=True)
             active_set_inv = load_asi(asi_file)
             self.active_set_inv = dict(zip(self.species, active_set_inv.values()))
             self.active_set_struct = read(xyz_file, ":")
@@ -150,7 +169,7 @@ class ActiveLearningNEP:
                         frac_strain=0.1, strains=[-1.0, -0.5, 0.5, 1.0],
                         train_fraction=0.9, overwrite=False):
 
-        if self.data is not None and not overwrite:
+        if self.data_run is not None and not overwrite:
             print("Existing data found. Data preperation skipped.")
             print("To overwrite existing data, set overwrite=True.", flush=True)
             return
@@ -162,8 +181,8 @@ class ActiveLearningNEP:
             raise RuntimeError("No phonopy (.yaml) files found in specified directory.")
 
         else:
-            train_data = []
-            test_data = []
+            train_run = []
+            test_run = []
 
             for yaml_file in yaml_files:
 
@@ -200,25 +219,25 @@ class ActiveLearningNEP:
                     strain = np.random.choice(strains)
                     self._strain_structure(augmented_structures[i], strain)
 
-                train_data.extend(structures)
+                train_run.extend(structures)
 
                 n_train = int(len(augmented_structures) * train_fraction)
                 np.random.shuffle(augmented_structures)
 
-                train_data.extend(augmented_structures[:n_train])
-                test_data.extend(augmented_structures[n_train:])
+                train_run.extend(augmented_structures[:n_train])
+                test_run.extend(augmented_structures[n_train:])
             
-            print(f"Total dataset prepared: {len(train_data) + len(test_data)} structures")
-            print(f"Training set: {len(train_data)} structures, Test set: {len(test_data)} structures", flush=True)
+            print(f"Total dataset prepared: {len(train_run) + len(test_run)} structures")
+            print(f"Training set: {len(train_run)} structures, Test set: {len(test_run)} structures", flush=True)
 
-            self.train_data = [sort(atoms) for atoms in train_data]
-            self.test_data = [sort(atoms) for atoms in test_data]
+            self.train_run = [sort(atoms) for atoms in train_run]
+            self.test_run = [sort(atoms) for atoms in test_run]
 
-            write(os.path.join(self.iter_dir, "train.xyz"), self.train_data)
-            write(os.path.join(self.iter_dir, "test.xyz"), self.test_data)
+            write(os.path.join(self.iter_dir, "train.xyz"), self.train_run)
+            write(os.path.join(self.iter_dir, "test.xyz"), self.test_run)
 
-            self.data = self.train_data + self.test_data
-            for atoms in self.data:
+            self.data_run = self.train_run + self.test_run
+            for atoms in self.data_run:
                 self.species.update(atoms.get_chemical_symbols())
             self.species = sorted(self.species)
     
@@ -227,7 +246,7 @@ class ActiveLearningNEP:
 
     def run_DFT(self):
 
-        if self.data is None:
+        if self.data_run is None:
             print("No data available to run DFT. Please prepare the dataset first.", flush=True)
             return
 
@@ -287,8 +306,8 @@ class ActiveLearningNEP:
                     write(os.path.join(self.run_dir, f"{label}.xyz"), data)
 
         # Run DFT calculations on structures without calculator results and update the train and test datasets with the results
-        _label_DFT(self.train_data, label='train')
-        _label_DFT(self.test_data, label='test')
+        _label_DFT(self.train_run, label='train')
+        _label_DFT(self.test_run, label='test')
 
         self.count = 0
 
@@ -296,7 +315,7 @@ class ActiveLearningNEP:
 
     def setup_nep(self, cutoff=[8, 4], neuron=30, generation=100000, batch=1000000):
         # Check if data is available and has calculator results before setting up NEP training
-        if self.data is None:
+        if self.data_run is None:
             print("No data available to set up NEP training. Please prepare the dataset and run DFT calculations first.", flush=True)
             return
         if self.count > 0:
@@ -316,8 +335,13 @@ class ActiveLearningNEP:
             return
         
         # Save copy of train.xyz and test.xyz in the iteration directory for NEP training
-        write(os.path.join(self.iter_dir, "train.xyz"), self.train_data)
-        write(os.path.join(self.iter_dir, "test.xyz"), self.test_data)
+        write(os.path.join(self.iter_dir, "train.xyz"), self.train_run)
+        write(os.path.join(self.iter_dir, "test.xyz"), self.test_run)
+
+        # Set them as datasets for this iteration (since this is the first time running the setup)
+        self.train_iter = self.train_run
+        self.test_iter = self.test_run
+        self.data_iter = self.data_run
 
         # Create symbolic links to the train.xyz and test.xyz files in the iteration directory for NEP training
         os.symlink("../train.xyz", os.path.join(nep_dir, "train.xyz"))
@@ -447,20 +471,24 @@ class ActiveLearningNEP:
         if self.active_set_inv is not None and self.active_set_struct is not None:
             print("Existing active set found. Active set selection skipped.")
             return
+        
+        if self.data_iter is None:
+            raise RuntimeError("No data available to build active set. Please prepare the dataset and run DFT calculations first.")
 
         
         asi_file = os.path.join(self.iter_dir, "active_set.asi")
         xyz_file = os.path.join(self.iter_dir, "active_set.xyz")
         print("Building active set...")
-        active_set_inv, active_set_index = self._calculate_active_set(self.train_data,
-                                                                        gamma_tol, maxvol_iter,
-                                                                        batch_size, n_refinement)
+        # Build active set from local training dataset in the iteration directory
+        active_set_inv, active_set_index = self._calculate_active_set(self.train_iter,
+                                                                      gamma_tol, maxvol_iter,
+                                                                      batch_size, n_refinement)
         
         self.active_set_inv = active_set_inv
         save_asi(self.active_set_inv, asi_file)
         print(f"Active set inverse saved to {asi_file}")
         
-        self.active_set_struct = [self.train_data[i] for i in active_set_index]
+        self.active_set_struct = [self.train_iter[i] for i in active_set_index]
 
         active_set_struct_copy = [copy_calc_results(atoms) for atoms in self.active_set_struct]
         for atoms in active_set_struct_copy:
@@ -488,7 +516,7 @@ class ActiveLearningNEP:
         """
         
         # Check if there is any data loaded
-        if self.data is None or len(self.data) == 0:
+        if self.data_run is None or len(self.data_run) == 0:
             raise RuntimeError("No structures available for MD")
 
         # Look for a NEP model in the iteration directory
@@ -505,13 +533,13 @@ class ActiveLearningNEP:
 
         # Split up structures by chemical formula
         labels = set()
-        train_data_dict = {}
-        for atoms in self.train_data:
+        train_run_dict = {}
+        for atoms in self.train_iter:
             label = atoms.get_chemical_formula()
             labels.add(label)
-            if label not in train_data_dict:
-                train_data_dict[label] = []
-            train_data_dict[label].append(atoms)
+            if label not in train_run_dict:
+                train_run_dict[label] = []
+            train_run_dict[label].append(atoms)
         labels = list(labels)
 
         for label in labels:
@@ -520,7 +548,7 @@ class ActiveLearningNEP:
             os.makedirs(label_dir, exist_ok=True)
 
             # Take the first structure for this chemical formula as the initial structure for the MD simulations.
-            atoms = train_data_dict[label][0].copy()
+            atoms = train_run_dict[label][0].copy()
             bulk = is_atom_bulk(atoms)
             # Write atoms object to label directory without calculator results
             write(os.path.join(label_dir, "model.xyz"), atoms)
@@ -557,7 +585,7 @@ class ActiveLearningNEP:
         """
         
         # Check if there is any data loaded
-        if self.data is None or len(self.data) == 0:
+        if self.data_run is None or len(self.data_run) == 0:
             raise RuntimeError("No structures available for MD")
 
         # Look for a NEP model in the iteration directory
@@ -580,13 +608,13 @@ class ActiveLearningNEP:
 
         # Split up structures by chemical formula
         labels = set()
-        train_data_dict = {}
-        for atoms in self.train_data:
+        train_run_dict = {}
+        for atoms in self.train_iter:
             label = atoms.get_chemical_formula()
             labels.add(label)
-            if label not in train_data_dict:
-                train_data_dict[label] = []
-            train_data_dict[label].append(atoms)
+            if label not in train_run_dict:
+                train_run_dict[label] = []
+            train_run_dict[label].append(atoms)
         labels = list(labels)
 
         for label in labels:
@@ -602,7 +630,7 @@ class ActiveLearningNEP:
             elif label == 'Ba8O32Ti12':
                 atoms = Perovskite('BaTiO3', bulk=False, dslab=2.5).atoms.copy()
             else:
-                atoms = train_data_dict[label][0].copy()
+                atoms = train_run_dict[label][0].copy()
                 orthogonalize_cell(atoms)
 
             # Relax only xx, yy and zz cell components with NEP model
@@ -662,7 +690,7 @@ class ActiveLearningNEP:
             for temp in temp_folders:
                 temp_dir = os.path.join(label_dir, temp)
                 # List files in temp_dir to check for dump.xyz file
-                if os.path.exists(os.path.join(temp_dir, "dump.xyz")):
+                if os.path.exists(os.path.join(temp_dir, "dump.xyz")) or os.path.exists(os.path.join(temp_dir, "movie.nc")):
                     print(f"GPUMD simulation already run for {temp_dir}. Skipping...", flush=True)
                     continue
                 # Run GPUMD in the temp_dir, which should contain the model.xyz and run.in files for this trajectory
@@ -767,8 +795,8 @@ class ActiveLearningNEP:
 
         print("Performing diversity selection with MaxVol")
 
-        # Combine training data with new structures
-        data = self.train_data + structures
+        # Combine global data from run directory with new structures
+        data = self.train_run + structures
 
         # Compute an active set for the combined set of structures
         active_set_inv, active_set_index = self._calculate_active_set(data,
@@ -778,7 +806,7 @@ class ActiveLearningNEP:
         # Return new structures that are in the active set but not in the original training data
         filtered_structures = []
         for i in active_set_index:
-            if i >= len(self.train_data):
+            if i >= len(self.train_run):
                 atoms = data[i].copy()
                 del atoms.arrays['descriptor']
                 del atoms.arrays['gamma']
@@ -797,13 +825,13 @@ class ActiveLearningNEP:
             raise RuntimeError("newdata.xyz not found")
 
         new_structs = read(new_file, index=":")
-        self.train_data = read(os.path.join(self.iter_dir, "train.xyz"), index=":")
-        self.train_data.extend(new_structs)
+        self.train_run = read(os.path.join(self.iter_dir, "train.xyz"), index=":")
+        self.train_run.extend(new_structs)
 
-        write(os.path.join(self.run_dir, "train.xyz"), self.train_data)
+        write(os.path.join(self.run_dir, "train.xyz"), self.train_run)
 
         print(f"Sucessfully added {len(new_structs)} structures to train.xyz")
-        print(f"Total structures in train.xyz: {len(self.train_data)}", flush=True)
+        print(f"Total structures in train.xyz: {len(self.train_run)}", flush=True)
 
         self.count = len(new_structs)
 
