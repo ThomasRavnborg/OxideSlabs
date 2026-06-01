@@ -826,7 +826,7 @@ class ActiveLearningNEP:
         # Apply filter to optimize unit cell parameters and atomic positions if filt is True
         # Otherwise only optimize atomic positions
         if filt:
-            atoms_filt = opt_filter(atoms, mask, strained)
+            atoms_filt = opt_filter(atoms, strained, mask)
         else:
             atoms_filt = atoms
         
