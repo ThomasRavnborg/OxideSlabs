@@ -1,6 +1,7 @@
 import os
 from ase.io import read
 from ase.parallel import parprint
+from ase.build import sort
 import phonopy as ph
 from itertools import product
 from src.frozenphonon import calculate_frozen_phonons
@@ -86,7 +87,8 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
                 # Pick the first xyz file in the relax directory (there should only be one)
                 if len(xyz_files) == 0:
                     raise FileNotFoundError(f"No .xyz file found in {relax_dir}")
-                perovskite.set_atoms(read(os.path.join(relax_dir, xyz_files[0])))
+                atoms = sort(read(os.path.join(relax_dir, xyz_files[0])))
+                perovskite.set_atoms(atoms)
                 # Apply the specified strain
                 perovskite.apply_strain(params['strain'])
                 strained = True
@@ -103,7 +105,8 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
         # Set the atoms object for the next steps based on the relaxed structure
         dir_relax = os.path.join(dir, 'relax')
         #dir_relax = 'results/bulk/GPAW'
-        perovskite.set_atoms(read(os.path.join(dir_relax, f'{label}.xyz')))
+        atoms = sort(read(os.path.join(dir_relax, f'{label}.xyz')))
+        perovskite.set_atoms(atoms)
         
         # If band structure calculation needs to be run, run it and update to the next step
         if next_step == "bands" or runall:
