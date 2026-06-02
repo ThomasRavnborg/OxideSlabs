@@ -32,15 +32,16 @@ class SiestaProject:
         - root: Root directory where results will be stored (default: 'results')
         """
 
-        formula = perovskite.formula
+        self.formula = perovskite.formula
         bulk = is_atom_bulk(perovskite.atoms)
         self.material = perovskite.atoms.get_chemical_formula()
+        #self.material = formula
 
         if bulk:
-            self.path = os.path.join(root, "bulk", formula)
+            self.path = os.path.join(root, "bulk", self.formula)
         else:
             N = perovskite.ncells
-            self.path = os.path.join(root, "slab", formula, f"{N}uc")
+            self.path = os.path.join(root, "slab", self.formula, f"{N}uc")
 
         self.summary = os.path.join(self.path, "summary.csv")
 
@@ -170,24 +171,34 @@ class SiestaProject:
         return os.path.exists(filepath)
 
     def _relax_completed(self, calc_id):
-        filepath = os.path.join(
-            self.path, calc_id, "relax", f"{self.material}.xyz"
-        )
-        return os.path.exists(filepath)
+        relax_dir =  os.path.join(self.path, calc_id, "relax")
+        # Check if there are any .xyz files in the folder
+        xyz_files = [f for f in os.listdir(relax_dir) if f.endswith(".xyz")]
+        if not xyz_files:
+            return False
+        else:
+            return True
     
     def _band_completed(self, calc_id):
-        filepath = os.path.join(
-            self.path, calc_id, "bands", f"{self.material}.bands"
-        )
-        return os.path.exists(filepath)
+        bands_dir = os.path.join(self.path, calc_id, "bands")
+        # Check if there are any .bands files in the folder
+        band_files = [f for f in os.listdir(bands_dir) if f.endswith(".bands")]
+        if not band_files:
+            return False
+        else:
+            return True
 
     def _phonon_completed(self, calc_id):
-        filepath = os.path.join(
-            self.path, calc_id, "phonons", f"{self.material}.yaml"
-        )
-        return os.path.exists(filepath)
+        phonon_dir = os.path.join(self.path, calc_id, "phonons")
+        # Check if there are any .yaml files in the folder
+        yaml_files = [f for f in os.listdir(phonon_dir) if f.endswith(".yaml")]
+        if not yaml_files:
+            return False
+        else:
+            return True
 
     def _frozen_completed(self, calc_id):
+        # Check if the complete.txt file exists in the frozen phonon folder
         filepath = os.path.join(
             self.path, calc_id, "frozen", "complete.txt"
         )
