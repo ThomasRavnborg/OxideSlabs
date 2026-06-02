@@ -65,14 +65,15 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
             """
             # production
             run_in += f"""
-                dump_netcdf {delta_dump} 1
+                dump_position {delta_dump}
+                dump_velocity {delta_dump}
                 ensemble nve
                 run {n_steps}
             """
             return run_in
 
         run_in += f"""
-            dump_exyz {delta_dump} 0 1
+            dump_position {delta_dump}
             dump_thermo {delta_dump//10}"""
 
         if ensemble.split('_')[0] == 'pimd':

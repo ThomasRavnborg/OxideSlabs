@@ -21,7 +21,7 @@ splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
 #strains = [0.0]
-strains = [0.0, 0.01, -0.01]
+strains = [0.01, -0.01]
 
 def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
