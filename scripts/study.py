@@ -20,7 +20,7 @@ splits =  [0.15]
 cutoffs = [1000]
 grids =   [12]
 #strains = [0.0]
-strains = [0.0, 0.01, -0.01, 0.005, -0.005]
+strains = [0.0, 0.01, -0.01]
 
 def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=False):
     """Run the full workflow for all combinations of parameters."""
@@ -132,5 +132,5 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             project.update_summary(calc_id, params)
 
 
-for formula in ['BaTiO3']:
+for formula in ['SrTiO3']:
     run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains)

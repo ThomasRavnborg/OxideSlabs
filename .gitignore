@@ -20,6 +20,7 @@ results/
 resultsold/
 tools/
 mount/
+animations/
 figures/
 *.log
 *.out
