@@ -70,7 +70,6 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
             generate_basis(perovskite.atoms, **params_calc, dir=dir)
             # Update to next step
             next_step = project.what_to_run(calc_id)
-
         
         # If relaxation needs to be run, run it and update to the next step
         if next_step == "relax" or runall:
@@ -82,7 +81,12 @@ def run(formula, xcfs, basis, shifts, splits, cutoffs, grids, strains, runall=Fa
                 ref_id = project.prepare_calculation(params_ref)
                 dir_ref = os.path.join(project.path, ref_id)
                 # Load the unstrained structure
-                perovskite.set_atoms(read(os.path.join(dir_ref, 'relax', f'{label}.xyz')))
+                relax_dir = os.path.join(dir_ref, 'relax')
+                xyz_files = [f for f in os.listdir(relax_dir) if f.endswith(".xyz")]
+                # Pick the first xyz file in the relax directory (there should only be one)
+                if len(xyz_files) == 0:
+                    raise FileNotFoundError(f"No .xyz file found in {relax_dir}")
+                perovskite.set_atoms(read(os.path.join(relax_dir, xyz_files[0])))
                 # Apply the specified strain
                 perovskite.apply_strain(params['strain'])
                 strained = True

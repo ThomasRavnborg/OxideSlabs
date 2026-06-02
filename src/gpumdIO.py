@@ -75,6 +75,10 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
             dump_exyz {delta_dump} 0 1
             dump_thermo {delta_dump//10}"""
 
+        if ensemble.split('_')[0] == 'pimd':
+            run_in += f"""
+            dump_beads {delta_dump}"""
+
         if ensemble.split('_')[0] == 'nvt':
             run_in += f"""
             ensemble {ensemble} {T0} {T1} {T_coup}"""

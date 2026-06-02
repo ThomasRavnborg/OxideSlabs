@@ -145,7 +145,7 @@ def generate_basis(atoms, xcf='PBEsol', basis='DZPp',
 
     if basis.endswith('p'):
         #targets = [cations[0]]
-        targets = ['Ba']   # temporary fix
+        targets = ['Sr']   # temporary fix
         basis = basis[:-1]
         add_p = True
     elif basis.endswith('d'):
