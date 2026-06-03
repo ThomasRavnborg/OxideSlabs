@@ -9,6 +9,7 @@ dependencies = [
     "calorine>=3.3",
     "dynasor>=2.3",
     "hiphive>=1.5",
+    "nbformat>=5.10.4",
     "phonopy>=2.45.1",
-    "sisl>=0.16.2",
+    "sisl[viz]>=0.16.2",
 ]

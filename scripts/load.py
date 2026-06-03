@@ -7,10 +7,16 @@ def test_load_time(file_path, type='extended xyz'):
         if i == 0:
             print('ASE atoms object:')
             print(structure)
-            print('Forces:')
-            print(structure.get_forces())
-            print('Velocities:')
-            print(structure.get_velocities())
+            try:
+                print('Forces:')
+                print(structure.get_forces())
+            except:
+                print("Could not retrieve forces.")
+            try:
+                print('Velocities:')
+                print(structure.get_velocities())
+            except:
+                print("Could not retrieve velocities.")
     t1 = time.time()
     print(f"Time taken to read {type} file: {t1 - t0:.2f} seconds")
 
