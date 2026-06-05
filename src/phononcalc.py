@@ -305,12 +305,15 @@ def get_phonon_pdos(phonon):
     return pdos_grouped, freq
 
 
-def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS=False):
+def plot_dispersion(phonons, labels, colors=None, styles=None,
+                    width=1, multiple=False, custom=False, pDOS=False):
     """Function to plot the phonon dispersion and DOS together.
     
     Parameters:
         - phonons: Phonon object or list of Phonopy objects containing phonon data.
         - labels: Label or list of labels for each phonon object.
+        - colors: List of colors for each phonon object (default is None, which uses a default color scheme).
+        - styles: List of line styles for each phonon object (default is None, which uses a default line style).
         - width: Width of the figure as a fraction of the total width.
         - multiple: If True, plot each phonon object in a separate subplot. If False, plot all phonon objects in the same subplot.
         - custom: If True, use a custom band path for the dispersion plot. If False, use the default band path generated from the structure.
@@ -348,7 +351,10 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
     # Define tickmarks for the x- and y-axis
     dos_tickmarks = np.arange(0, 6, 1)
     # Define colors for the different phonon objects (up to 6)
-    colors = ["black", "blue", "red", "purple", "orange", "green"]
+    if colors is None:
+        colors = ["black", "blue", "red", "purple", "orange", "green"]
+    if styles is None:
+        styles = ['-', '-', '-', '-', '-', '-']
 
     # Make a simple figure where graphs are plotted
     lf = LatexFigure()
@@ -358,7 +364,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
         fig, axes = lf.create(width=width, AR=1, subplots=(1, 2), style='bands', minor=False,
                               sharey='col', gridspec_kw={'width_ratios': [1, 0.3]})
     
-    def _plot_disp(ax, phonon, label, col='k', lines=True, custom=False):
+    def _plot_disp(ax, phonon, label, col='k', ls='-', lines=True, custom=False):
         # Extract phonon dispersion data
         distances, freqencies, _, path_labels = get_phonon_dispersion(phonon, custom)
         xticks = np.array([dist[0] for dist in distances] + [distances[-1][-1]])
@@ -370,9 +376,9 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
             ax.vlines(xticks, E_tickmarks[0], E_tickmarks[-1], color='0.5', lw=0.8)
         # Plot phonon dispersion for all modes and segments
         ax.plot(np.hstack(distances), np.vstack(freqencies)[:, 0],
-                color=col, lw=1, label=f'{label}', alpha=0.8)
+                color=col, linestyle=ls, lw=1, label=f'{label}', alpha=0.8)
         ax.plot(np.hstack(distances), np.vstack(freqencies)[:, 1:],
-                color=col, lw=1, alpha=0.8)
+                color=col, linestyle=ls, lw=1, alpha=0.8)
         """
         # Determine the number of segments between symmetry points and the number of modes
         n_segments = len(freq)
@@ -387,7 +393,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
         """
 
         # Set x- and y-ticks
-        if multiple:
+        if multiple and custom:
             ax.set_xticks(xticks[0:-1], path_labels[0:-1])
         else:
             ax.set_xticks(xticks, path_labels)
@@ -396,11 +402,11 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
         ax.set_xlim(xticks[0], xticks[-1])
         ax.set_ylim(E_tickmarks[0], E_tickmarks[-1])
 
-    def _plot_dos(ax, phonon, label='DOS', col='k', pDOS=False):
+    def _plot_dos(ax, phonon, label='DOS', col='k', ls='-', pDOS=False):
         # Extract total DOS data
         dosx, dosy = get_phonon_dos(phonon)
         # Plot total DOS
-        ax.plot(dosx, dosy, lw=1, color=col, label=f'{label}')
+        ax.plot(dosx, dosy, lw=1, color=col, linestyle=ls, label=f'{label}')
         if pDOS:
             ax.fill_between(dosx, dosy, color='lightgray', alpha=0.5)
         
@@ -433,7 +439,7 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
             # Plot dashed line at Fermi level for all subplots
             axes[i].axhline(y=0, color='k', linestyle=':', lw=0.8)
             # Plot phonon dispersion for all subplots
-            _plot_disp(axes[i], phonons[i], labels[i], col=colors[i], custom=custom)
+            _plot_disp(axes[i], phonons[i], labels[i], col=colors[i], ls=styles[i], custom=custom)
             # Add title
             axes[i].set_title(labels[i])
             # Add minor tickmarks to the y-axis
@@ -444,8 +450,9 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
         
         # Move y-axis of the last subplot to the right but maintain the y-tickmarks on the left
         axes[-1].tick_params(axis='y', labelright=True, labelleft=False)
-        # Remove vertical spacing between subplots
-        fig.set_constrained_layout_pads(wspace=0.0, w_pad=0.0)
+        if custom:
+            # Remove vertical spacing between subplots
+            fig.set_constrained_layout_pads(wspace=0.0, w_pad=0.0)
 
     else:
         # Plot all phonon objects in the same subplot and plot the DOS in the second subplot
@@ -461,21 +468,21 @@ def plot_dispersion(phonons, labels, width=1, multiple=False, custom=False, pDOS
         for i in range(N_bands):
             if i == 0:
                 # Only add lines at high symmetry points for the first phonon object to avoid overcrowding the plot
-                _plot_disp(ax1, phonons[i], label=labels[i], col=colors[i], custom=custom)
+                _plot_disp(ax1, phonons[i], label=labels[i], col=colors[i], ls=styles[i], custom=custom)
             else:
-                _plot_disp(ax1, phonons[i], label=labels[i], col=colors[i], custom=custom, lines=False)
+                _plot_disp(ax1, phonons[i], label=labels[i], col=colors[i], ls=styles[i], custom=custom, lines=False)
         
         # If pDOS is set to true, plot the projected density of states (PDOS) along with the total DOS in the DOS subplot
-        # This is done only for the first phonon object to avoid overcrowding the plot, while the total DOS is plotted for all phonon objects
+        # This is done only for the last phonon object to avoid overcrowding the plot, while the total DOS is plotted for all phonon objects
         if pDOS:
             ax1.legend(loc='upper left')
-            # Plot total DOS and pDOS for the first phonon object on ax2
-            _plot_dos(ax2, phonons[0], pDOS=True)
-            _plot_pdos(ax2, phonons[0])
+            # Plot total DOS and pDOS for the last phonon object on ax2
+            _plot_dos(ax2, phonons[-1], pDOS=True)
+            _plot_pdos(ax2, phonons[-1])
         else:
             # Plot DOS for all phonon objects on ax2
             for i in range(N_bands):
-                _plot_dos(ax2, phonons[i], label=labels[i], col=colors[i])
+                _plot_dos(ax2, phonons[i], label=labels[i], col=colors[i], ls=styles[i])
 
         # Set x- and y-label
         ax1.set_xlabel('k-points')

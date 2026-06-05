@@ -121,61 +121,75 @@ def get_modevectors(phonon, q, tol_deg=1e-4):
 
 
 
-def get_unstable_mode_groups(phonon, q, tol_neg=1e-5, tol_deg=1e-4):
-
+def get_unstable_mode_groups(phonon, q, tol_neg=1e-5, tol_deg=1e-4, QR=True):
+    """Function to extract groups of degenerate unstable modes at a given q-point.
+    Parameters:
+    - phonon: Phonopy object containing the phonon calculation results.
+    - q: q-point (in fractional coordinates) at which to extract the mode vectors.
+    - tol_neg: Tolerance for considering a mode as unstable based on its frequency (in THz, default: 1e-5 THz).
+    - tol_deg: Tolerance for considering modes as degenerate based on their frequencies (in THz, default: 1e-4 THz).
+    - QR: Boolean indicating whether to orthonormalize the real basis spanning the subspace of degenerate modes using QR decomposition (default: True).
+    Returns:
+    - groups: List of dictionaries, where each dictionary corresponds to a group of degenerate unstable modes and contains the following keys:
+        - "frequency": Frequency of the modes in the group (in THz).
+        - "modes": List of mode vectors corresponding to the modes in the group, where each mode vector is a numpy array of shape (N_atoms, 3) containing the displacements of each atom in the unit cell for that mode.
+    - stable: Boolean indicating whether there are no unstable modes at the given q-point (True if all modes are stable, False if there are unstable modes).
+    """
+    # Determine number of atoms in the unitcell
     N_unit = len(phonon.unitcell.symbols)
-
+    # Run band structure at the symmetry point to get eigenvectors
     phonon.run_band_structure([[q]], with_eigenvectors=True)
     band_structure = phonon.get_band_structure_dict()
-
+    # Extract frequencies and eigenvectors
     frequencies = np.squeeze(band_structure['frequencies'])
     eigenvecs = np.squeeze(band_structure['eigenvectors'])
 
+    # Identify unstable modes based on the frequency being below the negative tolerance
     unstable = np.where(frequencies < -tol_neg)[0]
-
     if len(unstable) == 0:
+        # If there are no unstable modes, return an empty list and True for stability
         return [], True
 
+    # Group degenerate unstable modes together based on their frequencies being within the degenerate tolerance
     groups = []
     used = set()
-
     for i in unstable:
 
         if i in used:
+            # Skip this mode if it has already been grouped with a degenerate partner
             continue
 
+        # Find indices of modes that are degenerate with the current mode based on their frequencies being within the degenerate tolerance
         deg = np.where(
             np.abs(frequencies - frequencies[i]) < tol_deg
         )[0]
-
         deg = [j for j in deg if j in unstable]
-
         used.update(deg)
 
+        # For the group of degenerate modes, construct a real orthonormal basis spanning the subspace of these modes
         subspace = []
         modes = []
-
         for j in deg:
-
+            # Extract the mode vector for this mode and fix the arbitrary complex phase so that the mode vector is real and has the largest component positive
             vec = eigenvecs[:, j]
-
             imax = np.argmax(np.abs(vec))
             phase = np.angle(vec[imax])
             vec = vec * np.exp(-1j * phase)
-
-            #modes.append(vec.real.reshape(N_unit, 3))
-
             subspace.append(vec.real)
-
         
-        subspace = np.array(subspace).T
+        if QR:
+            # Orthonormalize the real basis spanning the subspace of degenerate modes using QR decomposition
+            subspace = np.array(subspace).T
+            Q, _ = np.linalg.qr(subspace)
+            # Reshape the orthonormal basis vectors into atomic form and store them in the modes list
+            for k in range(Q.shape[1]):
+                modes.append(Q[:, k].reshape(N_unit, 3))
+        else:
+            # If not orthonormalizing, just reshape the original mode vectors into atomic form and store them in the modes list
+            for vec in subspace:
+                modes.append(vec.reshape(N_unit, 3))
 
-        Q, _ = np.linalg.qr(subspace)
-
-        for k in range(Q.shape[1]):
-            modes.append(Q[:, k].reshape(N_unit, 3))
-        
-
+        # Append the group of degenerate unstable modes to the groups list, including the frequency of the modes in the group and the list of mode vectors corresponding to the modes in the group
         groups.append({
             "frequency": frequencies[i],
             "modes": modes
