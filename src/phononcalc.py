@@ -420,8 +420,8 @@ def plot_dispersion(phonons, labels, colors=None, styles=None,
         ax.set_yticklabels([])
 
     def _plot_pdos(ax, phonon):
-        atom_colors = {'Ba': 'tab:blue', 'Sr': 'tab:purple',
-                       'Ti': 'tab:orange', 'O': 'tab:red'}
+        atom_colors = {'Ba': '#00c900', 'Sr': "#d3aaff",
+                       'Ti': '#89d2ff', 'O': '#ff0d0d'}
         # Extract PDOS data
         pdosx, pdosy = get_phonon_pdos(phonon)
         symbols = list(pdosx.keys())

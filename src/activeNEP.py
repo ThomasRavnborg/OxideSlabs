@@ -878,7 +878,8 @@ class ActiveLearningNEP:
         return phonon
 
 
-    def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K', frame0=0):
+    def calculate_sed(self, path='nve_production_old3/Ba8O24Ti8/600K',
+                      frame_start=0, frame_stop=None, frame_step=1):
 
         path_dir = os.path.join(self.iter_dir, path)
         
@@ -891,20 +892,37 @@ class ActiveLearningNEP:
             return
         """
 
-        if not os.path.exists(os.path.join(path_dir, 'dump.xyz')):
-            raise RuntimeError(f"dump.xyz not found in {path_dir}. Run MD simulations first with run_MD().")
+        if os.path.exists(os.path.join(path, 'dump.xyz')):
+            file = os.path.join(path, 'dump.xyz')
+            length_unit = 'Angstrom'
+            time_unit = 'fs'
+            atomic_indices = 'read_from_trajectory'
+        elif os.path.exists(os.path.join(path, 'movie.nc')):
+            file = os.path.join(path, 'movie.nc')
+            length_unit = 'Angstrom'
+            time_unit = 'ps'
+            # Make dictionary of species and values are lists of indices where they occur
+            atomic_indices = {}
+            for i, symbol in enumerate(supercell.get_chemical_symbols()):
+                if symbol not in atomic_indices:
+                    atomic_indices[symbol] = []
+                atomic_indices[symbol].append(i)
+        else:
+            raise FileNotFoundError(f"No dump.xyz or movie.nc file found in {path_dir}. Run MD simulations first with run_MD().")
 
-        run_file = os.path.join(self.iter_dir, path, 'run.in')
-        
+        traj = Trajectory(file, format, atomic_indices, length_unit, time_unit,
+                          frame_start, frame_stop, frame_step)
+
+        run_file = os.path.join(path, 'run.in')
+
         with open(run_file, 'r') as f:
             run_in = f.read()
 
         dt = np.sum(np.array(re.findall(r'time_step\s+(\d+\.?\d*)', run_in), dtype=float))
-        ddump = np.sum(np.array(re.findall(r'dump_exyz\s+(\d+)', run_in), dtype=int))
-        
-        
-        unitcell = read(os.path.join(self.iter_dir, os.path.dirname(path), 'unitcell.xyz'))
-        supercell = read(os.path.join(self.iter_dir, os.path.dirname(path), 'supercell.xyz'))
+        ddump = np.sum(np.array(re.findall(r'dump_netcdf\s+(\d+)', run_in), dtype=int))
+
+        unitcell = read(os.path.join(os.path.dirname(path), 'unitcell.xyz'))
+        supercell = read(os.path.join(os.path.dirname(path), 'supercell.xyz'))
 
         phonon = self.calculate_phonon(unitcell)
         phonopy_dists, phonopy_freqs, phonopy_paths, pathlabels = get_phonon_dispersion(phonon)
@@ -920,13 +938,8 @@ class ActiveLearningNEP:
 
             d0, d1 = d[[0, -1]]
             dyna_dists.append(d0 + (d1 - d0) * dyna_dist)
-        
-        #phonopy_path = lat.reduced_to_cartesian(np.vstack(phonopy_paths))
-        dynasor_path = np.vstack(dyna_paths)
 
-        traj = Trajectory(os.path.join(path_dir, 'dump.xyz'),
-                          trajectory_format='extxyz', atomic_indices='read_from_trajectory',
-                          length_unit='Angstrom', time_unit='fs', frame_start=frame0)
+        dynasor_path = np.vstack(dyna_paths)
 
         import numba
         print("Numba threads:", numba.get_num_threads())
@@ -941,7 +954,10 @@ class ActiveLearningNEP:
 
         dyna_freqs = w * radians_per_fs_to_THz
 
-        np.savez(os.path.join(path_dir, 'sed.npz'), dists=dyna_dists, freqs=dyna_freqs, sed=sed)
+        if frame_stop == None:
+            frame_stop = ''
+
+        np.savez(os.path.join(path_dir, f'sed_{frame_start}:{frame_stop}_{frame_step}.npz'), dists=dyna_dists, freqs=dyna_freqs, sed=sed)
 
         # Remove dump.xyz file to save space after calculating SED
         #os.remove(os.path.join(path_dir, 'dump.xyz'))
