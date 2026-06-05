@@ -892,13 +892,13 @@ class ActiveLearningNEP:
             return
         """
 
-        if os.path.exists(os.path.join(path, 'dump.xyz')):
-            file = os.path.join(path, 'dump.xyz')
+        if os.path.exists(os.path.join(path_dir, 'dump.xyz')):
+            file = os.path.join(path_dir, 'dump.xyz')
             length_unit = 'Angstrom'
             time_unit = 'fs'
             atomic_indices = 'read_from_trajectory'
-        elif os.path.exists(os.path.join(path, 'movie.nc')):
-            file = os.path.join(path, 'movie.nc')
+        elif os.path.exists(os.path.join(path_dir, 'movie.nc')):
+            file = os.path.join(path_dir, 'movie.nc')
             length_unit = 'Angstrom'
             time_unit = 'ps'
             # Make dictionary of species and values are lists of indices where they occur
@@ -913,7 +913,7 @@ class ActiveLearningNEP:
         traj = Trajectory(file, format, atomic_indices, length_unit, time_unit,
                           frame_start, frame_stop, frame_step)
 
-        run_file = os.path.join(path, 'run.in')
+        run_file = os.path.join(path_dir, 'run.in')
 
         with open(run_file, 'r') as f:
             run_in = f.read()
@@ -921,8 +921,8 @@ class ActiveLearningNEP:
         dt = np.sum(np.array(re.findall(r'time_step\s+(\d+\.?\d*)', run_in), dtype=float))
         ddump = np.sum(np.array(re.findall(r'dump_netcdf\s+(\d+)', run_in), dtype=int))
 
-        unitcell = read(os.path.join(os.path.dirname(path), 'unitcell.xyz'))
-        supercell = read(os.path.join(os.path.dirname(path), 'supercell.xyz'))
+        unitcell = read(os.path.join(os.path.dirname(path_dir), 'unitcell.xyz'))
+        supercell = read(os.path.join(os.path.dirname(path_dir), 'supercell.xyz'))
 
         phonon = self.calculate_phonon(unitcell)
         phonopy_dists, phonopy_freqs, phonopy_paths, pathlabels = get_phonon_dispersion(phonon)
