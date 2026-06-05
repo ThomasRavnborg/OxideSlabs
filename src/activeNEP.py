@@ -904,11 +904,13 @@ class ActiveLearningNEP:
         supercell = read(os.path.join(os.path.dirname(path_dir), 'supercell.xyz'))
 
         if os.path.exists(os.path.join(path_dir, 'dump.xyz')):
+            format = 'extxyz'
             file = os.path.join(path_dir, 'dump.xyz')
             length_unit = 'Angstrom'
             time_unit = 'fs'
             atomic_indices = 'read_from_trajectory'
         elif os.path.exists(os.path.join(path_dir, 'movie.nc')):
+            format = 'nc'
             file = os.path.join(path_dir, 'movie.nc')
             length_unit = 'Angstrom'
             time_unit = 'ps'
