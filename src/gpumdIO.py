@@ -66,7 +66,7 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
             # production
             run_in += f"""
                 dump_thermo {delta_dump}
-                dump_netcdf {delta_dump}
+                dump_netcdf {delta_dump} 1 precision single
                 ensemble nve
                 run {n_steps}
             """
@@ -74,7 +74,7 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
 
         run_in += f"""
             dump_thermo {delta_dump//10}
-            dump_netcdf {delta_dump}"""
+            dump_netcdf {delta_dump} 1 precision single"""
 
         if ensemble.split('_')[0] == 'pimd':
             run_in += f"""
