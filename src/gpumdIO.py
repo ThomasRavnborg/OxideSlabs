@@ -59,22 +59,22 @@ def create_run_in(ensemble='npt_ber', dt=1, n_steps=5*1e5, n_dump=1000, T0=300, 
 
             print(f'Maximum frequency that can be resolved is {500.0 / (dt * delta_dump)} THz.')
             run_in += f"""
-                dump_thermo {n_steps//10000}
+                dump_thermo {delta_dump//10}
                 ensemble nvt_lan {T0} {T1} {T_coup}
                 run {n_steps//10}
             """
             # production
             run_in += f"""
-                dump_position {delta_dump}
-                dump_velocity {delta_dump}
+                dump_thermo {delta_dump}
+                dump_netcdf {delta_dump}
                 ensemble nve
                 run {n_steps}
             """
             return run_in
 
         run_in += f"""
-            dump_position {delta_dump}
-            dump_thermo {delta_dump//10}"""
+            dump_thermo {delta_dump//10}
+            dump_netcdf {delta_dump}"""
 
         if ensemble.split('_')[0] == 'pimd':
             run_in += f"""
