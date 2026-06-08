@@ -499,5 +499,5 @@ def plot_dispersion(phonons, labels, colors=None, styles=None,
         ax2.yaxis.set_minor_locator(AutoMinorLocator())
 
     # Show figure
-    plt.show()
+    #plt.show()
     return fig

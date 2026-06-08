@@ -25,3 +25,4 @@ figures/
 *.log
 *.out
 MLtest/
+temp/
