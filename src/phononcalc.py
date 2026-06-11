@@ -306,7 +306,7 @@ def get_phonon_pdos(phonon):
 
 
 def plot_dispersion(phonons, labels, colors=None, styles=None,
-                    width=1, multiple=False, custom=False, pDOS=False):
+                    width=1, AR=None, multiple=False, custom=False, pDOS=False):
     """Function to plot the phonon dispersion and DOS together.
     
     Parameters:
@@ -359,9 +359,13 @@ def plot_dispersion(phonons, labels, colors=None, styles=None,
     # Make a simple figure where graphs are plotted
     lf = LatexFigure()
     if multiple:
-        fig, axes = lf.create(width=width, AR=1.8, subplots=(1, N_bands), minor=False, sharey='col')
+        if AR is None:
+            AR = 1.8
+        fig, axes = lf.create(width=width, AR=AR, subplots=(1, N_bands), minor=False, sharey='col')
     else:
-        fig, axes = lf.create(width=width, AR=1, subplots=(1, 2), style='bands', minor=False,
+        if AR is None:
+            AR = 1
+        fig, axes = lf.create(width=width, AR=AR, subplots=(1, 2), style='bands', minor=False,
                               sharey='col', gridspec_kw={'width_ratios': [1, 0.3]})
     
     def _plot_disp(ax, phonon, label, col='k', ls='-', lines=True, custom=False):
