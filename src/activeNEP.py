@@ -927,7 +927,11 @@ class ActiveLearningNEP:
                           frame_start, frame_stop, frame_step)
 
         phonon = self.calculate_phonon(unitcell)
-        phonopy_dists, phonopy_freqs, phonopy_paths, pathlabels = get_phonon_dispersion(phonon)
+        if is_atom_bulk(unitcell):
+            custom = False
+        else:
+            custom = True
+        phonopy_dists, phonopy_freqs, phonopy_paths, pathlabels = get_phonon_dispersion(phonon, custom)
 
         lat = Lattice(unitcell.cell, supercell.cell)
 
@@ -956,10 +960,12 @@ class ActiveLearningNEP:
 
         dyna_freqs = w * radians_per_fs_to_THz
 
-        if frame_stop == None:
-            frame_stop = ''
-
-        np.savez(os.path.join(path_dir, f'sed_{frame_start}:{frame_stop}_{frame_step}.npz'), dists=dyna_dists, freqs=dyna_freqs, sed=sed)
+        if frame_start == 0 and frame_stop == None and frame_step == 1:
+            np.savez(os.path.join(path_dir, f'sed.npz'), dists=dyna_dists, freqs=dyna_freqs, sed=sed)
+        else:
+            if frame_stop == None:
+                frame_stop = ''
+            np.savez(os.path.join(path_dir, f'sed_{frame_start}:{frame_stop}_{frame_step}.npz'), dists=dyna_dists, freqs=dyna_freqs, sed=sed)
 
         # Remove dump.xyz file to save space after calculating SED
         #os.remove(os.path.join(path_dir, 'dump.xyz'))
