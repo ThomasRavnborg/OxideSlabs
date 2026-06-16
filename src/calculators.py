@@ -72,6 +72,58 @@ def run_siesta(atoms, xcf='PBEsol', basis='DZPp',
     cleanFiles(directory=dir, confirm=False)
 
 
+def run_gpaw(atoms, xcf='PBEsol',
+             MeshCutoff=1000, kgrid=(10, 10, 10),
+             run_dir='results/bulk/basis'):
+    """Function to run a single GPAW self-consistent calculation
+    Arguments:
+    - atoms: ASE Atoms object representing the structure to be relaxed.
+    - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
+    - MeshCutoff: Mesh cutoff in Ry (default is 1000 Ry).
+    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
+    - run_dir: Directory to save the results (default is 'results/bulk/basis').
+    Returns:
+    - None. The function runs the GPAW calculation and saves the results in the specified directory.
+    """
+    # Get chemical formula
+    formula = atoms.get_chemical_formula()
+
+    # Convert kgrid to list
+    kgrid = list(kgrid)
+    if not is_atom_bulk(atoms):
+        # For slab calculations, set k-point sampling to 1 in the z-direction
+        kgrid[2] = 1
+
+    # Calculation parameters in a dictionary
+    calc_params = {
+        'xc': xcf,
+        'mode': {'name': 'pw', 'ecut': MeshCutoff * Ry},
+        'kpts': {'size': kgrid, 'gamma': True},
+        'occupations': {'name': 'fermi-dirac','width': 0.05},
+        'convergence': {'density': 1e-6, 'forces': 1e-5},
+        'txt': os.path.join(run_dir, f"{formula}.txt")
+    }
+    if not is_atom_bulk(atoms):
+        # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+        calc_params["poissonsolver"] = {"dipolelayer": "xy"}
+    # Set up the GPAW calculator and attach it to the atoms object
+    from gpaw import GPAW
+    calc = GPAW(**calc_params)
+    atoms.calc = calc
+    # Run the calculation
+    atoms.get_potential_energy()
+    # Try to import world from gpaw.mpi for parallel processing
+    # If not available, fall back to ase.parallel.world
+    try:
+        from gpaw.mpi import world
+    except ImportError:
+        from ase.parallel import world
+    # Wait for all parallel processes to finish
+    world.barrier()
+
+
+
+
 def opt_filter(atoms, strained=False, mask=None):
     """Function to set up a filter for optimizing unit cell parameters and atomic positions.
     Parameters:
@@ -108,7 +160,7 @@ def opt_filter(atoms, strained=False, mask=None):
 def relax_siesta(atoms, xcf='PBEsol', basis='DZPp',
                  EnergyShift=0.01, SplitNorm=0.15,
                  MeshCutoff=1000, kgrid=(10, 10, 10),
-                 dir='results/bulk/relax', strained=False):
+                 run_dir='results/bulk/relax', strained=False):
     """Function to relax a bulk structure using ASE BFGS optimizer with SIESTA calculator.
     Parameters:
     - atoms: ASE Atoms object representing the structure to be relaxed.
@@ -119,10 +171,10 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZPp',
     - SplitNorm: Split norm for basis functions (default is 0.15).
     - MeshCutoff: Mesh cutoff in Ry (default is 1000 Ry).
     - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
-    - dir: Directory to save the results (default is 'results/bulk/relax').
+    - run_dir: Directory to save the results (default is 'results/bulk/relax').
     - strained: Boolean indicating whether strain has been applied to the structure (default is False, meaning no strain).
     Returns:
-    - None. The function performs the relaxation and saves the relaxed structure to an xyz file.
+    - None. The function performs the relaxation on the atoms object leaving it modified.
     """
     # Define current working directory and extract information from the perovskite object
     cwd = os.getcwd()
@@ -150,10 +202,10 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZPp',
         'mesh_cutoff': MeshCutoff * Ry,
         'energy_shift': EnergyShift * Ry,
         'kpts': kgrid,
-        'directory': dir,
+        'directory': run_dir,
         'pseudo_path': os.path.join(cwd, f'pseudos/{xcf}')
     }
-    dir_fdf = os.path.join(cwd, dir)
+    dir_fdf = os.path.join(cwd, run_dir)
     # fdf arguments in a dictionary
     fdf_args = {
         '%include': os.path.join(dir_fdf, 'basis.fdf'),
@@ -177,13 +229,85 @@ def relax_siesta(atoms, xcf='PBEsol', basis='DZPp',
    
     # Set up the BFGS optimizer on all processes
     opt = BFGS(atoms_filt,
-               logfile=os.path.join(dir, f"{formula}.log"),
-               trajectory=os.path.join(dir, f"{formula}.traj"))
+               logfile=os.path.join(run_dir, f"{formula}.log"),
+               trajectory=os.path.join(run_dir, f"{formula}.traj"))
     # Run the optimization until forces are smaller than fmax
     opt.run(fmax=fmax*1.e-3)
 
     # Remove unnecessary files generated from SIESTA
-    cleanFiles(directory=dir, confirm=False)
+    cleanFiles(directory=run_dir, confirm=False)
+
+
+def relax_gpaw(atoms, xcf='PBEsol',
+               MeshCutoff=1000, kgrid=(10, 10, 10),
+               run_dir='results/bulk/relax', strained=False):
+    """Function to relax atomic structure using ASE BFGS optimizer with GPAW calculator.
+    Parameters:
+    - atoms: ASE Atoms object representing the structure to be relaxed.
+    - xcf: Exchange-correlation functional to be used (default is 'PBEsol').
+    - MeshCutoff: Mesh cutoff in Ry (default is 1000 Ry).
+    - kgrid: K-point mesh as a tuple (default is (10, 10, 10)).
+    - run_dir: Directory to save the results (default is 'results/bulk/relax').
+    - strained: Boolean indicating whether strain has been applied to the structure (default is False, meaning no strain).
+    Returns:
+    - None. The function performs the relaxation on the atoms object leaving it modified.
+    """
+    # Get chemical formula
+    formula = atoms.get_chemical_formula()
+
+    # Relaxation parameters
+    fmax = 1    # meV/Å
+    filt = True
+
+    # Convert kgrid to list
+    kgrid = list(kgrid)
+    if not is_atom_bulk(atoms):
+        # For slab calculations, set k-point sampling to 1 in the z-direction
+        kgrid[2] = 1
+
+    # Calculation parameters in a dictionary
+    calc_params = {
+        'xc': xcf,
+        'mode': {'name': 'pw', 'ecut': MeshCutoff * Ry},
+        'kpts': {'size': kgrid, 'gamma': True},
+        'occupations': {'name': 'fermi-dirac','width': 0.05},
+        'convergence': {'density': 1e-6, 'forces': 1e-5},
+        'txt': os.path.join(run_dir, f"{formula}.txt")
+    }
+    if not is_atom_bulk(atoms):
+        # Add dipole correction for slab calculations to avoid spurious interactions between periodic images
+        calc_params["poissonsolver"] = {"dipolelayer": "xy"}
+    # Set up the GPAW calculator and attach it to the atoms object
+    from gpaw import GPAW
+    calc = GPAW(**calc_params)
+    atoms.calc = calc
+
+    # Apply filter to optimize unit cell parameters and atomic positions if filt is True
+    # Otherwise only optimize atomic positions
+    if filt:
+        atoms_filt = opt_filter(atoms, strained)
+    else:
+        atoms_filt = atoms
+   
+    # Set up the BFGS optimizer on all processes
+    opt = BFGS(atoms_filt,
+               logfile=os.path.join(run_dir, f"{formula}.log"),
+               trajectory=os.path.join(run_dir, f"{formula}.traj"))
+    # Run the optimization until forces are smaller than fmax
+    opt.run(fmax=fmax*1.e-3)
+
+    # Try to import world from gpaw.mpi for parallel processing
+    # If not available, fall back to ase.parallel.world
+    try:
+        from gpaw.mpi import world
+    except ImportError:
+        from ase.parallel import world
+    # Wait for all parallel processes to finish
+    world.barrier()
+
+
+
+
 
 
 def copy_calc_results(ase_atoms, sort=False):

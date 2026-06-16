@@ -1,10 +1,20 @@
 
 from ase.io import read, write
 import json
-from src.calculators import run_siesta, relax_siesta, copy_calc_results
+#from src.calculators import run_siesta, relax_siesta, copy_calc_results
+from src.calculators import run_gpaw, relax_gpaw, copy_calc_results
 
-structures = read('results/spacegroups/structures.xyz', index=':')
+structures = read('results/spacegroups/structures.xyz', index='::2')
 
+# Strip calculators from structures
+for structure in structures:
+    structure.calc = None
+    relax_gpaw(structure, MeshCutoff=60, kgrid=(12, 12, 12), dir='results/spacegroups')
+    copy_calc_results(structure)
+
+write('results/spacegroups/structures_gpaw.xyz', structures)
+
+"""
 with open('results/spacegroups/dft_params.json', 'r') as f:
     dft_params = json.load(f)
 
@@ -21,3 +31,5 @@ for structure in post_structures:
     copy_calc_results(structure)
 
 write('results/spacegroups/structures_relaxed.xyz', post_structures)
+"""
+
