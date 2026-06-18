@@ -9,7 +9,7 @@ structures = read('results/spacegroups/structures.xyz', index='::2')
 # Strip calculators from structures
 for structure in structures:
     structure.calc = None
-    relax_gpaw(structure, MeshCutoff=60, kgrid=(12, 12, 12), dir='results/spacegroups')
+    relax_gpaw(structure, MeshCutoff=60, kgrid=(12, 12, 12), run_dir='results/spacegroups')
     copy_calc_results(structure)
 
 write('results/spacegroups/structures_gpaw.xyz', structures)
