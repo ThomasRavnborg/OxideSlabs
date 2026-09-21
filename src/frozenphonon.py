@@ -213,16 +213,10 @@ def get_displacement(unitcell, q, modevec):
     # Determine supercell size required for the given q-point
     q_inv = np.array([int(1/q_i) if q_i != 0 else 1 for q_i in q])
     nx, ny, nz = q_inv[0], q_inv[1], q_inv[2]
-    ncells = nx*ny*nz
 
-    # Get the atomic masses and reshape
-    m = unitcell.get_masses()
-    m = m[:, np.newaxis]
-    # Make supercell and get masses for the supercell
+    # Make supercell
     supercell_matrix = np.diag([nx, ny, nz])
     supercell = make_supercell(unitcell, supercell_matrix)
-    N_a = len(supercell)
-    m_sc = np.tile(m, (ncells, 1))
     
     # Expand the modevector to the entire supercell (with phase)
     modevec_sc = []
@@ -234,13 +228,16 @@ def get_displacement(unitcell, q, modevec):
                 phased_disp = modevec*np.exp(2j*np.pi*np.dot(q, R))
                 modevec_sc.append(phased_disp)
     modevec_sc = np.vstack(modevec_sc)
-    # Take the real part of the super cell mode vectors
-    modevec_sc = np.real(modevec_sc)
+
+    # Convert dynamical-matrix eigenvectors to cartesian displacements
+    m_sc = supercell.get_masses()[:, None]
+    u_sc = np.real(modevec_sc) / np.sqrt(m_sc)
+
     # Normalize by the square root of the atomic masses
-    norm = np.sqrt(np.sum(m_sc * modevec_sc**2))
-    modevec_sc /= norm
-    #modevec_sc /= np.linalg.norm(modevec_sc)
-    return modevec_sc, supercell, supercell_matrix
+    norm = np.sqrt(np.sum(m_sc * u_sc**2))
+    u_sc /= norm
+
+    return u_sc, supercell, supercell_matrix
 
 
 def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
@@ -345,9 +342,6 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
         # Define coordinates and displacement distance for the current q-point
         q = q_dict[qpoint]
         dd = dd_dict[qpoint]
-        # Get mode vector and stability of the mode at the given q-point
-        #modevec, stable = get_modevector(phonon, q)
-        #modes, stable = get_modevectors(phonon, q)
 
         # Get groups of degenerate unstable modes at the given q-point
         groups, stable = get_unstable_mode_groups(phonon, q)
@@ -389,12 +383,11 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                         continue
                 
                 modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
-
-                # Generate the supercell and get the mode vector for the supercell
-                #modevec_sc, supercell, supercell_matrix = get_displacement(unitcell, q, modevec)
+                N_atoms = len(supercell)
+                
                 # Determine the supercell size in each direction from the diagonal of the supercell matrix
                 nx, ny, nz = supercell_matrix.diagonal().astype(int)
-                ncells = nx*ny*nz
+
                 # Determine the k-point grid size for the SIESTA calculation based on the supercell size
                 kx, ky, kz = max(1, kgrid[0]//nx), max(1, kgrid[1]//ny), max(1, kgrid[2]//nz)
 
@@ -424,8 +417,8 @@ def calculate_frozen_phonons(phonon, n_points=10, xcf='PBEsol', basis='DZP',
                     # Run the calculation
                     energy = supercell_disp.get_potential_energy()
 
-                    # Scale energy by the number of unit cells in the supercell to get energy per unit cell
-                    energy = energy / ncells
+                    # Scale energy by the number of atoms in the supercell
+                    energy = energy / N_atoms
                     energies.append(energy)
                     # Append the supercell structure with displacements, forces and stresses to the list of images
                     img = copy_calc_results(supercell_disp)
