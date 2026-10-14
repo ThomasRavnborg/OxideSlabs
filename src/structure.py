@@ -109,6 +109,26 @@ def orthogonalize_cell(atoms):
     ], scale_atoms=False)
 
 
+def get_layers(atoms, tol=0.1, axis=2):
+    positions = atoms.get_positions()
+    coords = positions[:, axis]
+    order = np.argsort(coords)
+
+    layers = []
+    current = [order[0]] if len(order) else []
+
+    for i in order[1:]:
+        if coords[i] - coords[current[0]] <= tol:
+            current.append(i)
+        else:
+            layers.append(np.array(current))
+            current = [i]
+
+    if current:
+        layers.append(np.array(current))
+
+    return layers
+
 
 
 def wrap_to_reference(unwrapped_traj, ref_atoms):
