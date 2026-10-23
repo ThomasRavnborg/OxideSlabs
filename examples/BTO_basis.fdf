@@ -2,41 +2,41 @@
 # WARNING: This information might be incomplete!
 Ba.1                  5                    # Species label, number of l-shells
  n=5   0   1                         # n, l, Nzeta 
-   0.0   
-   0.0   
+   3.968   
+   1.000   
  n=6   0   2                         # n, l, Nzeta 
-   0.0      0.0   
-   0.0      0.0   
+   9.316      7.217   
+   1.000      1.000   
  n=5   1   1                         # n, l, Nzeta 
-   0.0   
-   0.0   
+   4.677   
+   1.000   
  n=6   1   1                         # n, l, Nzeta 
-   0.0   
-   0.0
- n=5   2   1                         # n, l, Nzeta
-   0.0   
-   0.0
+  11.751   
+   1.000   
+ n=5   2   1                         # n, l, Nzeta 
+   8.229   
+   1.000   
 O.2                   2                    # Species label, number of l-shells
  n=2   0   2                         # n, l, Nzeta 
-   0.0      0.0   
-   0.0      0.0   
+   3.540      2.304   
+   1.000      1.000   
  n=2   1   2 P   1                   # n, l, Nzeta, Polarization, NzetaPol
-   0.0      0.0   
-   0.0      0.0   
+   4.291      2.777   
+   1.000      1.000   
 Ti.3                  5                    # Species label, number of l-shells
  n=3   0   1                         # n, l, Nzeta 
-   0.0   
-   0.0   
+   2.844   
+   1.000   
  n=4   0   2                         # n, l, Nzeta 
-   0.0      0.0   
-   0.0      0.0   
+   7.565      5.669   
+   1.000      1.000   
  n=3   1   1                         # n, l, Nzeta 
-   0.0   
-   0.0   
+   3.189   
+   1.000   
  n=4   1   1                         # n, l, Nzeta 
-   0.0   
-   0.0   
+   9.853   
+   1.000   
  n=3   2   2                         # n, l, Nzeta 
-   0.0      0.0   
-   0.0      0.0   
+   5.233      3.466   
+   1.000      1.000   
 %endblock PAO.Basis
