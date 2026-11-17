@@ -14,7 +14,7 @@ class LatexFigure:
     - Fonts remain consistent
     """
 
-    def __init__(self, textwidth_pt=246, font_size=7, render_latex=False):
+    def __init__(self, textwidth_pt=510, font_size=8, render_latex=False):
 
         self.textwidth_pt = textwidth_pt
         self.font_size = font_size
